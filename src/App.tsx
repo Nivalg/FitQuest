@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AthleteProfile, FitnessLog, FitnessMetricType } from "./types";
-import FitnessProfileSetup from "./components/fitnessProfileSetup";
+import FitnessProfileSetup from "./components/FitnessProfileSetup";
 import AthleteDashboard from "./components/AthleteDashboard";
 import { WorkoutCalendar } from "./components/WorkoutCalendar";
 import PastQuests from "./components/PastQuests";
