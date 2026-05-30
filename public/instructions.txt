@@ -1,0 +1,9 @@
+FITQUEST USER ASSETS DIRECTORY
+============================
+
+Drag and drop your custom PNG/JPG assets directly into this folder!
+
+For the 'Pull & Back' category, please upload your image right here and name it:
+pull_back.png
+
+The application will automatically detect this file and render it in high-fidelity in place of the fallback SVG!

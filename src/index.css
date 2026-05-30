@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-press-start: "Press Start 2P", sans-serif;
+}
+
+@keyframes text-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-text-shimmer {
+  background-size: 200% auto;
+  animation: text-shimmer 3s ease infinite;
+}
+
+.text-retro-glow {
+  text-shadow: 0 0 10px rgba(6, 182, 212, 0.5), 0 0 20px rgba(52, 211, 153, 0.2);
+}
+
+/* 🌌 RETRO GRID INFINITE SCROLL */
+@keyframes scroll-grid {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 0 40px;
+  }
+}
+
+.retro-grid-bg {
+  background-image: 
+    linear-gradient(to right, rgba(6, 182, 212, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: scroll-grid 12s linear infinite;
+}
+
+/* 🌟 FLOATING MAGIC PARTICLES */
+@keyframes float-up {
+  0% {
+    transform: translateY(150px) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.5;
+  }
+  90% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(-350px) translateX(20px);
+    opacity: 0;
+  }
+}
+
+.animate-float-slow {
+  animation: float-up 18s linear infinite;
+}
+
+.animate-float-medium {
+  animation: float-up 12s linear infinite;
+}
+
+.animate-float-fast {
+  animation: float-up 8s linear infinite;
+}
+
+/* 🌠 RETRO JRPG SHOOTING STARS (Optimized for 430px bounding box) */
+@keyframes shooting-star {
+  0% {
+    transform: translate(0, 0) rotate(-45deg) scale(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(-45deg) scale(1);
+  }
+  20% {
+    transform: translate(-280px, 280px) rotate(-45deg) scale(1);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-280px, 280px) rotate(-45deg) scale(0);
+    opacity: 0;
+  }
+}
+
+.shooting-star-1 {
+  position: absolute;
+  top: 10%;
+  right: 5%;
+  width: 80px;
+  height: 2px;
+  background: linear-gradient(to left, rgba(6, 182, 212, 0.8), transparent);
+  animation: shooting-star 7s linear infinite;
+  pointer-events: none;
+}
+
+.shooting-star-2 {
+  position: absolute;
+  top: 30%;
+  right: 10%;
+  width: 100px;
+  height: 2px;
+  background: linear-gradient(to left, rgba(52, 211, 153, 0.7), transparent);
+  animation: shooting-star 11s linear infinite;
+  animation-delay: 2s;
+  pointer-events: none;
+}
+
+.shooting-star-3 {
+  position: absolute;
+  top: 2%;
+  right: 25%;
+  width: 60px;
+  height: 1.5px;
+  background: linear-gradient(to left, rgba(6, 182, 212, 0.6), transparent);
+  animation: shooting-star 15s linear infinite;
+  animation-delay: 4.5s;
+  pointer-events: none;
+}

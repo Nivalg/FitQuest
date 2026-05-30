@@ -1,0 +1,6 @@
+{
+  "name": "Fit-RPG",
+  "description": "A clinical real-world fitness evaluation profile system with non-linear math scaling anchors (1-100 level scoring algorithm), dynamic muscle asymmetry analytics, calendar training trackers, and workout selectors with direct MuscleWiki references.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
