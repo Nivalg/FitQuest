@@ -13,23 +13,14 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     }
   },
   {
-    name: "Incline Dumbbell Press",
-    pillar: "weights",
-    formType: "A",
-    description: "Incline press targeting upper chest clavicular fibers.",
-    builds: {
-      chestStrength: 70,
-      armStrength: 30
-    }
-  },
-  {
     name: "Barbell Squat",
     pillar: "weights",
     formType: "A",
     description: "The gold standard of lower-body power and spine stability.",
     builds: {
       legStrength: 100
-    }
+    },
+    subCategories: ["quads", "glutes"]
   },
   {
     name: "Deadlift",
@@ -39,7 +30,8 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     builds: {
       backStrength: 60,
       legStrength: 40
-    }
+    },
+    subCategories: ["glutes"]
   },
   {
     name: "Barbell Row",
@@ -59,16 +51,18 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     builds: {
       legStrength: 70,
       backStrength: 30
-    }
+    },
+    subCategories: ["hamstrings"]
   },
   {
-    name: "Overhead Press",
+    name: "Barbell Overhead Press",
     pillar: "weights",
     formType: "A",
     description: "Strict vertical barbell shoulder press for shoulders.",
     builds: {
       armStrength: 100
-    }
+    },
+    subCategories: ["shoulders"]
   },
   {
     name: "Barbell Bicep Curl",
@@ -77,7 +71,8 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     description: "Strict standing barbell curl for bicep peaks.",
     builds: {
       armStrength: 100
-    }
+    },
+    subCategories: ["biceps"]
   },
   {
     name: "Kettlebell Swings",
@@ -87,8 +82,233 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     builds: {
       legStrength: 50,
       backStrength: 30,
-      speed: 20
-    }
+      speed: 20,
+      stamina: 20
+    },
+    subCategories: ["hamstrings"]
+  },
+  {
+    name: "Barbell Hip Thrust",
+    pillar: "weights",
+    formType: "A",
+    description: "Barbell hip thrust targeting maximum glute isolation.",
+    builds: {
+      legStrength: 100,
+      stamina: 20
+    },
+    subCategories: ["glutes"]
+  },
+  {
+    name: "Dumbbell Squat",
+    pillar: "weights",
+    formType: "A",
+    description: "Dumbbell squat holding weights by your sides.",
+    builds: {
+      legStrength: 100,
+      stamina: 20
+    },
+    subCategories: ["quads", "glutes"]
+  },
+  {
+    name: "Stiff Leg Deadlifts",
+    pillar: "weights",
+    formType: "A",
+    description: "Deadlifts with stiff legs focusing on hamstrings hinge.",
+    builds: {
+      legStrength: 80,
+      backStrength: 20,
+      stamina: 20
+    },
+    subCategories: ["hamstrings", "glutes"]
+  },
+  {
+    name: "Barbell Calf Raises",
+    pillar: "weights",
+    formType: "A",
+    description: "Standing calf raises with loaded barbell.",
+    builds: {
+      legStrength: 100,
+      stamina: 10
+    },
+    subCategories: ["calves"]
+  },
+  {
+    name: "Barbell Silverback Shrug",
+    pillar: "weights",
+    formType: "A",
+    description: "Shrugs with a forward lean to activate full traps width.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["traps"]
+  },
+  {
+    name: "Dumbbell Shrug",
+    pillar: "weights",
+    formType: "A",
+    description: "Standing shrugs holding dumbbells.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["traps"]
+  },
+  {
+    name: "Barbell Upright Row",
+    pillar: "weights",
+    formType: "A",
+    description: "Upright rowing motion to build traps and shoulders.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["traps", "shoulders"]
+  },
+  {
+    name: "Kettlebell Incline Shrugs",
+    pillar: "weights",
+    formType: "A",
+    description: "Shrugs holding kettlebells on an incline bench.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["traps"]
+  },
+  {
+    name: "Dumbbell Seated Shrug",
+    pillar: "weights",
+    formType: "A",
+    description: "Seated dumbbell shrugs targeting upper traps.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["traps"]
+  },
+  {
+    name: "Dumbbell Preacher Curl",
+    pillar: "weights",
+    formType: "A",
+    description: "Preacher bench dumbbell curl isolating the biceps.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["biceps"]
+  },
+  {
+    name: "Barbell Preacher Curl",
+    pillar: "weights",
+    formType: "A",
+    description: "EZ-bar or straight barbell preacher curl for maximum bicep isolation.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["biceps"]
+  },
+  {
+    name: "Hammer Curl",
+    pillar: "weights",
+    formType: "A",
+    description: "Neutral grip dumbbell curls building the biceps and brachialis.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["biceps"]
+  },
+  {
+    name: "Barbell Bent Over Row",
+    pillar: "weights",
+    formType: "A",
+    description: "Bent-over barbell rowing motion building back and bicep thickness.",
+    builds: {
+      backStrength: 70,
+      armStrength: 30
+    },
+    subCategories: ["biceps"]
+  },
+  {
+    name: "Dumbbell Overhead Press",
+    pillar: "weights",
+    formType: "A",
+    description: "Seated or standing dumbbell overhead press for shoulders.",
+    builds: {
+      armStrength: 100
+    },
+    subCategories: ["shoulders"]
+  },
+  {
+    name: "Barbell Incline Bench",
+    pillar: "weights",
+    formType: "A",
+    description: "Incline barbell press building upper chest and shoulders.",
+    builds: {
+      chestStrength: 70,
+      armStrength: 30
+    },
+    subCategories: ["shoulders"]
+  },
+  {
+    name: "Dumbbell Incline Bench",
+    pillar: "weights",
+    formType: "A",
+    description: "Incline dumbbell chest press building upper chest and shoulders.",
+    builds: {
+      chestStrength: 70,
+      armStrength: 30
+    },
+    subCategories: ["shoulders"]
+  },
+  {
+    name: "Dumbbell Front Raise",
+    pillar: "weights",
+    formType: "A",
+    description: "Front dumbbell raise isolating the anterior deltoids.",
+    builds: {
+      armStrength: 90,
+      stamina: 10
+    },
+    subCategories: ["shoulders"]
+  },
+  {
+    name: "Close Grip Bench Press",
+    pillar: "weights",
+    formType: "A",
+    description: "Close grip bench press overloading the triceps.",
+    builds: {
+      chestStrength: 50,
+      armStrength: 50
+    },
+    subCategories: ["triceps"]
+  },
+  {
+    name: "Barbell Skull Crusher",
+    pillar: "weights",
+    formType: "A",
+    description: "EZ-bar or straight barbell extension to isolate the triceps.",
+    builds: {
+      armStrength: 90,
+      stamina: 10
+    },
+    subCategories: ["triceps"]
+  },
+  {
+    name: "Dumbbell Romanian Deadlift",
+    pillar: "weights",
+    formType: "A",
+    description: "Romanian deadlift with dumbbells focusing on glute extension.",
+    builds: {
+      legStrength: 70,
+      backStrength: 30
+    },
+    subCategories: ["glutes"]
+  },
+  {
+    name: "Barbell Romanian Deadlift",
+    pillar: "weights",
+    formType: "A",
+    description: "Romanian deadlift with a loaded barbell focusing on glute extension.",
+    builds: {
+      legStrength: 70,
+      backStrength: 30
+    },
+    subCategories: ["glutes"]
   },
 
   // 2. MACHINES
@@ -100,6 +320,16 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     builds: {
       chestStrength: 70,
       stamina: 30
+    }
+  },
+  {
+    name: "Cable Pec Fly",
+    pillar: "machines",
+    formType: "A",
+    description: "Cable chest fly targeting inner and lower pec squeeze.",
+    builds: {
+      chestStrength: 80,
+      stamina: 20
     }
   },
   {
@@ -133,24 +363,26 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     }
   },
   {
-    name: "Leg Press Machine",
+    name: "Machine Leg Press",
     pillar: "machines",
     formType: "A",
     description: "Seated deep leg sled pressing to overload quads.",
     builds: {
       legStrength: 50,
       stamina: 50
-    }
+    },
+    subCategories: ["quads", "glutes"]
   },
   {
-    name: "Leg Curl Machine",
+    name: "Machine Hamstring Curl",
     pillar: "machines",
     formType: "A",
     description: "Isolated hamstring curls targeting knee flexion.",
     builds: {
       legStrength: 80,
       stamina: 20
-    }
+    },
+    subCategories: ["hamstrings"]
   },
   {
     name: "Cable Tricep Pushdown",
@@ -160,7 +392,8 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     builds: {
       armStrength: 80,
       stamina: 20
-    }
+    },
+    subCategories: ["triceps"]
   },
   {
     name: "Cable Bicep Curl",
@@ -170,7 +403,8 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     builds: {
       stamina: 70,
       armStrength: 30
-    }
+    },
+    subCategories: ["biceps"]
   },
   {
     name: "Cable Crunch",
@@ -182,6 +416,84 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
       stamina: 20
     }
   },
+  {
+    name: "Machine Leg Extension",
+    pillar: "machines",
+    formType: "A",
+    description: "Machine leg extensions isolating the quadriceps.",
+    builds: {
+      legStrength: 100,
+      stamina: 30
+    },
+    subCategories: ["quads"]
+  },
+  {
+    name: "Hip Abduction Machine",
+    pillar: "machines",
+    formType: "A",
+    description: "Machine outer thigh drive to build glute medius stability.",
+    builds: {
+      legStrength: 80,
+      stamina: 20
+    },
+    subCategories: ["glutes"]
+  },
+  {
+    name: "Cable Pull Through",
+    pillar: "machines",
+    formType: "A",
+    description: "Cable pull-throughs targeting hamstring stretch.",
+    builds: {
+      legStrength: 70,
+      coreStrength: 10,
+      stamina: 20
+    },
+    subCategories: ["hamstrings"]
+  },
+  {
+    name: "Machine Standing Calf Raises",
+    pillar: "machines",
+    formType: "A",
+    description: "Standing machine raises overloading the calves.",
+    builds: {
+      legStrength: 100,
+      stamina: 10
+    },
+    subCategories: ["calves"]
+  },
+  {
+    name: "Machine Sitting Calf Raises",
+    pillar: "machines",
+    formType: "A",
+    description: "Seated machine raises targeting the soleus calves muscle.",
+    builds: {
+      legStrength: 100,
+      stamina: 10
+    },
+    subCategories: ["calves"]
+  },
+  {
+    name: "Cable Shrug",
+    pillar: "machines",
+    formType: "A",
+    description: "Cable shrugs providing continuous traps tension.",
+    builds: {
+      armStrength: 80,
+      stamina: 20
+    },
+    subCategories: ["traps"]
+  },
+  {
+    name: "Cable Lateral Raise",
+    pillar: "machines",
+    formType: "A",
+    description: "Side lateral raise with cables isolating the lateral deltoids.",
+    builds: {
+      armStrength: 80,
+      stamina: 20
+    },
+    subCategories: ["shoulders"]
+  },
 
   // 3. BODYWEIGHT
   {
@@ -190,9 +502,11 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "B",
     description: "Pistons of pushing power using your own body's angle.",
     builds: {
-      stamina: 70,
-      chestStrength: 30
-    }
+      stamina: 50,
+      chestStrength: 30,
+      armStrength: 20
+    },
+    subCategories: ["biceps", "shoulders", "traps"]
   },
   {
     name: "Dips",
@@ -203,16 +517,17 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
       armStrength: 50,
       stamina: 30,
       chestStrength: 20
-    }
+    },
+    subCategories: ["triceps"]
   },
   {
-    name: "Regular Pull-Ups",
+    name: "Overhand Pull-Ups",
     pillar: "bodyweight",
     formType: "B",
     description: "Strict vertical pull for back and biceps strength.",
     builds: {
-      stamina: 60,
-      backStrength: 40
+      backStrength: 70,
+      stamina: 30
     }
   },
   {
@@ -233,7 +548,8 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     builds: {
       stamina: 70,
       legStrength: 30
-    }
+    },
+    subCategories: ["quads", "glutes"]
   },
   {
     name: "Chin-Ups",
@@ -241,9 +557,9 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "B",
     description: "Underhand vertical pull for lats and bicep peaks.",
     builds: {
-      backStrength: 50,
-      armStrength: 50
-    }
+      armStrength: 100
+    },
+    subCategories: ["biceps"]
   },
   {
     name: "Hanging Knee Raises",
@@ -315,6 +631,90 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
       speed: 50
     }
   },
+  {
+    name: "Calf Raises",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Raise on toes to isolate and build the calf muscles.",
+    builds: {
+      legStrength: 100,
+      stamina: 20
+    },
+    subCategories: ["calves"]
+  },
+  {
+    name: "Lunges",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Bodyweight lunges targeting glute power and stability.",
+    builds: {
+      legStrength: 80,
+      stamina: 35
+    },
+    subCategories: ["glutes"]
+  },
+  {
+    name: "Forward Lunges",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Alternating lunges stepping forward to isolate quadriceps.",
+    builds: {
+      legStrength: 80,
+      stamina: 30
+    },
+    subCategories: ["quads"]
+  },
+  {
+    name: "Bench Dips",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Weighted or bodyweight dips performed off a flat bench.",
+    builds: {
+      armStrength: 70,
+      stamina: 30
+    },
+    subCategories: ["triceps"]
+  },
+  {
+    name: "Diamond Push-Ups",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Close grip pushups placing maximum load on the triceps.",
+    builds: {
+      armStrength: 75,
+      stamina: 25
+    },
+    subCategories: ["triceps"]
+  },
+  {
+    name: "Squat Jumps",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Explosive bodyweight squats jumping off the ground.",
+    builds: {
+      legStrength: 50,
+      speed: 50
+    }
+  },
+  {
+    name: "Jumping Jacks",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Classic jumping jacks for continuous conditioning.",
+    builds: {
+      stamina: 100
+    }
+  },
+  {
+    name: "Burpees",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Full-body burpees linking push-ups and squat jumps.",
+    builds: {
+      stamina: 80,
+      coreStrength: 20
+    }
+  },
 
   // 4. CARDIO
   {
@@ -323,7 +723,8 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "D",
     description: "High-cadence run or jog tracking distance and pace.",
     builds: {
-      stamina: 100
+      stamina: 80,
+      speed: 20
     }
   },
   {
@@ -354,6 +755,36 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     builds: {
       stamina: 80,
       speed: 20
+    }
+  },
+  {
+    name: "Bicycle",
+    pillar: "cardio",
+    formType: "D",
+    description: "Cycling on a stationary or road bike for endurance and speed.",
+    builds: {
+      stamina: 50,
+      speed: 50
+    }
+  },
+  {
+    name: "Elliptical",
+    pillar: "cardio",
+    formType: "D",
+    description: "Low-impact gliding on the elliptical trainer.",
+    builds: {
+      stamina: 50,
+      speed: 50
+    }
+  },
+  {
+    name: "Rowing Machine",
+    pillar: "cardio",
+    formType: "D",
+    description: "Rowing ergometer workout tracking distance and time.",
+    builds: {
+      stamina: 70,
+      backStrength: 30
     }
   }
 ];

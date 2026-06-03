@@ -1,13 +1,14 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { FitnessLog, FitnessMetricType } from "../types";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Award, Trophy, Sparkles, LogIn } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Sparkles, Trash2 } from "lucide-react";
 
 interface WorkoutCalendarProps {
   logs: FitnessLog[];
+  onDeleteLog: (id: string) => void;
 }
 
-export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs }) => {
+export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs, onDeleteLog }) => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDayLogs, setSelectedDayLogs] = useState<{ day: number; logs: FitnessLog[] } | null>(null);
 
@@ -52,6 +53,25 @@ export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs }) => {
     });
   };
 
+  // Sync selected day logs when logs list updates (e.g. after deletion)
+  React.useEffect(() => {
+    if (selectedDayLogs) {
+      const updatedLogs = logs.filter((log) => {
+        const logDate = new Date(log.timestamp);
+        return (
+          logDate.getFullYear() === currentYear &&
+          logDate.getMonth() === currentMonth &&
+          logDate.getDate() === selectedDayLogs.day
+        );
+      });
+      if (updatedLogs.length === 0) {
+        setSelectedDayLogs(null);
+      } else {
+        setSelectedDayLogs({ day: selectedDayLogs.day, logs: updatedLogs });
+      }
+    }
+  }, [logs, currentMonth, currentYear]);
+
   const getMetricColorClass = (metricType: FitnessMetricType) => {
     switch (metricType) {
       case "bench": return "bg-cyan-500/85 hover:bg-cyan-400";
@@ -69,6 +89,12 @@ export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs }) => {
       case "mile": return "Mile run";
       case "pushups": return "Push-ups";
       default: return "Workout";
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this log entry? Your physical stats and XP will be immediately recalculated.")) {
+      onDeleteLog(id);
     }
   };
 
@@ -203,7 +229,7 @@ export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs }) => {
         })}
       </div>
 
-      {/* Selection Details Panel */}
+      {/* Selection Details Panel (Targeted Day Ledger) */}
       <AnimatePresence>
         {selectedDayLogs && (
           <motion.div
@@ -215,7 +241,7 @@ export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs }) => {
             <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
               <span className="font-press-start text-[8px] text-slate-400 flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-                CALIBRATION LEDGER FOR {monthNames[currentMonth]} {selectedDayLogs.day}
+                ATHLETIC PERFORMANCE LEDGER FOR {monthNames[currentMonth]} {selectedDayLogs.day}
               </span>
               <button
                 onClick={() => setSelectedDayLogs(null)}
@@ -233,11 +259,21 @@ export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs }) => {
                 >
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <span className="font-press-start text-[8px] text-cyan-400 flex items-center gap-1 uppercase">
-                      {getMetricLabel(log.metricType)} UPDATE
+                      {getMetricLabel(log.metricType)} SET
                     </span>
-                    <span className="font-mono text-slate-500 text-[9px]">
-                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-slate-500 text-[9px]">
+                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <button
+                        onClick={() => handleDelete(log.id)}
+                        style={{ minHeight: "24px", minWidth: "24px" }}
+                        className="text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded flex items-center justify-center cursor-pointer transition select-none border border-transparent hover:border-red-500/20"
+                        title="Delete workout entry"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                   
                   <h4 className="font-semibold text-slate-200 mb-1">{log.title}</h4>

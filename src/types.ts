@@ -73,4 +73,6 @@ export interface ExerciseInfo {
     stamina?: number;
     cardioStamina?: number;
   };
+  subCategory?: string;
+  subCategories?: string[];
 }

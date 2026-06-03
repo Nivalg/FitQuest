@@ -36,57 +36,58 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
   const [currentView, setCurrentView] = useState<"categories" | "exercises" | "form">("categories");
   const [selectedCategory, setSelectedCategory] = useState<{ id: string; name: string } | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseInfo | null>(null);
-  const [activeLogTab, setActiveLogTab] = useState<"categories" | "focus">("categories");
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>("all");
+  const [restSeconds, setRestSeconds] = useState<number>(0);
 
   const focusGroups = [
     {
       id: "chest",
-      name: "Chest Focus",
+      name: "Chest",
       icon: <Dumbbell className="w-8 h-8 text-cyan-400" />,
       style: "border-cyan-500/30 hover:border-cyan-450 focus:border-cyan-400 bg-cyan-950/10 hover:bg-cyan-950/20",
       desc: "Barbell pressing, pushups, & flies isolation"
     },
     {
       id: "back",
-      name: "Back Focus",
+      name: "Back",
       icon: <Shield className="w-8 h-8 text-orange-400" />,
       style: "border-orange-500/30 hover:border-orange-450 focus:border-orange-400 bg-orange-950/10 hover:bg-orange-950/20",
       desc: "Deadlifts, pulldowns, & spinal pulling"
     },
     {
       id: "legs",
-      name: "Legs Focus",
+      name: "Legs",
       icon: <Activity className="w-8 h-8 text-emerald-400" />,
       style: "border-emerald-500/30 hover:border-emerald-450 focus:border-emerald-400 bg-emerald-950/10 hover:bg-emerald-950/20",
-      desc: "Heavy squats, leg presses, & Stairmaster climbing"
+      desc: "Heavy squats, leg presses, & calf raises"
     },
     {
       id: "arms",
-      name: "Arms Focus",
+      name: "Arms",
       icon: <Zap className="w-8 h-8 text-pink-400" />,
       style: "border-pink-500/30 hover:border-pink-450 focus:border-pink-400 bg-pink-950/10 hover:bg-pink-950/20",
       desc: "Vertical press, curls, dips & extension work"
     },
     {
       id: "core",
-      name: "Core Focus",
+      name: "Core",
       icon: <Target className="w-8 h-8 text-amber-400" />,
       style: "border-amber-500/30 hover:border-amber-450 focus:border-amber-400 bg-amber-950/10 hover:bg-amber-950/20",
       desc: "Trunk plank stability & sit-up torque"
     },
     {
       id: "speed",
-      name: "Speed Focus",
+      name: "Speed",
       icon: <Flame className="w-8 h-8 text-rose-400" />,
       style: "border-rose-500/30 hover:border-rose-450 focus:border-rose-400 bg-rose-950/10 hover:bg-rose-950/20",
-      desc: "Sprint intervals & running velocity sets"
+      desc: "Treadmill runs, bike cycles, & explosive squat jumps"
     },
     {
       id: "stamina",
-      name: "Stamina Focus",
+      name: "Stamina",
       icon: <Timer className="w-8 h-8 text-purple-400" />,
       style: "border-purple-500/30 hover:border-purple-450 focus:border-purple-400 bg-purple-950/10 hover:bg-purple-950/20",
-      desc: "Endurance cardio & bodyweight duration"
+      desc: "Conditioning pushups, burpees, & rowing"
     }
   ];
 
@@ -95,11 +96,20 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
   const [reps, setReps] = useState<number>(10);
   const [minutes, setMinutes] = useState<number>(1);
   const [seconds, setSeconds] = useState<number>(30);
-  const [distance, setDistance] = useState<number>(1.0);
+  const [distanceStr, setDistanceStr] = useState<string>("1.0");
   const [floors, setFloors] = useState<number>(30);
   const [notes, setNotes] = useState<string>("");
 
   const repsListRef = useRef<HTMLDivElement>(null);
+
+  // Countdown timer handler
+  useEffect(() => {
+    if (restSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setRestSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [restSeconds]);
 
   // Auto-scroll the active rep to center of visual touch-grid on change
   useEffect(() => {
@@ -147,25 +157,18 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
   const getBuildsDescription = (exercise: ExerciseInfo) => {
     const parts: string[] = [];
     if (exercise.builds.chestStrength) parts.push("Chest");
-    if (exercise.builds.armStrength) parts.push("Arm");
-    if (exercise.builds.legStrength) parts.push("Leg");
     if (exercise.builds.backStrength) parts.push("Back");
+    if (exercise.builds.legStrength) parts.push("Leg");
+    if (exercise.builds.armStrength) parts.push("Arm");
     if (exercise.builds.coreStrength) parts.push("Core");
+    if (exercise.builds.stamina) parts.push("Stamina");
+    if (exercise.builds.speed) parts.push("Speed");
     
-    if (exercise.name.toLowerCase() === "treadmill run / jog") {
-      parts.push("Speed");
-      parts.push("Stamina");
-    } else if (exercise.name.toLowerCase() === "sprint intervals") {
-      parts.push("Speed");
-      parts.push("Stamina");
-    } else if (exercise.name.toLowerCase() === "stairmaster") {
-      parts.push("Stamina");
-    } else if (exercise.name.toLowerCase() === "bodyweight squats") {
-      parts.push("Stamina");
-      parts.push("Speed");
-    } else if (exercise.builds.cardioStamina) {
+    // Legacy fallback compatibility
+    if (exercise.builds.cardioStamina && !parts.includes("Stamina")) {
       parts.push("Stamina");
     }
+    
     return parts.join(" + ");
   };
 
@@ -175,7 +178,6 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
     
     // Set default reasonable states depending on form type to speed up logging
     if (exercise.formType === "A") {
-      // Free Weights / Machines
       if (exercise.name.toLowerCase().includes("press") && !exercise.name.toLowerCase().includes("leg")) {
         setWeight(exercise.name.toLowerCase().includes("bench") ? 135 : 65);
       } else if (exercise.name.toLowerCase().includes("squat") || exercise.name.toLowerCase().includes("deadlift") || exercise.name.toLowerCase().includes("leg press")) {
@@ -185,7 +187,6 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
       }
       setReps(10);
     } else if (exercise.formType === "B") {
-      // Bodyweight Reps
       if (exercise.name.toLowerCase().includes("pullup")) {
         setReps(6);
       } else if (exercise.name.toLowerCase().includes("squat")) {
@@ -194,16 +195,13 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
         setReps(12);
       }
     } else if (exercise.formType === "C") {
-      // Plain timer (plank)
       setMinutes(1);
       setSeconds(0);
     } else if (exercise.formType === "D") {
-      // Cardio distance
-      setDistance(1.0);
+      setDistanceStr("1.0");
       setMinutes(8);
       setSeconds(30);
     } else if (exercise.formType === "E") {
-      // Stairmaster
       setFloors(30);
       setMinutes(10);
       setSeconds(0);
@@ -214,26 +212,36 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
   };
 
   const getExercisesForFocusGroup = (focusId: string) => {
-    return EXERCISE_DATABASE.filter(ex => {
-      const nameLower = ex.name.toLowerCase();
+    const list = EXERCISE_DATABASE.filter(ex => {
+      const nameLower = ex.name.toLowerCase().trim();
       
-      // 1. Specific stat-to-exercise overrides that match our leveling physics
       if (focusId === "speed") {
-        return !!ex.builds.speed || 
-               nameLower === "treadmill run / jog" || 
-               nameLower === "sprint intervals" || 
-               nameLower === "bodyweight squats";
+        const speedNames = [
+          "treadmill run / jog",
+          "box jumps",
+          "jump rope",
+          "bicycle",
+          "elliptical",
+          "squat jumps"
+        ];
+        return speedNames.includes(nameLower);
       }
       if (focusId === "stamina") {
-        return nameLower === "treadmill run / jog" || 
-               nameLower === "sprint intervals" || 
-               nameLower === "stairmaster" || 
-               nameLower === "regular push-ups" || 
-               nameLower === "regular pull-ups" || 
-               nameLower === "cable bicep curl";
+        const staminaNames = [
+          "regular push-ups",
+          "treadmill run / jog",
+          "bodyweight squats",
+          "jumping jacks",
+          "rowing machine",
+          "elliptical",
+          "burpees",
+          "kettlebell swings",
+          "bicycle",
+          "stairmaster"
+        ];
+        return staminaNames.includes(nameLower);
       }
       
-      // 2. Direct attribute checks
       if (focusId === "chest") return !!ex.builds.chestStrength;
       if (focusId === "back") return !!ex.builds.backStrength;
       if (focusId === "legs") return !!ex.builds.legStrength;
@@ -242,13 +250,20 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
       
       return false;
     });
+
+    // Filter by anatomical subcategory if selected
+    if (selectedSubCategory && selectedSubCategory !== "all") {
+      return list.filter(ex => ex.subCategories?.includes(selectedSubCategory));
+    }
+
+    return list;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExercise || !selectedCategory) return;
+    if (restSeconds > 0) return; // Prevent double taps during active rest lockout
 
-    // Resolve to standard equipment category name to keep historic log records compatible
     const actualCategoryName = CATEGORIES.find(c => c.id === selectedExercise.pillar)?.name || selectedCategory.name;
 
     onLogWorkout({
@@ -258,14 +273,18 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
       reps: (selectedExercise.formType === "A" || selectedExercise.formType === "B") ? reps : undefined,
       minutes: (selectedExercise.formType === "C" || selectedExercise.formType === "D" || selectedExercise.formType === "E") ? minutes : undefined,
       seconds: (selectedExercise.formType === "C" || selectedExercise.formType === "D" || selectedExercise.formType === "E") ? seconds : undefined,
-      distance: selectedExercise.formType === "D" ? distance : undefined,
+      distance: selectedExercise.formType === "D" ? (parseFloat(distanceStr) || 1.0) : undefined,
       floors: selectedExercise.formType === "E" ? floors : undefined,
       notes: notes.trim() || undefined
     });
 
-    // Go back to the active category or focus group exercise selection screen instead of resetting to root categories
-    setCurrentView("exercises");
-    setSelectedExercise(null);
+    // Retain form view and values (persistent weight/reps) but lock out with 30s rest timer
+    setRestSeconds(30);
+  };
+
+  const handleBackToCategories = () => {
+    setSelectedSubCategory("all");
+    setCurrentView("categories");
   };
 
   // Filter exercises matching active category or focus group
@@ -286,163 +305,182 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
-          {/* Centered Capsule Sub-Navigation */}
-          <div className="flex justify-center pb-2">
-            <div className="bg-[#161B22] border border-slate-800 p-1 rounded-full flex items-center relative overflow-hidden shadow-lg shadow-cyan-950/10">
-              {/* Sliding active glow pill indicator */}
-              <div 
-                className="absolute top-1 bottom-1 bg-gradient-to-r from-cyan-950 to-slate-900 border border-cyan-500/30 rounded-full transition-all duration-300 ease-out shadow-[0_0_10px_rgba(6,182,212,0.15)] pointer-events-none"
-                style={{
-                  left: activeLogTab === "categories" ? "4px" : "calc(50% + 2px)",
-                  width: "calc(50% - 6px)",
-                }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setActiveLogTab("categories")}
-                style={{ minHeight: "36px", minWidth: "120px" }}
-                className={`px-4 py-1.5 rounded-full text-[10px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
-                  activeLogTab === "categories"
-                    ? "text-cyan-400 font-extrabold"
-                    : "text-slate-500 hover:text-slate-350"
-                }`}
-              >
-                CATEGORIES
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveLogTab("focus")}
-                style={{ minHeight: "36px", minWidth: "120px" }}
-                className={`px-4 py-1.5 rounded-full text-[10px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
-                  activeLogTab === "focus"
-                    ? "text-cyan-400 font-extrabold"
-                    : "text-slate-500 hover:text-slate-350"
-                }`}
-              >
-                FOCUS
-              </button>
-            </div>
-          </div>
-
           <div className="text-center">
-            <h2 className="text-sm font-press-start text-cyan-400 tracking-wider">
-              {activeLogTab === "categories" ? "SELECT TARGET TRAINING DOMAIN" : "SELECT TARGET PHYSICAL FOCUS"}
+            <h2 className="text-xs font-press-start text-cyan-400 tracking-wider">
+              SELECT TARGET TRAINING ZONE
             </h2>
-            <p className="text-xs text-slate-400 font-mono mt-1">
-              {activeLogTab === "categories" 
-                ? "Pick a domain category to view your hyper-focused exercise selection grid."
-                : "Pick a physical stat group to view only exercises that calibrate that stat."}
+            <p className="text-[10px] font-mono text-slate-400 mt-1.5 uppercase">
+              Pick a body section or conditioning focus to log your workout
             </p>
           </div>
 
-          {activeLogTab === "categories" ? (
-            <div className="flex flex-col gap-4">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  id={`cat-${cat.id}`}
-                  style={{ minHeight: "84px" }}
-                  onClick={() => {
-                    setSelectedCategory(cat);
-                    setCurrentView("exercises");
-                  }}
-                  className={`p-4 border-2 rounded-2xl flex items-center gap-4 text-left transition duration-150 cursor-pointer ${getCategoryStyle(cat.id)}`}
-                >
-                  <div className="p-3.5 bg-[#0D0D0E] border border-slate-800 rounded-xl shrink-0">
-                    {getCategoryIcon(cat.id)}
-                  </div>
-                  <div>
-                    <span className="text-xs font-press-start text-white tracking-wider block">
-                      {cat.name.toUpperCase()}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                      {cat.id === "weights" && "Iron barbells & heavy multi-joint lifts"}
-                      {cat.id === "machines" && "Pulleys, tension cables & mechanical sleds"}
-                      {cat.id === "bodyweight" && "Calisthenics, suspension bars & isometrics"}
-                      {cat.id === "cardio" && "Cardiovascular pacing, sprints & step climbs"}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {focusGroups.map((group) => (
-                <button
-                  key={group.id}
-                  id={`focus-${group.id}`}
-                  style={{ minHeight: "84px" }}
-                  onClick={() => {
-                    setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
-                    setCurrentView("exercises");
-                  }}
-                  className={`p-4 border-2 rounded-2xl flex items-center gap-4 text-left transition duration-150 cursor-pointer ${group.style}`}
-                >
-                  <div className="p-3.5 bg-[#0D0D0E] border border-slate-800 rounded-xl shrink-0">
-                    {group.icon}
-                  </div>
-                  <div>
-                    <span className="text-xs font-press-start text-white tracking-wider block">
-                      {group.name.toUpperCase()}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                      {group.desc}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex flex-col gap-4">
+            {focusGroups.map((group) => (
+              <button
+                key={group.id}
+                id={`focus-${group.id}`}
+                style={{ minHeight: "84px" }}
+                onClick={() => {
+                  const isSub = group.id === "legs" || group.id === "arms";
+                  setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
+                  setSelectedSubCategory(isSub ? null : "all");
+                  setCurrentView("exercises");
+                }}
+                className={`p-4 border-2 rounded-2xl flex items-center gap-4 text-left transition duration-150 cursor-pointer ${group.style}`}
+              >
+                <div className="p-3.5 bg-[#0D0D0E] border border-slate-800 rounded-xl shrink-0">
+                  {group.icon}
+                </div>
+                <div>
+                  <span className="text-xs font-press-start text-white tracking-wider block">
+                    {group.name.toUpperCase()}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-450 mt-1 block">
+                    {group.desc}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
         </motion.div>
       )}
 
       {/* 2. QUICK GRID EXERCISES VIEW */}
       {currentView === "exercises" && selectedCategory && (
-        <motion.div
-          initial={{ opacity: 0, x: -15 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="space-y-6"
-        >
-          <div className="flex items-center justify-between border-b border-slate-850 pb-4">
-            <button
-              onClick={() => setCurrentView("categories")}
-              style={{ minHeight: "44px" }}
-              className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
-            >
-              <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
-            </button>
-            
-            <div className="text-right">
-              <span className="text-[10px] font-press-start text-slate-500 block">CATEGORY</span>
-              <span className="text-xs font-press-start text-cyan-300 mt-0.5 block uppercase tracking-wider">
-                {selectedCategory.name}
-              </span>
-            </div>
-          </div>
-
-
-
-          <div className="grid grid-cols-1 gap-3">
-            {activeExercises.map((ex) => (
-              <button
-                key={ex.name}
-                id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
-                onClick={() => handleSelectExercise(ex)}
-                style={{ minHeight: "56px" }}
-                className="w-full p-4 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1.5 cursor-pointer"
+        (() => {
+          const hasSubCategories = selectedCategory.id === "focus_legs" || selectedCategory.id === "focus_arms";
+          
+          if (hasSubCategories && selectedSubCategory === null) {
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
               >
-                <span className="text-xs font-press-start text-white block text-center">
-                  {ex.name}
-                </span>
-                <span className="text-[9.5px] font-mono text-emerald-400 font-bold transition block text-center">
-                  {getBuildsDescription(ex)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </motion.div>
+                <div className="flex items-center justify-between border-b border-slate-850 pb-4">
+                  <button
+                    onClick={handleBackToCategories}
+                    style={{ minHeight: "44px" }}
+                    className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
+                  </button>
+                  
+                  <div className="text-right">
+                    <span className="text-[10px] font-press-start text-slate-500 block">CATEGORY</span>
+                    <span className="text-xs font-press-start text-cyan-300 mt-0.5 block uppercase tracking-wider">
+                      {selectedCategory.name}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-center py-2">
+                  <h2 className="text-xs font-press-start text-slate-350 tracking-wider">
+                    SELECT MUSCLE ZONE
+                  </h2>
+                  <p className="text-[9px] font-mono text-slate-500 mt-1 uppercase">
+                    Choose isolation focus group
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {(selectedCategory.id === "focus_legs"
+                    ? ["quads", "hamstrings", "glutes", "calves"]
+                    : ["biceps", "triceps", "shoulders", "traps"]
+                  ).map((subCat) => {
+                    const isLegs = selectedCategory.id === "focus_legs";
+                    const themeStyle = isLegs
+                      ? "border-emerald-500/20 hover:border-emerald-450 focus:border-emerald-400 bg-emerald-950/5 hover:bg-emerald-950/15 text-emerald-400 shadow-lg shadow-emerald-950/5"
+                      : "border-pink-500/20 hover:border-pink-450 focus:border-pink-400 bg-pink-950/5 hover:bg-pink-950/15 text-pink-400 shadow-lg shadow-pink-950/5";
+
+                    const getSubCatDesc = (s: string) => {
+                      switch (s) {
+                        case "quads": return "Front thighs";
+                        case "hamstrings": return "Back thighs";
+                        case "glutes": return "Hip power";
+                        case "calves": return "Lower legs";
+                        case "biceps": return "Front arms";
+                        case "triceps": return "Back arms";
+                        case "shoulders": return "Deltoids";
+                        case "traps": return "Upper back";
+                        default: return "";
+                      }
+                    };
+
+                    return (
+                      <button
+                        key={subCat}
+                        style={{ minHeight: "84px" }}
+                        onClick={() => setSelectedSubCategory(subCat)}
+                        className={`p-4 border-2 rounded-2xl flex flex-col items-center justify-center text-center transition duration-150 cursor-pointer ${themeStyle}`}
+                      >
+                        <span className="text-[10px] font-press-start block uppercase tracking-wider">
+                          {subCat}
+                        </span>
+                        <span className="text-[8px] font-mono text-slate-500 mt-1 block uppercase">
+                          {getSubCatDesc(subCat)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            );
+          }
+
+          return (
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between border-b border-slate-850 pb-4">
+                <button
+                  onClick={hasSubCategories ? () => setSelectedSubCategory(null) : handleBackToCategories}
+                  style={{ minHeight: "44px" }}
+                  className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
+                >
+                  <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
+                </button>
+                
+                <div className="text-right">
+                  <span className="text-[10px] font-press-start text-slate-500 block uppercase">
+                    {selectedCategory.name}
+                  </span>
+                  {selectedSubCategory && selectedSubCategory !== "all" && (
+                    <span className="text-xs font-press-start text-cyan-300 mt-0.5 block uppercase tracking-wider">
+                      {selectedSubCategory}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
+                {activeExercises.map((ex) => (
+                  <button
+                    key={ex.name}
+                    id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
+                    onClick={() => handleSelectExercise(ex)}
+                    style={{ minHeight: "56px" }}
+                    className="w-full p-4 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="text-xs font-press-start text-white block text-center">
+                      {ex.name}
+                    </span>
+                    <span className="text-[9.5px] font-mono text-emerald-400 font-bold transition block text-center">
+                      {getBuildsDescription(ex)}
+                    </span>
+                  </button>
+                ))}
+                {activeExercises.length === 0 && (
+                  <div className="text-center py-10 text-slate-500 font-mono text-xs">
+                    No exercises registered under this sub-category.
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          );
+        })()
       )}
 
       {/* 3. ONE-SET ENTRY FORM VIEW */}
@@ -455,11 +493,11 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <button
-              onClick={() => setCurrentView("exercises")}
+              onClick={() => { setSelectedExercise(null); setCurrentView("exercises"); }}
               style={{ minHeight: "44px" }}
               className="px-4 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
             >
-              <ChevronLeft className="w-4 h-4 text-cyan-400" /> exercises
+              <ChevronLeft className="w-4 h-4 text-cyan-400" /> EXERCISES
             </button>
 
             <div className="text-right">
@@ -481,7 +519,17 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                     <label className="text-[10px] font-press-start text-cyan-300 block uppercase tracking-wider">
                       🏋️ WEIGHT GAUGE (LBS)
                     </label>
-                    <p className="text-[9px] font-mono text-slate-500 mt-1 uppercase">TAP TO ENTER TARGET WEIGHT</p>
+                    {(() => {
+                      const nameLower = (selectedExercise.name || "").toLowerCase();
+                      const isDumbbell = nameLower.includes("dumbbell") || nameLower.includes("dumbell") || nameLower === "hammer curl";
+                      return isDumbbell ? (
+                        <p className="text-[9px] font-mono text-emerald-400 mt-1.5 uppercase font-bold">
+                          Enter weight for ONE dumbbell (System doubles it)
+                        </p>
+                      ) : (
+                        <p className="text-[9px] font-mono text-slate-500 mt-1 uppercase">TAP TO ENTER TARGET WEIGHT</p>
+                      );
+                    })()}
                   </div>
                   
                   <div className="flex flex-col items-center max-w-xs mx-auto">
@@ -656,8 +704,8 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                         type="number"
                         step="0.01"
                         inputMode="decimal"
-                        value={distance === 0 ? "" : distance}
-                        onChange={(e) => setDistance(Math.max(0.01, parseFloat(e.target.value) || 0))}
+                        value={distanceStr}
+                        onChange={(e) => setDistanceStr(e.target.value)}
                         onFocus={(e) => e.target.select()}
                         className="bg-[#12161A] border-2 border-slate-800 text-center font-bold text-3xl text-white w-32 py-2.5 rounded-xl outline-none focus:border-cyan-500 font-mono tracking-wide"
                         required
@@ -788,19 +836,24 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
             <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row gap-3">
               <button
                 type="button"
-                onClick={() => setCurrentView("exercises")}
+                onClick={() => { setSelectedExercise(null); setCurrentView("exercises"); }}
                 style={{ minHeight: "50px" }}
                 className="flex-1 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white rounded-xl text-xs font-mono font-bold cursor-pointer transition active:scale-95"
               >
-                CANCEL ENTRY
+                BACK TO LIST
               </button>
               
               <button
                 type="submit"
+                disabled={restSeconds > 0}
                 style={{ minHeight: "50px" }}
-                className="flex-[2] bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-350 text-black rounded-xl text-xs font-press-start text-center tracking-wider font-extrabold cursor-pointer shadow-lg shadow-cyan-500/10 active:translate-y-[1px]"
+                className={`flex-[2] rounded-xl text-xs font-press-start text-center tracking-wider font-extrabold cursor-pointer transition select-none active:translate-y-[1px] ${
+                  restSeconds > 0
+                    ? "bg-[#161B22] border-2 border-red-500/30 text-red-400 cursor-not-allowed shadow-[0_0_15px_rgba(239,68,68,0.15)] animate-pulse"
+                    : "bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-350 text-black shadow-lg shadow-cyan-500/10"
+                }`}
               >
-                SUBMIT SINGLE SET
+                {restSeconds > 0 ? `REST TIMER: ${restSeconds}S` : "SUBMIT SET"}
               </button>
             </div>
 

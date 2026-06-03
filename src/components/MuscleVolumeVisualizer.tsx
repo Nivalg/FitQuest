@@ -15,11 +15,38 @@ import {
 
 interface MuscleVolumeVisualizerProps {
   weeklyVolume: Record<string, number>;
+  weeklySubVolume?: Record<string, number>;
 }
 
-export default function MuscleVolumeVisualizer({ weeklyVolume }: MuscleVolumeVisualizerProps) {
+export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }: MuscleVolumeVisualizerProps) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [isBalanceHelpOpen, setIsBalanceHelpOpen] = useState(false);
+  const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (key: string) => {
+    if (key === "armStrength" || key === "legStrength") {
+      setExpandedKeys(prev => ({
+        ...prev,
+        [key]: !prev[key]
+      }));
+    }
+  };
+
+  const subCategoryConfigs: Record<string, { label: string; colorHex: string }> = {
+    biceps: { label: "Biceps Progress", colorHex: "#ec4899" },
+    triceps: { label: "Triceps Progress", colorHex: "#f43f5e" },
+    shoulders: { label: "Shoulders Progress", colorHex: "#22d3ee" },
+    traps: { label: "Traps Progress", colorHex: "#a855f7" },
+    glutes: { label: "Glutes Progress", colorHex: "#10b981" },
+    quads: { label: "Quads Progress", colorHex: "#14b8a6" },
+    hamstrings: { label: "Hamstrings Progress", colorHex: "#84cc16" },
+    calves: { label: "Calves Progress", colorHex: "#22c55e" }
+  };
+
+  const subCategoriesByParent: Record<string, string[]> = {
+    armStrength: ["biceps", "triceps", "shoulders", "traps"],
+    legStrength: ["glutes", "quads", "hamstrings", "calves"]
+  };
 
   const statKeys = [
     "chestStrength",
@@ -175,12 +202,18 @@ export default function MuscleVolumeVisualizer({ weeklyVolume }: MuscleVolumeVis
               trendIcon = <Award className="w-3.5 h-3.5" />;
             }
 
+            const canExpand = key === "armStrength" || key === "legStrength";
+            const isExpanded = expandedKeys[key];
+
             return (
               <div
                 key={key}
                 onMouseEnter={() => setHoveredKey(key)}
                 onMouseLeave={() => setHoveredKey(null)}
-                className={`p-3 bg-[#0D0D0E]/80 border rounded-xl transition-all duration-200 flex flex-col justify-between space-y-2 relative overflow-hidden group ${
+                onClick={() => canExpand && toggleExpand(key)}
+                className={`p-3 bg-[#0D0D0E]/80 border rounded-xl transition-all duration-200 flex flex-col justify-between space-y-2 relative overflow-hidden group select-none ${
+                  canExpand ? "cursor-pointer" : ""
+                } ${
                   isHovered
                     ? "border-slate-700 bg-[#0D0D0E] shadow-lg"
                     : "border-slate-800/80 hover:border-slate-700"
@@ -202,10 +235,15 @@ export default function MuscleVolumeVisualizer({ weeklyVolume }: MuscleVolumeVis
                     <div className={`p-1.5 rounded-lg bg-[#161B22] border border-slate-800 group-hover:scale-105 transition`}>
                       {config.icon}
                     </div>
-                    <div>
+                    <div className="flex items-center gap-1.5">
                       <h4 className="text-xs font-mono font-black text-white capitalize leading-tight">
                         {config.label}
                       </h4>
+                      {canExpand && (
+                        <span className="text-[7px] text-slate-500 font-press-start font-bold animate-pulse">
+                          {isExpanded ? "[▲]" : "[▼]"}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -244,6 +282,37 @@ export default function MuscleVolumeVisualizer({ weeklyVolume }: MuscleVolumeVis
                     />
                   </div>
                 </div>
+
+                {/* Nested Subcategories volume detail */}
+                {canExpand && isExpanded && (
+                  <div className="mt-3 pt-3 border-t border-slate-850 space-y-2.5">
+                    {subCategoriesByParent[key].map((subKey) => {
+                      const subVal = (weeklySubVolume && weeklySubVolume[subKey]) || 0;
+                      const subConfig = subCategoryConfigs[subKey];
+                      return (
+                        <div key={subKey} className="space-y-1 pl-2.5 border-l border-slate-800">
+                          <div className="flex justify-between items-center text-[9px] font-mono">
+                            <span className="text-slate-400 uppercase tracking-wider font-bold">
+                              {subConfig.label}
+                            </span>
+                            <span className="text-white font-black">
+                              {subVal.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="relative w-full h-1 bg-[#12161A] border border-slate-900 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-300"
+                              style={{
+                                width: `${Math.max(0, Math.min(100, subVal))}%`,
+                                backgroundColor: subConfig.colorHex
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -269,7 +338,12 @@ export default function MuscleVolumeVisualizer({ weeklyVolume }: MuscleVolumeVis
               </h3>
               
               <div className="bg-[#0D0D0E]/60 border border-slate-800 rounded-xl p-4 text-[10px] font-mono text-slate-300 leading-relaxed text-left mt-3">
-                Muscle Imbalance Warning! Your training is uneven right now. You are focusing heavily on your chest and legs while neglecting your back and core. Hit your back and core next to balance things out!
+                Current Muscle Symmetry Ratio: <strong className="text-emerald-450 font-bold">{balancePercentage}%</strong>.
+                {balancePercentage < 75 ? (
+                  " Imbalance Warning! Your training distribution is uneven. Focus on lagging muscle groups to restore JRPG class symmetry."
+                ) : (
+                  " Optimal Symmetry! Your training is highly balanced across all dynamic sectors. Keep maintaining class equilibrium."
+                )}
               </div>
             </div>
 

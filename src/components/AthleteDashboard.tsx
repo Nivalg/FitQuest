@@ -58,6 +58,7 @@ export default function AthleteDashboard({
   // Evaluate complete athletic details using our stateless progressive overload engine
   const performance = evaluateAthletePerformance(logs, profile.bodyWeight);
   const weeklyVolume = performance.weeklyVolume;
+  const weeklySubVolume = performance.weeklySubVolume;
   const recoveryRemaining = performance.recoveryRemaining;
   const exerciseDetails = performance.exerciseDetails;
 
@@ -450,11 +451,8 @@ export default function AthleteDashboard({
           <div className="space-y-4">
             <div>
               <h3 className="text-xs font-press-start text-cyan-300 tracking-wider uppercase">
-                📊 PERFORMANCE STRENGTH
+                PERFORMANCE STRENGTH
               </h3>
-              <p className="text-[10px] text-slate-400 font-mono mt-1 leading-relaxed">
-                Stateless Performance Index levels (0.00 - 100.00). Derived from your physical capacities.
-              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -603,7 +601,7 @@ export default function AthleteDashboard({
           className="space-y-6"
         >
           {/* 🚀 DYNAMIC WEEKLY VOLUME TRACKER */}
-          <MuscleVolumeVisualizer weeklyVolume={weeklyVolume} />
+          <MuscleVolumeVisualizer weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
         </motion.div>
       )}
 

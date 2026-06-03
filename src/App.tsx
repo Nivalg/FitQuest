@@ -3,10 +3,12 @@ import { AthleteProfile, FitnessLog, FitnessMetricType } from "./types";
 import FitnessProfileSetup from "./components/FitnessProfileSetup";
 import AthleteDashboard from "./components/AthleteDashboard";
 import { WorkoutCalendar } from "./components/WorkoutCalendar";
-import PastQuests from "./components/PastQuests";
 import { WorkoutLogger } from "./components/WorkoutLogger";
 import { EXERCISE_DATABASE } from "./exercises";
-import { getStatLevelsFromLogs, evaluateAthletePerformance } from "./utils/fitnessMath";
+import { 
+  evaluateAthletePerformance, 
+  runStateDecayEngine 
+} from "./utils/fitnessMath";
 import {
   Trophy,
   Dumbbell,
@@ -22,18 +24,31 @@ export default function App() {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
-  // Initialize state from LocalStorage on mount
+  // Initialize state from LocalStorage on mount and run the Decay Engine
   useEffect(() => {
     const savedProfile = localStorage.getItem("fit-rpg_profile") || localStorage.getItem("fitrpg_profile") || localStorage.getItem("fitquest_profile");
     const savedLogs = localStorage.getItem("fit-rpg_logs") || localStorage.getItem("fitrpg_logs") || localStorage.getItem("fitquest_logs");
 
+    let loadedLogs: FitnessLog[] = [];
+    let loadedBodyWeight = 175;
+
+    if (savedLogs) {
+      try {
+        loadedLogs = JSON.parse(savedLogs);
+        setLogs(loadedLogs);
+      } catch (e) {
+        console.error("Failed to parse saved fitness logs", e);
+      }
+    }
+
     if (savedProfile) {
       try {
         const parsed = JSON.parse(savedProfile);
+        loadedBodyWeight = Number(parsed.bodyWeight) || 175;
         const sanitizedProfile: AthleteProfile = {
           name: parsed.name || "Athlete",
           age: Number(parsed.age) || 25,
-          bodyWeight: Number(parsed.bodyWeight) || 175,
+          bodyWeight: loadedBodyWeight,
           chestStrength: Number(parsed.chestStrength) || 0,
           chestStrengthXP: Number(parsed.chestStrengthXP) || 0,
           backStrength: Number(parsed.backStrength) || 0,
@@ -56,13 +71,9 @@ export default function App() {
         console.error("Failed to parse saved athlete profile", e);
       }
     }
-    if (savedLogs) {
-      try {
-        setLogs(JSON.parse(savedLogs));
-      } catch (e) {
-        console.error("Failed to parse saved fitness logs", e);
-      }
-    }
+
+    // Run the linear state decay calculations immediately upon load
+    runStateDecayEngine(loadedLogs, loadedBodyWeight);
   }, []);
 
   // Compute stats on the fly dynamically from logs (Stateless Performance Profiler standard)
@@ -110,9 +121,14 @@ export default function App() {
     localStorage.setItem("fitrpg_logs", JSON.stringify(newLogs));
     localStorage.setItem("fitquest_logs", JSON.stringify(newLogs));
     
+    const bodyWeight = profile?.bodyWeight || 175;
+
+    // Run state decay engine to keep basePRs, decay states, and active scores in alignment
+    runStateDecayEngine(newLogs, bodyWeight);
+
     // Also update localized storage dossier stats to keep them in alignment
     if (profile) {
-      const perf = evaluateAthletePerformance(newLogs, profile.bodyWeight);
+      const perf = evaluateAthletePerformance(newLogs, bodyWeight);
       const dStats = perf.statLevels;
       const alignedProfile: AthleteProfile = {
         ...profile,
@@ -149,7 +165,7 @@ export default function App() {
         timestamp: new Date().toISOString(),
         metricType: "general_workout",
         title: "Athlete Profile Calibration Achieved",
-        newValue: `${newProfile.bodyWeight} lbs Somatotype Weight`,
+        newValue: `${newProfile.bodyWeight} lbs Weight`,
         weight: newProfile.bodyWeight,
         notes: "Profile initialized cleanly. Commenced level progression metrics from Level 1."
       }
@@ -241,9 +257,11 @@ export default function App() {
     
     // Evaluate calibration before and after the new set to announce stat surges
     const prevStats = evaluateAthletePerformance(logs, profile.bodyWeight).statLevels;
-    const postStats = evaluateAthletePerformance(updatedLogs, profile.bodyWeight).statLevels;
     
+    // Trigger save (which automatically runs the decay engine)
     saveLogs(updatedLogs);
+
+    const postStats = evaluateAthletePerformance(updatedLogs, profile.bodyWeight).statLevels;
 
     const levelUpsTriggered: string[] = [];
     const statKeys = [
@@ -275,9 +293,12 @@ export default function App() {
     } else {
       showToast(`💪 Set Saved! Performance indices verified.`);
     }
+  };
 
-    // Keep user on the exercise logging tab so they can continue logging sets
-    // setActiveTab("dashboard");
+  const handleDeleteLog = (logId: string) => {
+    const updatedLogs = logs.filter(l => l.id !== logId);
+    saveLogs(updatedLogs);
+    showToast("Log entry deleted successfully!");
   };
 
   // Reset/Clear everything
@@ -285,6 +306,7 @@ export default function App() {
     if (confirm("Are you sure you want to reset your athlete profile? All stat progress will return to 0.00 and historic logs will be deleted.")) {
       saveProfile(null);
       saveLogs([]);
+      localStorage.removeItem("fitrpg_decay_stats");
       setActiveTab("dashboard");
       showToast("Profile reset completed.");
     }
@@ -320,7 +342,6 @@ export default function App() {
         {/* Top Header Navigation (Centered Title) */}
         <header className="bg-[#161B22]/70 sticky top-0 z-40 backdrop-blur-md py-6 border-b border-slate-900/30">
           <div className="px-4 flex items-center justify-between w-full relative">
-            {/* Spacer to preserve absolute centering of Fit-RPG title */}
             <div className="w-8" />
             
             <h1 className="font-press-start text-3xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-emerald-400 to-cyan-400 animate-text-shimmer text-retro-glow tracking-widest uppercase select-none text-center leading-none">
@@ -377,11 +398,10 @@ export default function App() {
                   <WorkoutLogger onLogWorkout={handleLogExerciseWorkout} />
                 )}
 
-                {/* Past chronicles log lists */}
+                {/* Past chronicles Workout Calendar with deletion ledger */}
                 {activeTab === "calendar" && (
                   <div className="flex flex-col gap-6 items-stretch">
-                    <WorkoutCalendar logs={logs} />
-                    <PastQuests logs={logs} onClearLogs={() => saveLogs([])} />
+                    <WorkoutCalendar logs={logs} onDeleteLog={handleDeleteLog} />
                   </div>
                 )}
 
