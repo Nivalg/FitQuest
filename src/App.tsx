@@ -26,8 +26,8 @@ export default function App() {
 
   // Initialize state from LocalStorage on mount and run the Decay Engine
   useEffect(() => {
-    const savedProfile = localStorage.getItem("fit-rpg_profile") || localStorage.getItem("fitrpg_profile") || localStorage.getItem("fitquest_profile");
-    const savedLogs = localStorage.getItem("fit-rpg_logs") || localStorage.getItem("fitrpg_logs") || localStorage.getItem("fitquest_logs");
+    const savedProfile = localStorage.getItem("rpg-fit_profile") || localStorage.getItem("fit-rpg_profile") || localStorage.getItem("fitrpg_profile") || localStorage.getItem("fitquest_profile");
+    const savedLogs = localStorage.getItem("rpg-fit_logs") || localStorage.getItem("fit-rpg_logs") || localStorage.getItem("fitrpg_logs") || localStorage.getItem("fitquest_logs");
 
     let loadedLogs: FitnessLog[] = [];
     let loadedBodyWeight = 175;
@@ -104,10 +104,12 @@ export default function App() {
   const saveProfile = (newProfile: AthleteProfile | null) => {
     setProfile(newProfile);
     if (newProfile) {
+      localStorage.setItem("rpg-fit_profile", JSON.stringify(newProfile));
       localStorage.setItem("fit-rpg_profile", JSON.stringify(newProfile));
       localStorage.setItem("fitrpg_profile", JSON.stringify(newProfile));
       localStorage.setItem("fitquest_profile", JSON.stringify(newProfile));
     } else {
+      localStorage.removeItem("rpg-fit_profile");
       localStorage.removeItem("fit-rpg_profile");
       localStorage.removeItem("fitrpg_profile");
       localStorage.removeItem("fitquest_profile");
@@ -117,6 +119,7 @@ export default function App() {
   // Sync log array list to storage
   const saveLogs = (newLogs: FitnessLog[]) => {
     setLogs(newLogs);
+    localStorage.setItem("rpg-fit_logs", JSON.stringify(newLogs));
     localStorage.setItem("fit-rpg_logs", JSON.stringify(newLogs));
     localStorage.setItem("fitrpg_logs", JSON.stringify(newLogs));
     localStorage.setItem("fitquest_logs", JSON.stringify(newLogs));
@@ -149,6 +152,7 @@ export default function App() {
         cardioStamina: dStats.stamina,
         cardioStaminaXP: perf.statXps.stamina,
       };
+      localStorage.setItem("rpg-fit_profile", JSON.stringify(alignedProfile));
       localStorage.setItem("fit-rpg_profile", JSON.stringify(alignedProfile));
       localStorage.setItem("fitrpg_profile", JSON.stringify(alignedProfile));
       localStorage.setItem("fitquest_profile", JSON.stringify(alignedProfile));
@@ -345,7 +349,7 @@ export default function App() {
             <div className="w-8" />
             
             <h1 className="font-press-start text-3xl sm:text-4xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-emerald-400 to-cyan-400 animate-text-shimmer text-retro-glow tracking-widest uppercase select-none text-center leading-none">
-              Fit-RPG
+              RPG-Fit
             </h1>
             
             <button

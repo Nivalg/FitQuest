@@ -310,6 +310,57 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     },
     subCategories: ["glutes"]
   },
+  {
+    name: "Barbell Front Squat",
+    pillar: "weights",
+    formType: "A",
+    description: "Front rack barbell squat targeting quads and deep core stability.",
+    builds: {
+      coreStrength: 50,
+      legStrength: 50
+    }
+  },
+  {
+    name: "Dumbbell Russian Twist",
+    pillar: "weights",
+    formType: "A",
+    description: "Seated core rotation holding a single dumbbell.",
+    builds: {
+      coreStrength: 80,
+      stamina: 20
+    }
+  },
+  {
+    name: "Plate Russian Twist",
+    pillar: "weights",
+    formType: "A",
+    description: "Seated core rotation holding a weight plate.",
+    builds: {
+      coreStrength: 80,
+      stamina: 20
+    }
+  },
+  {
+    name: "Plate Sit-Ups",
+    pillar: "weights",
+    formType: "A",
+    description: "Weighted sit-up holding a weight plate against the chest.",
+    builds: {
+      coreStrength: 90,
+      stamina: 10
+    }
+  },
+  {
+    name: "Good Mornings",
+    pillar: "weights",
+    formType: "A",
+    description: "Barbell hip hinge targeting the hamstrings and lower back.",
+    builds: {
+      legStrength: 70,
+      backStrength: 30
+    },
+    subCategories: ["hamstrings"]
+  },
 
   // 2. MACHINES
   {
@@ -493,6 +544,39 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
       stamina: 20
     },
     subCategories: ["shoulders"]
+  },
+  {
+    name: "Glute Kickback",
+    pillar: "machines",
+    formType: "A",
+    description: "Cable or machine kickbacks isolating the glutes through hip extension.",
+    builds: {
+      legStrength: 80,
+      stamina: 20
+    },
+    subCategories: ["glutes"]
+  },
+  {
+    name: "Machine Hip Thrust",
+    pillar: "machines",
+    formType: "A",
+    description: "Machine hip thrusts isolating and overloading the glute max.",
+    builds: {
+      legStrength: 80,
+      stamina: 20
+    },
+    subCategories: ["glutes"]
+  },
+  {
+    name: "Gluteator",
+    pillar: "machines",
+    formType: "A",
+    description: "Gluteator machine rotation targeting deep outer glute development.",
+    builds: {
+      legStrength: 80,
+      stamina: 20
+    },
+    subCategories: ["glutes"]
   },
 
   // 3. BODYWEIGHT
@@ -714,6 +798,17 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
       stamina: 80,
       coreStrength: 20
     }
+  },
+  {
+    name: "Bodyweight Reverse Lunge",
+    pillar: "bodyweight",
+    formType: "B",
+    description: "Step backward into a lunge to overload hamstrings and glutes.",
+    builds: {
+      legStrength: 70,
+      stamina: 30
+    },
+    subCategories: ["hamstrings"]
   },
 
   // 4. CARDIO

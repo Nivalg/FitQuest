@@ -26,6 +26,8 @@ import {
 import { motion } from "motion/react";
 import MuscleVolumeVisualizer from "./MuscleVolumeVisualizer";
 
+const YOUTUBE_CHANNEL_LINK = "https://youtube.com/channel/UCwr35GfgTWfafg9qt6RQkMQ";
+
 interface AthleteDashboardProps {
   profile: AthleteProfile;
   logs: FitnessLog[];
@@ -39,6 +41,7 @@ interface AthleteDashboardProps {
 export default function AthleteDashboard({
   profile,
   logs,
+  onProfileUpdate,
   onReset,
   onNavigateToLogs,
   onNavigateToExercises
@@ -54,6 +57,31 @@ export default function AthleteDashboard({
     icon: React.ReactNode;
   } | null>(null);
   const [isAllRecordsOpen, setIsAllRecordsOpen] = React.useState(false);
+
+  // States for Adjust Age and Weight Modal
+  const [isEditProfileOpen, setIsEditProfileOpen] = React.useState(false);
+  const [editAge, setEditAge] = React.useState(profile.age);
+  const [editWeight, setEditWeight] = React.useState(profile.bodyWeight);
+
+
+
+  const handleOpenEditProfile = () => {
+    setEditAge(profile.age);
+    setEditWeight(profile.bodyWeight);
+    setIsEditProfileOpen(true);
+  };
+
+  const handleEditProfileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onProfileUpdate) {
+      onProfileUpdate({
+        ...profile,
+        age: editAge,
+        bodyWeight: editWeight
+      });
+    }
+    setIsEditProfileOpen(false);
+  };
 
   // Evaluate complete athletic details using our stateless progressive overload engine
   const performance = evaluateAthletePerformance(logs, profile.bodyWeight);
@@ -428,8 +456,12 @@ export default function AthleteDashboard({
                 </div>
               </div>
 
-              {/* Right side: Age and Weight inside a single box wrapper */}
-              <div className="flex items-center gap-3 bg-[#0D0D0E]/85 border border-slate-800 p-2.5 rounded-xl shrink-0">
+              {/* Right side: Age and Weight inside a clickable button wrapper */}
+              <button
+                onClick={handleOpenEditProfile}
+                title="Adjust weight and age"
+                className="flex items-center gap-3 bg-[#0D0D0E]/85 hover:bg-[#12161A]/90 border border-slate-800 hover:border-cyan-500/40 p-2.5 rounded-xl shrink-0 cursor-pointer transition active:scale-95 text-left focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+              >
                 <div className="text-center px-1">
                   <span className="text-[7px] font-press-start text-slate-500 block uppercase tracking-wider">AGE</span>
                   <span className="text-xs font-mono text-cyan-400 font-black block mt-1">
@@ -443,7 +475,7 @@ export default function AthleteDashboard({
                     {profile.bodyWeight} <span className="text-[8px] text-slate-500 font-bold">LBS</span>
                   </span>
                 </div>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -579,6 +611,19 @@ export default function AthleteDashboard({
               </p>
             </div>
           )}
+
+          {/* RETRO YOUTUBE SOCIAL UTILITY */}
+          <div className="pt-4 flex justify-center">
+            <a
+              href={YOUTUBE_CHANNEL_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ minHeight: "44px" }}
+              className="w-full text-red-400 hover:text-red-300 hover:border-red-500/50 border-2 border-red-500/30 bg-red-950/5 hover:bg-red-950/15 px-4 py-2.5 rounded-xl text-[9px] font-press-start tracking-wider transition flex items-center justify-center gap-2 cursor-pointer duration-150 active:scale-[0.98] uppercase shadow-sm text-center font-bold"
+            >
+              📺 VISIT THE GUILD YOUTUBE
+            </a>
+          </div>
 
           {/* RETRO SAVE RESET UTILITY */}
           <div className="pt-2 flex justify-center">
@@ -730,6 +775,78 @@ export default function AthleteDashboard({
             >
               DISMISS LEDGER
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🛠️ ADJUST WEIGHT & AGE MODAL OVERLAY */}
+      {isEditProfileOpen && (
+        <div className="fixed inset-0 bg-[#090B0E]/80 backdrop-blur-md z-55 flex items-center justify-center p-4">
+          <div className="w-full max-w-[340px] bg-[#0D1117] border-2 border-cyan-500/50 rounded-2xl p-6 shadow-[0_0_25px_rgba(6,182,212,0.2)] relative overflow-hidden flex flex-col gap-4 animate-fade-in">
+            {/* Accent decoration */}
+            <div className="absolute top-0 right-0 w-20 h-20 bg-cyan-500/10 rounded-full blur-xl pointer-events-none" />
+            
+            <div className="text-center">
+              <span className="text-[8px] font-press-start text-cyan-400 tracking-widest block uppercase mb-1">
+                CALIBRATION
+              </span>
+              <h3 className="text-xs font-press-start text-white uppercase tracking-wider block">
+                ADJUST STATS
+              </h3>
+            </div>
+
+            <form onSubmit={handleEditProfileSubmit} className="space-y-4 font-mono text-[11px]">
+              {/* Age Field */}
+              <div className="space-y-1.5 text-left">
+                <label className="text-[8px] font-press-start text-slate-400 block uppercase tracking-wider">
+                  AGE (YEARS)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  max="120"
+                  value={editAge}
+                  onChange={(e) => setEditAge(Math.max(1, parseInt(e.target.value) || 0))}
+                  className="w-full bg-[#12161A] border-2 border-slate-800 text-white font-bold text-sm px-3.5 py-2 rounded-xl outline-none focus:border-cyan-500 font-mono tracking-wide"
+                />
+              </div>
+
+              {/* Weight Field */}
+              <div className="space-y-1.5 text-left">
+                <label className="text-[8px] font-press-start text-slate-400 block uppercase tracking-wider">
+                  BODY WEIGHT (LBS)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  max="1000"
+                  value={editWeight}
+                  onChange={(e) => setEditWeight(Math.max(1, parseInt(e.target.value) || 0))}
+                  className="w-full bg-[#12161A] border-2 border-slate-800 text-white font-bold text-sm px-3.5 py-2 rounded-xl outline-none focus:border-cyan-500 font-mono tracking-wide"
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileOpen(false)}
+                  style={{ minHeight: "36px" }}
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 active:scale-[0.98] transition cursor-pointer text-slate-300 font-press-start text-[8px] tracking-wider py-2 rounded-xl font-bold uppercase"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  style={{ minHeight: "36px" }}
+                  className="flex-1 bg-cyan-500 hover:bg-cyan-600 active:scale-[0.98] transition cursor-pointer text-black font-press-start text-[8px] tracking-wider py-2 rounded-xl font-bold shadow-md shadow-cyan-500/10 uppercase"
+                >
+                  SAVE
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

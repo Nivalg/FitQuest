@@ -270,6 +270,42 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     builds: { legStrength: 70, backStrength: 30 },
     subCategories: ["glutes"]
   },
+  {
+    name: "Barbell Front Squat",
+    formType: "A",
+    baseline: 45,
+    peak: 400,
+    builds: { coreStrength: 50, legStrength: 50 }
+  },
+  {
+    name: "Dumbbell Russian Twist",
+    formType: "A",
+    baseline: 5,
+    peak: 100,
+    builds: { coreStrength: 80, stamina: 20 }
+  },
+  {
+    name: "Plate Russian Twist",
+    formType: "A",
+    baseline: 10,
+    peak: 100,
+    builds: { coreStrength: 80, stamina: 20 }
+  },
+  {
+    name: "Plate Sit-Ups",
+    formType: "A",
+    baseline: 10,
+    peak: 100,
+    builds: { coreStrength: 90, stamina: 10 }
+  },
+  {
+    name: "Good Mornings",
+    formType: "A",
+    baseline: 45,
+    peak: 300,
+    builds: { legStrength: 70, backStrength: 30 },
+    subCategories: ["hamstrings"]
+  },
 
   // 2. MACHINES
   {
@@ -401,6 +437,30 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     peak: 80,
     builds: { armStrength: 80, stamina: 20 },
     subCategories: ["shoulders"]
+  },
+  {
+    name: "Glute Kickback",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { legStrength: 80, stamina: 20 },
+    subCategories: ["glutes"]
+  },
+  {
+    name: "Machine Hip Thrust",
+    formType: "A",
+    baseline: 45,
+    peak: 400,
+    builds: { legStrength: 80, stamina: 20 },
+    subCategories: ["glutes"]
+  },
+  {
+    name: "Gluteator",
+    formType: "A",
+    baseline: 20,
+    peak: 250,
+    builds: { legStrength: 80, stamina: 20 },
+    subCategories: ["glutes"]
   },
 
   // 3. BODYWEIGHT
@@ -560,6 +620,14 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     peak: 100,
     builds: { stamina: 80, coreStrength: 20 }
   },
+  {
+    name: "Bodyweight Reverse Lunge",
+    formType: "B",
+    baseline: 5,
+    peak: 100,
+    builds: { legStrength: 70, stamina: 30 },
+    subCategories: ["hamstrings"]
+  },
 
   // 4. CARDIO
   {
@@ -645,6 +713,9 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Machine Leg Extension": { type: "weightRatio", avg: 0.6, elite: 1.2 },
   "Hip Abduction Machine": { type: "weightRatio", avg: 0.5, elite: 1.0 },
   "Cable Pull Through": { type: "weightRatio", avg: 0.5, elite: 1.0 },
+  "Glute Kickback": { type: "weightRatio", avg: 0.4, elite: 0.8 },
+  "Machine Hip Thrust": { type: "weightRatio", avg: 1.0, elite: 2.2 },
+  "Gluteator": { type: "weightRatio", avg: 0.5, elite: 1.0 },
   "Machine Standing Calf Raises": { type: "weightRatio", avg: 0.8, elite: 1.5 },
   "Machine Sitting Calf Raises": { type: "weightRatio", avg: 0.6, elite: 1.2 },
   "Cable Shrug": { type: "weightRatio", avg: 0.6, elite: 1.2 },
@@ -688,7 +759,13 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Burpees": { type: "reps", avg: 10, elite: 40 },
   "Bicycle": { type: "paceSeconds", avg: 180, elite: 120 },
   "Elliptical": { type: "paceSeconds", avg: 600, elite: 420 },
-  "Rowing Machine": { type: "paceSeconds", avg: 480, elite: 300 }
+  "Rowing Machine": { type: "paceSeconds", avg: 480, elite: 300 },
+  "Barbell Front Squat": { type: "weightRatio", avg: 0.8, elite: 1.4 },
+  "Dumbbell Russian Twist": { type: "weightRatio", avg: 0.2, elite: 0.4 },
+  "Plate Russian Twist": { type: "weightRatio", avg: 0.15, elite: 0.35 },
+  "Plate Sit-Ups": { type: "weightRatio", avg: 0.15, elite: 0.35 },
+  "Good Mornings": { type: "weightRatio", avg: 0.6, elite: 1.1 },
+  "Bodyweight Reverse Lunge": { type: "reps", avg: 20, elite: 50 }
 };
 
 export function getExerciseConfig(name: string): ExerciseConfig | undefined {

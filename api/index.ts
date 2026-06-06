@@ -1,13 +1,10 @@
 import express from "express";
-import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
-
 app.use(express.json());
 
 // Lazy-initialized Gemini Client
@@ -17,7 +14,7 @@ function getAiClient(): GoogleGenAI {
   if (!aiClient) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      throw new Error("GEMINI_API_KEY environment variable is required. Please set it in the Settings > Secrets panel.");
+      throw new Error("GEMINI_API_KEY environment variable is required. Please set it in the Vercel Project Settings > Environment Variables panel.");
     }
     aiClient = new GoogleGenAI({
       apiKey: apiKey,
@@ -119,29 +116,4 @@ Return EXACTLY a JSON structure matching the schema. Do not output anything othe
   }
 });
 
-// Configure Vite or Static files depending on NODE_ENV
-const startServer = async () => {
-  if (process.env.NODE_ENV !== "production") {
-    // Import Vite dynamically
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`RPG-Fit Engine soundly awake on port ${PORT}`);
-  });
-};
-
-startServer().catch((err) => {
-  console.error("Failed to start server:", err);
-});
+export default app;

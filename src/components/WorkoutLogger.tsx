@@ -39,6 +39,37 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>("all");
   const [restSeconds, setRestSeconds] = useState<number>(0);
 
+  // Equipment selection filters
+  const [activeFilters, setActiveFilters] = useState<("weights" | "machines" | "bodyweight")[]>(["weights", "machines", "bodyweight"]);
+
+  const handleToggleFilter = (filter: "weights" | "machines" | "bodyweight") => {
+    setActiveFilters(prev => {
+      const isCurrentlyActive = prev.includes(filter);
+      if (isCurrentlyActive) {
+        if (prev.length > 1) {
+          return prev.filter(f => f !== filter);
+        }
+        return prev;
+      } else {
+        return [...prev, filter];
+      }
+    });
+  };
+
+  const getExerciseEquipmentType = (pillar: string, name: string): "weights" | "machines" | "bodyweight" => {
+    if (pillar === "weights") return "weights";
+    if (pillar === "machines") return "machines";
+    if (pillar === "bodyweight") return "bodyweight";
+    if (pillar === "cardio") {
+      const nameLower = name.toLowerCase();
+      if (nameLower.includes("rope") || nameLower.includes("jump") || nameLower.includes("sprint")) {
+        return "bodyweight";
+      }
+      return "machines";
+    }
+    return "bodyweight";
+  };
+
   const focusGroups = [
     {
       id: "chest",
@@ -295,6 +326,11 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
       : EXERCISE_DATABASE.filter(ex => ex.pillar === selectedCategory.id)
     : [];
 
+  const filteredExercises = activeExercises.filter(ex => {
+    const eqType = getExerciseEquipmentType(ex.pillar, ex.name);
+    return activeFilters.includes(eqType);
+  });
+
   return (
     <div className="max-w-2xl mx-auto">
       
@@ -324,6 +360,7 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                   const isSub = group.id === "legs" || group.id === "arms";
                   setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
                   setSelectedSubCategory(isSub ? null : "all");
+                  setActiveFilters(["weights", "machines", "bodyweight"]);
                   setCurrentView("exercises");
                 }}
                 className={`p-4 border-2 rounded-2xl flex items-center gap-4 text-left transition duration-150 cursor-pointer ${group.style}`}
@@ -411,7 +448,10 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                       <button
                         key={subCat}
                         style={{ minHeight: "84px" }}
-                        onClick={() => setSelectedSubCategory(subCat)}
+                        onClick={() => {
+                          setSelectedSubCategory(subCat);
+                          setActiveFilters(["weights", "machines", "bodyweight"]);
+                        }}
                         className={`p-4 border-2 rounded-2xl flex flex-col items-center justify-center text-center transition duration-150 cursor-pointer ${themeStyle}`}
                       >
                         <span className="text-[10px] font-press-start block uppercase tracking-wider">
@@ -438,12 +478,12 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                 <button
                   onClick={hasSubCategories ? () => setSelectedSubCategory(null) : handleBackToCategories}
                   style={{ minHeight: "44px" }}
-                  className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
+                  className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
                 >
                   <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
                 </button>
                 
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <span className="text-[10px] font-press-start text-slate-500 block uppercase">
                     {selectedCategory.name}
                   </span>
@@ -455,8 +495,34 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                 </div>
               </div>
 
+              {/* 🎛️ EQUIPMENT TYPE MULTI-SELECT FILTERS - Dedicated spacious row below header */}
+              <div className="flex items-center justify-between gap-3 pt-1.5 pb-2.5 w-full">
+                {[
+                  { id: "bodyweight", label: "BODYWEIGHT" },
+                  { id: "machines", label: "MACHINE" },
+                  { id: "weights", label: "FREE WEIGHTS" }
+                ].map((filter) => {
+                  const isActive = activeFilters.includes(filter.id as any);
+                  return (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => handleToggleFilter(filter.id as any)}
+                      style={{ minHeight: "42px" }}
+                      className={`flex-1 text-center px-4 py-2 text-[10px] font-mono font-black rounded-xl cursor-pointer transition active:scale-95 border-2 ${
+                        isActive 
+                          ? "bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+                          : "bg-[#161B22]/40 border-slate-850 text-slate-500 hover:text-slate-400"
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="grid grid-cols-1 gap-3">
-                {activeExercises.map((ex) => (
+                {filteredExercises.map((ex) => (
                   <button
                     key={ex.name}
                     id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
@@ -472,7 +538,7 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                     </span>
                   </button>
                 ))}
-                {activeExercises.length === 0 && (
+                {filteredExercises.length === 0 && (
                   <div className="text-center py-10 text-slate-500 font-mono text-xs">
                     No exercises registered under this sub-category.
                   </div>
