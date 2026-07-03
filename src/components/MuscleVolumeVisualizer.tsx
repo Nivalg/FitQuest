@@ -9,8 +9,7 @@ import {
   Clock,
   Award,
   TrendingDown,
-  TrendingUp,
-  Sparkles
+  TrendingUp
 } from "lucide-react";
 
 interface MuscleVolumeVisualizerProps {
@@ -20,7 +19,6 @@ interface MuscleVolumeVisualizerProps {
 
 export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }: MuscleVolumeVisualizerProps) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-  const [isBalanceHelpOpen, setIsBalanceHelpOpen] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
 
   const toggleExpand = (key: string) => {
@@ -117,14 +115,6 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
     }
   };
 
-  const totalStimulus = statKeys.reduce((sum, key) => sum + (weeklyVolume[key] || 0), 0);
-  const averageStimulus = totalStimulus / 7;
-
-  // Balanced index calculation: how evenly distributed is weekly stimulus?
-  const variance = statKeys.reduce((v, key) => v + Math.pow((weeklyVolume[key] || 0) - averageStimulus, 2), 0) / 7;
-  const standardDeviation = Math.sqrt(variance);
-  const balancePercentage = Math.max(0, Math.min(100, Math.round(100 - (standardDeviation * 12))));
-
   return (
     <div className="bg-[#161B22] border border-slate-800 rounded-2xl p-4 shadow-2xl relative overflow-hidden space-y-4 animate-fade-in">
       {/* Decorative Glow Effects */}
@@ -133,50 +123,6 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
 
       {/* Main Content Layout */}
       <div className="space-y-3 mt-1">
-        {/* Dynamic Horizontal Overview Strip */}
-        <div className="bg-[#0D0D0E]/60 border border-slate-800 rounded-xl p-3 flex flex-col gap-3">
-          <div className="flex items-center justify-between w-full border-b border-slate-800/50 pb-2.5">
-            <div className="w-10 h-10 shrink-0 opacity-0 pointer-events-none" />
-            
-            <h4 className="text-[11px] font-press-start text-emerald-400 flex items-center justify-center gap-1.5 text-center leading-none">
-              <Sparkles className="w-3.5 h-3.5" /> WORKOUT BALANCE <Sparkles className="w-3.5 h-3.5" />
-            </h4>
-            
-            <button
-              onClick={() => setIsBalanceHelpOpen(true)}
-              className="w-10 h-10 rounded-xl bg-[#0D0D0E]/90 border border-slate-800 flex items-center justify-center font-mono text-base font-black text-emerald-400 hover:text-emerald-300 hover:border-emerald-550 hover:bg-emerald-500/5 cursor-pointer active:scale-95 transition duration-150 shrink-0 shadow-sm"
-              title="Balance Guide"
-            >
-              ?
-            </button>
-          </div>
-
-          {/* Micro Visual Bar of Stat Ratios */}
-          <div className="w-full">
-            <div className="flex justify-between text-[9px] font-mono text-slate-500 mb-1">
-              <span>WORKOUT TRAINING</span>
-              <span>7 DYNAMIC SECTORS</span>
-            </div>
-            <div className="w-full h-3 bg-[#0D0D0E] border border-slate-800 rounded-lg overflow-hidden flex">
-              {statKeys.map((key) => {
-                const val = weeklyVolume[key] || 0;
-                const share = totalStimulus > 0 ? (val / totalStimulus) * 100 : 100 / 7;
-                return (
-                  <div
-                    key={key}
-                    style={{
-                      width: `${share}%`,
-                      backgroundColor: statConfig[key].colorHex
-                    }}
-                    title={`${statConfig[key].label}: ${val.toFixed(1)}% (${share.toFixed(1)}% share)`}
-                    className="h-full border-r border-[#0D0D0E] last:border-0 hover:brightness-110 transition duration-150 cursor-pointer"
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
         {/* Beautiful high-tech grid of progress status panels */}
         <div className="flex flex-col gap-1.5">
           {statKeys.map((key) => {
@@ -318,47 +264,6 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
           })}
         </div>
       </div>
-
-      {/* 🔮 WORKOUT BALANCE HELP POPUP OVERLAY */}
-      {isBalanceHelpOpen && (
-        <div className="fixed inset-0 bg-[#090B0E]/85 backdrop-blur-md z-55 flex items-center justify-center p-4">
-          <div className="w-full max-w-[340px] bg-[#0D1117] border-2 border-emerald-500/50 rounded-2xl p-6 shadow-[0_0_25px_rgba(16,185,129,0.2)] relative overflow-hidden flex flex-col items-center text-center gap-4 animate-fade-in">
-            {/* Accent decoration */}
-            <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
-            
-            {/* Sparkles Header */}
-            <div className="w-12 h-12 rounded-xl bg-[#161B22] border border-slate-800 flex items-center justify-center text-emerald-400 text-xl shadow-md font-mono">
-              ✨
-            </div>
-
-            <div>
-              <span className="text-[8px] font-press-start text-emerald-400 tracking-widest block uppercase mb-1">DOSSIER ADVISORY</span>
-              <h3 className="text-xs font-press-start text-white uppercase tracking-wider block">
-                WORKOUT BALANCE
-              </h3>
-              
-              <div className="bg-[#0D0D0E]/60 border border-slate-800 rounded-xl p-4 text-[10px] font-mono text-slate-300 leading-relaxed text-left mt-3">
-                Current Muscle Symmetry Ratio: <strong className="text-emerald-450 font-bold">{balancePercentage}%</strong>.
-                {balancePercentage < 75 ? (
-                  " Imbalance Warning! Your training distribution is uneven. Focus on lagging muscle groups to restore JRPG class symmetry."
-                ) : (
-                  " Optimal Symmetry! Your training is highly balanced across all dynamic sectors. Keep maintaining class equilibrium."
-                )}
-              </div>
-            </div>
-
-            {/* Action buttons */}
-            <button
-              onClick={() => setIsBalanceHelpOpen(false)}
-              style={{ minHeight: "40px" }}
-              className="w-full bg-emerald-500 hover:bg-emerald-600 active:scale-[0.98] transition cursor-pointer text-black font-press-start text-[9px] tracking-wider py-2.5 rounded-xl font-bold shadow-md shadow-emerald-500/10 uppercase"
-            >
-              UNDERSTOOD
-            </button>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

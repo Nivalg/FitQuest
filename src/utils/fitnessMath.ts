@@ -1,4 +1,5 @@
 import { FitnessLog } from "../types";
+import { EXERCISE_DATABASE } from "../exercises";
 
 export interface StatLevels {
   chestStrength: number;
@@ -22,7 +23,7 @@ export interface LogMetrics {
 
 export interface ExerciseConfig {
   name: string;
-  formType: "A" | "B" | "C" | "D" | "E";
+  formType: "A" | "B" | "C" | "D" | "E" | "F";
   baseline: number;
   peak: number;
   builds: {
@@ -52,7 +53,22 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     formType: "A",
     baseline: 45,
     peak: 600,
-    builds: { legStrength: 100 },
+    builds: { legStrength: 70, speed: 30 },
+    subCategories: ["quads", "glutes"]
+  },
+  {
+    name: "Power Clean",
+    formType: "A",
+    baseline: 45,
+    peak: 300,
+    builds: { speed: 50, legStrength: 30, backStrength: 20 }
+  },
+  {
+    name: "Dumbbell Lunges",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { legStrength: 70, speed: 30 },
     subCategories: ["quads", "glutes"]
   },
   {
@@ -360,6 +376,14 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     subCategories: ["hamstrings"]
   },
   {
+    name: "Lying Leg Curl",
+    formType: "A",
+    baseline: 15,
+    peak: 180,
+    builds: { legStrength: 80, stamina: 20 },
+    subCategories: ["hamstrings"]
+  },
+  {
     name: "Cable Tricep Pushdown",
     formType: "A",
     baseline: 10,
@@ -447,7 +471,7 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     subCategories: ["glutes"]
   },
   {
-    name: "Machine Hip Thrust",
+    name: "Smith Machine Hip Thrust",
     formType: "A",
     baseline: 45,
     peak: 400,
@@ -455,12 +479,20 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     subCategories: ["glutes"]
   },
   {
-    name: "Gluteator",
+    name: "Smith Machine Squat",
     formType: "A",
-    baseline: 20,
-    peak: 250,
+    baseline: 45,
+    peak: 450,
     builds: { legStrength: 80, stamina: 20 },
-    subCategories: ["glutes"]
+    subCategories: ["quads", "glutes"]
+  },
+  {
+    name: "Hack Squat",
+    formType: "A",
+    baseline: 45,
+    peak: 600,
+    builds: { legStrength: 80, stamina: 20 },
+    subCategories: ["quads", "glutes"]
   },
 
   // 3. BODYWEIGHT
@@ -638,6 +670,13 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     builds: { stamina: 80, speed: 20 }
   },
   {
+    name: "Walking",
+    formType: "D",
+    baseline: 2.0,
+    peak: 5.0,
+    builds: { stamina: 70, speed: 30 }
+  },
+  {
     name: "Sprint Intervals",
     formType: "D",
     baseline: 4.615,
@@ -678,6 +717,237 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     baseline: 0.5,
     peak: 10.0,
     builds: { stamina: 70, backStrength: 30 }
+  },
+  {
+    name: "Dumbbell Chest Fly",
+    formType: "A",
+    baseline: 10,
+    peak: 120,
+    builds: { chestStrength: 80, stamina: 20 },
+    subCategories: ["chest"]
+  },
+  {
+    name: "Weighted Decline Sit-Up",
+    formType: "A",
+    baseline: 10,
+    peak: 120,
+    builds: { coreStrength: 80, stamina: 20 },
+    subCategories: ["core"]
+  },
+  {
+    name: "Weighted Crunch",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { coreStrength: 80, stamina: 20 },
+    subCategories: ["core"]
+  },
+  {
+    name: "Machine Chest Press",
+    formType: "A",
+    baseline: 20,
+    peak: 300,
+    builds: { chestStrength: 80, armStrength: 20 },
+    subCategories: ["chest"]
+  },
+  {
+    name: "Smith Machine Bench Press",
+    formType: "A",
+    baseline: 30,
+    peak: 400,
+    builds: { chestStrength: 80, armStrength: 20 },
+    subCategories: ["chest"]
+  },
+  {
+    name: "Machine Incline Press",
+    formType: "A",
+    baseline: 20,
+    peak: 250,
+    builds: { chestStrength: 80, armStrength: 20 },
+    subCategories: ["chest"]
+  },
+  {
+    name: "Machine Assisted Pull-Up",
+    formType: "A",
+    baseline: 10,
+    peak: 200,
+    builds: { backStrength: 80, armStrength: 20 },
+    subCategories: ["back"]
+  },
+  {
+    name: "Close-Grip Lat Pulldown",
+    formType: "A",
+    baseline: 30,
+    peak: 250,
+    builds: { backStrength: 80, armStrength: 20 },
+    subCategories: ["back"]
+  },
+  {
+    name: "Cable Straight-Arm Pulldown",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { backStrength: 80, stamina: 20 },
+    subCategories: ["back"]
+  },
+  {
+    name: "Machine Preacher Curl",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { armStrength: 100 },
+    subCategories: ["biceps"]
+  },
+  {
+    name: "Cable Overhead Tricep Extension",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { armStrength: 100 },
+    subCategories: ["triceps"]
+  },
+  {
+    name: "Machine Seated Dips",
+    formType: "A",
+    baseline: 20,
+    peak: 250,
+    builds: { armStrength: 80, stamina: 20 },
+    subCategories: ["triceps"]
+  },
+  {
+    name: "Machine Ab Crunch",
+    formType: "A",
+    baseline: 10,
+    peak: 200,
+    builds: { coreStrength: 80, stamina: 20 },
+    subCategories: ["core"]
+  },
+  {
+    name: "Cable Woodchopper",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { coreStrength: 80, stamina: 20 },
+    subCategories: ["core"]
+  },
+  {
+    name: "Cable Standing Oblique Twist",
+    formType: "A",
+    baseline: 10,
+    peak: 120,
+    builds: { coreStrength: 80, stamina: 20 },
+    subCategories: ["core"]
+  },
+  {
+    name: "Machine Torso Rotation",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { coreStrength: 80, stamina: 20 },
+    subCategories: ["core"]
+  },
+  {
+    name: "Machine Seated Shoulder Press",
+    formType: "A",
+    baseline: 20,
+    peak: 250,
+    builds: { armStrength: 80, stamina: 20 },
+    subCategories: ["shoulders"]
+  },
+  {
+    name: "Machine Lateral Raise",
+    formType: "A",
+    baseline: 10,
+    peak: 150,
+    builds: { armStrength: 90, stamina: 10 },
+    subCategories: ["shoulders"]
+  },
+  {
+    name: "Smith Machine Overhead Press",
+    formType: "A",
+    baseline: 30,
+    peak: 300,
+    builds: { armStrength: 80, stamina: 20 },
+    subCategories: ["shoulders"]
+  },
+  {
+    name: "Incline Push-Ups",
+    formType: "B",
+    baseline: 3,
+    peak: 80,
+    builds: { chestStrength: 70, stamina: 30 },
+    subCategories: ["chest"]
+  },
+  {
+    name: "Decline Push-Ups",
+    formType: "B",
+    baseline: 3,
+    peak: 60,
+    builds: { chestStrength: 70, stamina: 30 },
+    subCategories: ["chest"]
+  },
+  {
+    name: "Wide Grip Push-Ups",
+    formType: "B",
+    baseline: 3,
+    peak: 60,
+    builds: { chestStrength: 70, stamina: 30 },
+    subCategories: ["chest"]
+  },
+  {
+    name: "Chest Dips",
+    formType: "B",
+    baseline: 1,
+    peak: 40,
+    builds: { chestStrength: 80, stamina: 20 },
+    subCategories: ["chest"]
+  },
+  {
+    name: "Underhand Pull-Ups",
+    formType: "B",
+    baseline: 1,
+    peak: 40,
+    builds: { backStrength: 70, armStrength: 30 },
+    subCategories: ["back", "biceps"]
+  },
+  {
+    name: "Pull-Up Negatives",
+    formType: "B",
+    baseline: 1,
+    peak: 30,
+    builds: { backStrength: 80, stamina: 20 },
+    subCategories: ["back"]
+  },
+  {
+    name: "Superman Holds",
+    formType: "C",
+    baseline: 10,
+    peak: 180,
+    builds: { backStrength: 100 },
+    subCategories: ["back"]
+  },
+  {
+    name: "Scapular Pull-Ups",
+    formType: "B",
+    baseline: 3,
+    peak: 50,
+    builds: { backStrength: 80, stamina: 20 },
+    subCategories: ["back"]
+  },
+  {
+    name: "Pike Push-Ups",
+    formType: "B",
+    baseline: 1,
+    peak: 40,
+    builds: { armStrength: 80, stamina: 20 },
+    subCategories: ["shoulders"]
+  },
+  {
+    name: "Hiking",
+    formType: "F",
+    baseline: 0,
+    peak: 100,
+    builds: { stamina: 40, legStrength: 30, speed: 30 }
   }
 ];
 
@@ -685,6 +955,8 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
 export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "seconds" | "paceSeconds" | "distanceVolume" | "floors"; avg: number; elite: number }> = {
   "Bench Press": { type: "weightRatio", avg: 1.0, elite: 1.75 },
   "Barbell Squat": { type: "weightRatio", avg: 1.25, elite: 2.25 },
+  "Power Clean": { type: "weightRatio", avg: 0.6, elite: 1.25 },
+  "Dumbbell Lunges": { type: "weightRatio", avg: 0.4, elite: 0.9 },
   "Deadlift": { type: "weightRatio", avg: 1.5, elite: 2.5 },
   "Barbell Row": { type: "weightRatio", avg: 0.8, elite: 1.4 },
   "Romanian Deadlift": { type: "weightRatio", avg: 1.1, elite: 2.0 },
@@ -707,6 +979,7 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Seated Cable Row": { type: "weightRatio", avg: 0.9, elite: 1.5 },
   "Machine Leg Press": { type: "weightRatio", avg: 2.5, elite: 5.0 },
   "Machine Hamstring Curl": { type: "weightRatio", avg: 0.5, elite: 0.9 },
+  "Lying Leg Curl": { type: "weightRatio", avg: 0.45, elite: 0.85 },
   "Cable Tricep Pushdown": { type: "weightRatio", avg: 0.5, elite: 0.95 },
   "Cable Bicep Curl": { type: "weightRatio", avg: 0.4, elite: 0.8 },
   "Cable Crunch": { type: "weightRatio", avg: 0.6, elite: 1.2 },
@@ -714,14 +987,13 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Hip Abduction Machine": { type: "weightRatio", avg: 0.5, elite: 1.0 },
   "Cable Pull Through": { type: "weightRatio", avg: 0.5, elite: 1.0 },
   "Glute Kickback": { type: "weightRatio", avg: 0.4, elite: 0.8 },
-  "Machine Hip Thrust": { type: "weightRatio", avg: 1.0, elite: 2.2 },
-  "Gluteator": { type: "weightRatio", avg: 0.5, elite: 1.0 },
+  "Smith Machine Hip Thrust": { type: "weightRatio", avg: 1.0, elite: 2.2 },
   "Machine Standing Calf Raises": { type: "weightRatio", avg: 0.8, elite: 1.5 },
   "Machine Sitting Calf Raises": { type: "weightRatio", avg: 0.6, elite: 1.2 },
   "Cable Shrug": { type: "weightRatio", avg: 0.6, elite: 1.2 },
   "Regular Push-Ups": { type: "reps", avg: 25, elite: 60 },
   "Dips": { type: "reps", avg: 12, elite: 35 },
-  "Regular Pull-Ups": { type: "reps", avg: 8, elite: 22 },
+  "Overhand Pull-Ups": { type: "reps", avg: 8, elite: 22 },
   "Inverted Rows": { type: "reps", avg: 15, elite: 40 },
   "Bodyweight Squats": { type: "reps", avg: 40, elite: 100 },
   "Chin-Ups": { type: "reps", avg: 9, elite: 24 },
@@ -729,13 +1001,14 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Sit-Ups": { type: "reps", avg: 30, elite: 75 },
   "Ab Wheel Rollout": { type: "reps", avg: 10, elite: 30 },
   "Decline Crunch": { type: "reps", avg: 20, elite: 50 },
-  "Agility Ladder Drills": { type: "reps", avg: 4, elite: 10 },
-  "Box Jumps": { type: "reps", avg: 10, elite: 30 },
+  "Agility Ladder Drills": { type: "reps", avg: 3, elite: 8 },
+  "Box Jumps": { type: "reps", avg: 8, elite: 22 },
   "Calf Raises": { type: "reps", avg: 20, elite: 50 },
   "Lunges": { type: "reps", avg: 20, elite: 50 },
   "Forward Lunges": { type: "reps", avg: 20, elite: 50 },
   "Plank": { type: "seconds", avg: 120, elite: 300 },
-  "Treadmill Run / Jog": { type: "paceSeconds", avg: 540, elite: 330 }, 
+  "Treadmill Run / Jog": { type: "paceSeconds", avg: 660, elite: 420 }, 
+  "Walking": { type: "paceSeconds", avg: 1080, elite: 720 }, 
   "Sprint Intervals": { type: "distanceVolume", avg: 0.25, elite: 1.0 },
   "Stairmaster": { type: "floors", avg: 40, elite: 120 },
   "Jump Rope": { type: "seconds", avg: 180, elite: 600 },
@@ -754,18 +1027,49 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Cable Lateral Raise": { type: "weightRatio", avg: 0.15, elite: 0.3 },
   "Bench Dips": { type: "reps", avg: 12, elite: 40 },
   "Diamond Push-Ups": { type: "reps", avg: 12, elite: 45 },
-  "Squat Jumps": { type: "reps", avg: 15, elite: 50 },
+  "Squat Jumps": { type: "reps", avg: 12, elite: 35 },
   "Jumping Jacks": { type: "reps", avg: 50, elite: 150 },
   "Burpees": { type: "reps", avg: 10, elite: 40 },
-  "Bicycle": { type: "paceSeconds", avg: 180, elite: 120 },
-  "Elliptical": { type: "paceSeconds", avg: 600, elite: 420 },
+  "Bicycle": { type: "paceSeconds", avg: 240, elite: 150 },
+  "Elliptical": { type: "paceSeconds", avg: 720, elite: 480 },
   "Rowing Machine": { type: "paceSeconds", avg: 480, elite: 300 },
   "Barbell Front Squat": { type: "weightRatio", avg: 0.8, elite: 1.4 },
   "Dumbbell Russian Twist": { type: "weightRatio", avg: 0.2, elite: 0.4 },
   "Plate Russian Twist": { type: "weightRatio", avg: 0.15, elite: 0.35 },
   "Plate Sit-Ups": { type: "weightRatio", avg: 0.15, elite: 0.35 },
   "Good Mornings": { type: "weightRatio", avg: 0.6, elite: 1.1 },
-  "Bodyweight Reverse Lunge": { type: "reps", avg: 20, elite: 50 }
+  "Bodyweight Reverse Lunge": { type: "reps", avg: 20, elite: 50 },
+  "Dumbbell Chest Fly": { type: "weightRatio", avg: 0.45, elite: 0.9 },
+  "Weighted Decline Sit-Up": { type: "weightRatio", avg: 0.2, elite: 0.5 },
+  "Weighted Crunch": { type: "weightRatio", avg: 0.2, elite: 0.55 },
+  "Machine Chest Press": { type: "weightRatio", avg: 0.8, elite: 1.6 },
+  "Smith Machine Bench Press": { type: "weightRatio", avg: 0.9, elite: 1.7 },
+  "Smith Machine Squat": { type: "weightRatio", avg: 1.1, elite: 2.0 },
+  "Hack Squat": { type: "weightRatio", avg: 1.25, elite: 2.5 },
+  "Machine Incline Press": { type: "weightRatio", avg: 0.7, elite: 1.4 },
+  "Machine Assisted Pull-Up": { type: "weightRatio", avg: 0.5, elite: 1.1 },
+  "Close-Grip Lat Pulldown": { type: "weightRatio", avg: 0.75, elite: 1.35 },
+  "Cable Straight-Arm Pulldown": { type: "weightRatio", avg: 0.35, elite: 0.7 },
+  "Machine Preacher Curl": { type: "weightRatio", avg: 0.35, elite: 0.7 },
+  "Cable Overhead Tricep Extension": { type: "weightRatio", avg: 0.35, elite: 0.7 },
+  "Machine Seated Dips": { type: "weightRatio", avg: 0.6, elite: 1.2 },
+  "Machine Ab Crunch": { type: "weightRatio", avg: 0.5, elite: 1.1 },
+  "Cable Woodchopper": { type: "weightRatio", avg: 0.3, elite: 0.65 },
+  "Cable Standing Oblique Twist": { type: "weightRatio", avg: 0.25, elite: 0.55 },
+  "Machine Torso Rotation": { type: "weightRatio", avg: 0.3, elite: 0.65 },
+  "Machine Seated Shoulder Press": { type: "weightRatio", avg: 0.5, elite: 1.05 },
+  "Machine Lateral Raise": { type: "weightRatio", avg: 0.25, elite: 0.55 },
+  "Smith Machine Overhead Press": { type: "weightRatio", avg: 0.6, elite: 1.15 },
+  "Incline Push-Ups": { type: "reps", avg: 20, elite: 55 },
+  "Decline Push-Ups": { type: "reps", avg: 15, elite: 45 },
+  "Wide Grip Push-Ups": { type: "reps", avg: 15, elite: 45 },
+  "Chest Dips": { type: "reps", avg: 8, elite: 25 },
+  "Underhand Pull-Ups": { type: "reps", avg: 8, elite: 22 },
+  "Pull-Up Negatives": { type: "reps", avg: 6, elite: 18 },
+  "Superman Holds": { type: "seconds", avg: 45, elite: 120 },
+  "Scapular Pull-Ups": { type: "reps", avg: 10, elite: 30 },
+  "Pike Push-Ups": { type: "reps", avg: 10, elite: 30 },
+  "Hiking": { type: "distanceVolume", avg: 5, elite: 15 }
 };
 
 export function getExerciseConfig(name: string): ExerciseConfig | undefined {
@@ -868,10 +1172,19 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
   
   const conf = getExerciseConfig(log.exerciseName);
   const resolvedName = conf ? conf.name : log.exerciseName.trim();
+
+  const m = parseLogMetrics(log);
+
+  if (resolvedName === "Hiking") {
+    const mins = m.minutes || 0;
+    const trailLevel = m.weight || 1; // stored in weight field
+    const scoreVal = (mins * trailLevel) / 480;
+    return Math.max(0.00, parseFloat(scoreVal.toFixed(2)));
+  }
+
   const anchor = SCALING_ANCHORS[resolvedName];
   if (!anchor) return 0;
 
-  const m = parseLogMetrics(log);
   let score = 0;
 
   // Custom overriding rules for speed/stamina targeting cardio/bicycle/elliptical/rower/stairmaster
@@ -888,17 +1201,18 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
     const isElliptical = nameLower === "elliptical";
     const isRower = nameLower === "rowing machine";
     const isStairmaster = nameLower === "stairmaster";
+    const isWalking = nameLower === "walking";
     
     if (targetStat === "stamina") {
-      if (isTreadmill || isBicycle || isElliptical || isRower || isStairmaster) {
+      if (isTreadmill || isBicycle || isElliptical || isRower || isStairmaster || isWalking) {
         if (totalSeconds <= 0) return 0;
         
-        let avgSecs = 900;   // 15 mins
-        let eliteSecs = 3600; // 60 mins
+        let avgSecs = 1200;   // 20 mins
+        let eliteSecs = 7200; // 120 mins (2 hours)
         
         if (isBicycle) {
-          avgSecs = 1200;    // 20 mins
-          eliteSecs = 5400;  // 90 mins
+          avgSecs = 1800;    // 30 mins
+          eliteSecs = 10800; // 180 mins (3 hours)
         }
         
         const scoreVal = ((totalSeconds - avgSecs) / (eliteSecs - avgSecs)) * 50 + 50;
@@ -906,7 +1220,7 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
       }
     }
     else if (targetStat === "speed") {
-      if (isTreadmill || isBicycle || isElliptical || isRower || isStairmaster) {
+      if (isTreadmill || isBicycle || isElliptical || isRower || isStairmaster || isWalking) {
         if (isStairmaster) {
           if (floors <= 0 || totalSeconds <= 0) return 0;
           const inputPaceSeconds = totalSeconds / floors;
@@ -1223,25 +1537,87 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
 
   statNames.forEach(stat => {
     let offsetSum = 0;
+
+    if (stat === "armStrength" || stat === "legStrength") {
+      const subs = stat === "armStrength"
+        ? ["biceps", "triceps", "shoulders", "traps"]
+        : ["quads", "hamstrings", "glutes", "calves"];
+
+      const subCategorySums = [0, 0, 0, 0];
+
+      EXERCISE_CONFIGS.forEach(config => {
+        const builds = config.builds as any;
+        const pct = builds[stat] || 0;
+        if (pct > 0) {
+          const matchedLogs = exerciseLogs[config.name] || [];
+          const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+            config.name,
+            stat,
+            matchedLogs,
+            now,
+            bodyWeight
+          );
+          const contribution = statEffectiveLvl * (pct / 100);
+          const configSubs = config.subCategories || [];
+          let hasMatchedSub = false;
+          subs.forEach((sub, index) => {
+            if (configSubs.includes(sub)) {
+              subCategorySums[index] += contribution;
+              hasMatchedSub = true;
+            }
+          });
+          if (!hasMatchedSub) {
+            subs.forEach((_, index) => {
+              subCategorySums[index] += contribution;
+            });
+          }
+        }
+      });
+
+      offsetSum = (subCategorySums[0] + subCategorySums[1] + subCategorySums[2] + subCategorySums[3]) / 4;
+    } else {
+      EXERCISE_CONFIGS.forEach(config => {
+        const builds = config.builds as any;
+        const pct = builds[stat] || 0;
+        if (pct > 0) {
+          const matchedLogs = exerciseLogs[config.name] || [];
+          const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+            config.name,
+            stat,
+            matchedLogs,
+            now,
+            bodyWeight
+          );
+          offsetSum += statEffectiveLvl * (pct / 100);
+        }
+      });
+    }
+
+    const clampedLvl = Math.max(0.00, offsetSum); // Uncapped! Can scale past 100.00 infinitely!
+
+    // Cap at 99.00 if only machine exercises are used for this stat
+    let hasNonMachineLog = false;
     EXERCISE_CONFIGS.forEach(config => {
       const builds = config.builds as any;
-      const pct = builds[stat] || 0;
-      if (pct > 0) {
+      if (builds[stat] > 0) {
         const matchedLogs = exerciseLogs[config.name] || [];
-        const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
-          config.name,
-          stat,
-          matchedLogs,
-          now,
-          bodyWeight
-        );
-        offsetSum += statEffectiveLvl * (pct / 100);
+        const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+        if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
+          hasNonMachineLog = true;
+        }
       }
     });
 
-    const clampedLvl = Math.max(0.00, offsetSum); // Uncapped! Can scale past 100.00 infinitely!
-    evaluation.statLevels[stat] = parseFloat(clampedLvl.toFixed(2));
-    evaluation.statXps[stat] = Math.round(clampedLvl); // Overall whole number representation
+    let finalLvl = clampedLvl;
+    if (finalLvl > 50) {
+      finalLvl = 50 + (finalLvl - 50) * 0.4;
+    }
+    if (!hasNonMachineLog && finalLvl >= 100.00) {
+      finalLvl = 99.00;
+    }
+
+    evaluation.statLevels[stat] = parseFloat(finalLvl.toFixed(2));
+    evaluation.statXps[stat] = Math.round(finalLvl); // Overall whole number representation
   });
 
   // --- TIME-BASED STATE DECAY OVERRIDE ---
@@ -1298,7 +1674,15 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
       const builds = conf.builds as any;
       const pct = builds[stat] || 0;
       if (pct > 0) {
-        evaluation.weeklyVolume[stat] += progress * (pct / 100);
+        let addedProgress = progress * (pct / 100);
+
+        // Speed progress is easier to build via free weights
+        const dbEx = EXERCISE_DATABASE.find(e => e.name === conf.name);
+        if (stat === "speed" && dbEx?.pillar === "weights") {
+          addedProgress *= 2.5;
+        }
+
+        evaluation.weeklyVolume[stat] += addedProgress;
 
         // Accumulate subcategory weekly progress
         if (conf.subCategories) {
@@ -1312,6 +1696,14 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
         }
       }
     });
+
+    // If this is a run exercise of >= 5.0 miles or >= 60 minutes, fill speed and stamina all the way
+    const dbEx = EXERCISE_DATABASE.find(e => e.name === conf.name);
+    const isRun = conf.name === "Treadmill Run / Jog" || conf.name === "Sprint Intervals" || (dbEx?.pillar === "cardio" && (conf.name.toLowerCase().includes("run") || conf.name.toLowerCase().includes("sprint") || conf.name.toLowerCase().includes("jog")));
+    if (isRun && ((log.distance && log.distance >= 5.0) || (log.minutes && log.minutes >= 60))) {
+      evaluation.weeklyVolume.speed = 100.0;
+      evaluation.weeklyVolume.stamina = 100.0;
+    }
   });
 
   // Clamp weekly volume (stimulus progress) values at 100.0% max
@@ -1447,14 +1839,68 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
 
   statNames.forEach(stat => {
     let offsetSum = 0;
+
+    if (stat === "armStrength" || stat === "legStrength") {
+      const subs = stat === "armStrength"
+        ? ["biceps", "triceps", "shoulders", "traps"]
+        : ["quads", "hamstrings", "glutes", "calves"];
+
+      const subCategorySums = [0, 0, 0, 0];
+
+      EXERCISE_CONFIGS.forEach(config => {
+        const builds = config.builds as any;
+        const pct = builds[stat] || 0;
+        if (pct > 0) {
+          const contribution = (peakLevels[config.name] || 0) * (pct / 100);
+          const configSubs = config.subCategories || [];
+          let hasMatchedSub = false;
+          subs.forEach((sub, index) => {
+            if (configSubs.includes(sub)) {
+              subCategorySums[index] += contribution;
+              hasMatchedSub = true;
+            }
+          });
+          if (!hasMatchedSub) {
+            subs.forEach((_, index) => {
+              subCategorySums[index] += contribution;
+            });
+          }
+        }
+      });
+
+      offsetSum = (subCategorySums[0] + subCategorySums[1] + subCategorySums[2] + subCategorySums[3]) / 4;
+    } else {
+      EXERCISE_CONFIGS.forEach(config => {
+        const builds = config.builds as any;
+        const pct = builds[stat] || 0;
+        if (pct > 0) {
+          offsetSum += (peakLevels[config.name] || 0) * (pct / 100);
+        }
+      });
+    }
+
+    // Cap at 99.00 if only machine exercises are used for this stat
+    let hasNonMachineLog = false;
     EXERCISE_CONFIGS.forEach(config => {
       const builds = config.builds as any;
-      const pct = builds[stat] || 0;
-      if (pct > 0) {
-        offsetSum += (peakLevels[config.name] || 0) * (pct / 100);
+      if (builds[stat] > 0) {
+        const matchedLogs = exerciseLogs[config.name] || [];
+        const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+        if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
+          hasNonMachineLog = true;
+        }
       }
     });
-    baseStats[stat] = parseFloat(offsetSum.toFixed(2));
+
+    let finalLvl = offsetSum;
+    if (finalLvl > 50) {
+      finalLvl = 50 + (finalLvl - 50) * 0.4;
+    }
+    if (!hasNonMachineLog && finalLvl >= 100.00) {
+      finalLvl = 99.00;
+    }
+
+    baseStats[stat] = parseFloat(finalLvl.toFixed(2));
   });
 
   return baseStats;
@@ -1540,6 +1986,28 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
         } else {
           decayStats[stat].activeScore = existing.basePR * (1 - (elapsedSeconds / 2592000));
         }
+      }
+    }
+
+    // Cap at 99.00 if only machine exercises are used for this stat
+    let hasNonMachineLog = false;
+    logs.forEach(l => {
+      if (!l.exerciseName) return;
+      const conf = getExerciseConfig(l.exerciseName);
+      if (!conf) return;
+      const builds = conf.builds as any;
+      const dbEx = EXERCISE_DATABASE.find(e => e.name === conf.name);
+      if (builds[stat] && builds[stat] > 0 && dbEx?.pillar !== "machines") {
+        hasNonMachineLog = true;
+      }
+    });
+
+    if (!hasNonMachineLog) {
+      if (decayStats[stat].activeScore >= 100.00) {
+        decayStats[stat].activeScore = 99.00;
+      }
+      if (decayStats[stat].basePR >= 100.00) {
+        decayStats[stat].basePR = 99.00;
       }
     }
 
@@ -1633,4 +2101,372 @@ export function getMetricTier(lvl: number): { name: string; color: string; bg: s
       description: "Uncapped performance ranges, exceeding historical limits."
     };
   }
+}
+
+/**
+ * Calculates the individual level for each arm and leg subcategory muscle
+ */
+export function calculateSubCategoryLevels(
+  logs: FitnessLog[],
+  bodyWeight: number,
+  statLevels: StatLevels
+): Record<string, number> {
+  const exerciseLogs: Record<string, FitnessLog[]> = {};
+  logs.forEach(log => {
+    if (!log.exerciseName) return;
+    const conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+    const resolvedName = conf ? conf.name : log.exerciseName.trim();
+    if (!exerciseLogs[resolvedName]) {
+      exerciseLogs[resolvedName] = [];
+    }
+    exerciseLogs[resolvedName].push(log);
+  });
+
+  const prByExercise: Record<string, number> = {};
+  logs.forEach(log => {
+    if (!log.exerciseName) return;
+    const score = calculateScoreFromLog(log, bodyWeight);
+    const conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+    const resolvedName = conf ? conf.name : log.exerciseName.trim();
+    prByExercise[resolvedName] = Math.max(prByExercise[resolvedName] || 0, score);
+  });
+
+  const peakLevels: Record<string, number> = {};
+  EXERCISE_CONFIGS.forEach(config => {
+    const matchedLogs = exerciseLogs[config.name] || [];
+    const workingLogs = matchedLogs.filter(l => {
+      const score = calculateScoreFromLog(l, bodyWeight);
+      const pr = prByExercise[config.name] || 0;
+      const ratio = pr > 0 ? (score / pr) : 1.0;
+      return ratio >= 0.60 || pr === 0;
+    });
+
+    if (workingLogs.length === 0) {
+      peakLevels[config.name] = 0;
+      return;
+    }
+
+    let peakScore = 0;
+    workingLogs.forEach(wl => {
+      const score = calculateScoreFromLog(wl, bodyWeight);
+      if (score > peakScore) {
+        peakScore = score;
+      }
+    });
+    peakLevels[config.name] = peakScore;
+  });
+
+  // Calculate undecayed sums for subcategories
+  const subCategorySums: Record<string, number> = {
+    biceps: 0,
+    triceps: 0,
+    shoulders: 0,
+    traps: 0,
+    quads: 0,
+    hamstrings: 0,
+    glutes: 0,
+    calves: 0
+  };
+
+  const hasNonMachineSubLog: Record<string, boolean> = {
+    biceps: false,
+    triceps: false,
+    shoulders: false,
+    traps: false,
+    quads: false,
+    hamstrings: false,
+    glutes: false,
+    calves: false
+  };
+
+  const hasAnySubLog: Record<string, boolean> = {
+    biceps: false,
+    triceps: false,
+    shoulders: false,
+    traps: false,
+    quads: false,
+    hamstrings: false,
+    glutes: false,
+    calves: false
+  };
+
+  const armSubs = ["biceps", "triceps", "shoulders", "traps"];
+  const legSubs = ["quads", "hamstrings", "glutes", "calves"];
+
+  EXERCISE_CONFIGS.forEach(config => {
+    const builds = config.builds as any;
+    const armPct = builds.armStrength || 0;
+    const legPct = builds.legStrength || 0;
+    const peak = peakLevels[config.name] || 0;
+    const matchedLogs = exerciseLogs[config.name] || [];
+    const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+    const isMachine = dbEx?.pillar === "machines";
+
+    if (armPct > 0) {
+      const contribution = peak * (armPct / 100);
+      const configSubs = config.subCategories || [];
+      let hasMatchedSub = false;
+      armSubs.forEach(sub => {
+        if (configSubs.includes(sub)) {
+          subCategorySums[sub] += contribution;
+          hasMatchedSub = true;
+          if (matchedLogs.length > 0) {
+            hasAnySubLog[sub] = true;
+            if (!isMachine) hasNonMachineSubLog[sub] = true;
+          }
+        }
+      });
+      if (!hasMatchedSub) {
+        armSubs.forEach(sub => {
+          subCategorySums[sub] += contribution;
+          if (matchedLogs.length > 0) {
+            hasAnySubLog[sub] = true;
+            if (!isMachine) hasNonMachineSubLog[sub] = true;
+          }
+        });
+      }
+    }
+
+    if (legPct > 0) {
+      const contribution = peak * (legPct / 100);
+      const configSubs = config.subCategories || [];
+      let hasMatchedSub = false;
+      legSubs.forEach(sub => {
+        if (configSubs.includes(sub)) {
+          subCategorySums[sub] += contribution;
+          hasMatchedSub = true;
+          if (matchedLogs.length > 0) {
+            hasAnySubLog[sub] = true;
+            if (!isMachine) hasNonMachineSubLog[sub] = true;
+          }
+        }
+      });
+      if (!hasMatchedSub) {
+        legSubs.forEach(sub => {
+          subCategorySums[sub] += contribution;
+          if (matchedLogs.length > 0) {
+            hasAnySubLog[sub] = true;
+            if (!isMachine) hasNonMachineSubLog[sub] = true;
+          }
+        });
+      }
+    }
+  });
+
+  const undecayedStats = getUndecayedStats(logs, bodyWeight);
+  const subCategoryLevels: Record<string, number> = {};
+
+  const processSubCategory = (sub: string, parentStat: "armStrength" | "legStrength") => {
+    if (!hasAnySubLog[sub]) {
+      subCategoryLevels[sub] = 0.00;
+      return;
+    }
+
+    const baseParent = undecayedStats[parentStat] || 0;
+    const decayedParent = statLevels[parentStat] || 0;
+
+    let decayRatio = 1.0;
+    if (baseParent > 0) {
+      let rawBaseParent = baseParent;
+      if (baseParent > 50) {
+        rawBaseParent = 50 + (baseParent - 50) / 0.4;
+      }
+      
+      let rawDecayedParent = decayedParent;
+      if (decayedParent > 50) {
+        rawDecayedParent = 50 + (decayedParent - 50) / 0.4;
+      }
+
+      decayRatio = rawDecayedParent / rawBaseParent;
+    }
+
+    let decayedSubRaw = subCategorySums[sub] * decayRatio;
+    
+    // Apply diminishing returns
+    let finalSubLvl = decayedSubRaw;
+    if (finalSubLvl > 50) {
+      finalSubLvl = 50 + (finalSubLvl - 50) * 0.4;
+    }
+
+    // Apply machine cap
+    if (!hasNonMachineSubLog[sub] && finalSubLvl >= 100.00) {
+      finalSubLvl = 99.00;
+    }
+
+    subCategoryLevels[sub] = parseFloat(finalSubLvl.toFixed(2));
+  };
+
+  armSubs.forEach(sub => processSubCategory(sub, "armStrength"));
+  legSubs.forEach(sub => processSubCategory(sub, "legStrength"));
+
+  return subCategoryLevels;
+}
+
+export function calculateAllRecords(logs: FitnessLog[]): { title: string; val: string; icon: string; style: string }[] {
+  const list: { title: string; val: string; icon: string; style: string }[] = [];
+
+  // 1. Max Bench Press
+  const benchLogs = logs.filter(l => l.exerciseName === "Bench Press" && l.weight && l.reps);
+  if (benchLogs.length > 0) {
+    let max1RM = 0;
+    let maxLog = benchLogs[0];
+    benchLogs.forEach(l => {
+      const oneRepMax = l.weight! * (1 + l.reps! / 30);
+      if (oneRepMax > max1RM) {
+        max1RM = oneRepMax;
+        maxLog = l;
+      }
+    });
+    list.push({
+      title: "MAX BENCH PRESS (EST. 1RM)",
+      val: `${Math.round(max1RM)} LBS (${maxLog.weight} LBS x ${maxLog.reps} REPS)`,
+      icon: "🏋️",
+      style: "border-cyan-500/30 text-cyan-400"
+    });
+  }
+
+  // 2. Max Squat
+  const squatLogs = logs.filter(l => l.exerciseName === "Barbell Squat" && l.weight && l.reps);
+  if (squatLogs.length > 0) {
+    let max1RM = 0;
+    let maxLog = squatLogs[0];
+    squatLogs.forEach(l => {
+      const oneRepMax = l.weight! * (1 + l.reps! / 30);
+      if (oneRepMax > max1RM) {
+        max1RM = oneRepMax;
+        maxLog = l;
+      }
+    });
+    list.push({
+      title: "MAX BARBELL SQUAT (EST. 1RM)",
+      val: `${Math.round(max1RM)} LBS (${maxLog.weight} LBS x ${maxLog.reps} REPS)`,
+      icon: "🦵",
+      style: "border-emerald-500/30 text-emerald-400"
+    });
+  }
+
+  // 3. Max Deadlift
+  const deadliftLogs = logs.filter(l => l.exerciseName === "Deadlift" && l.weight && l.reps);
+  if (deadliftLogs.length > 0) {
+    let max1RM = 0;
+    let maxLog = deadliftLogs[0];
+    deadliftLogs.forEach(l => {
+      const oneRepMax = l.weight! * (1 + l.reps! / 30);
+      if (oneRepMax > max1RM) {
+        max1RM = oneRepMax;
+        maxLog = l;
+      }
+    });
+    list.push({
+      title: "MAX DEADLIFT (EST. 1RM)",
+      val: `${Math.round(max1RM)} LBS (${maxLog.weight} LBS x ${maxLog.reps} REPS)`,
+      icon: "💪",
+      style: "border-orange-500/30 text-orange-400"
+    });
+  }
+
+  // 4. Fastest Mile
+  const runLogs = logs.filter(l => (l.exerciseName === "Treadmill Run / Jog" || l.exerciseName === "Sprint Intervals") && l.distance && l.minutes !== undefined && l.seconds !== undefined);
+  if (runLogs.length > 0) {
+    let fastestPace = Infinity; // seconds per mile
+    let fastestLog = runLogs[0];
+    runLogs.forEach(l => {
+      const totalSeconds = l.minutes! * 60 + l.seconds!;
+      const pace = totalSeconds / l.distance!;
+      if (pace < fastestPace) {
+        fastestPace = pace;
+        fastestLog = l;
+      }
+    });
+    if (fastestPace !== Infinity) {
+      const minutesPart = Math.floor(fastestPace / 60);
+      const secondsPart = Math.round(fastestPace % 60);
+      list.push({
+        title: "FASTEST MILE PACE",
+        val: `${minutesPart}:${secondsPart.toString().padStart(2, "0")} / MILE (${fastestLog.distance} MI in ${fastestLog.minutes}m ${fastestLog.seconds}s)`,
+        icon: "⚡",
+        style: "border-rose-500/30 text-rose-400"
+      });
+    }
+  }
+
+  // 5. Most Floors Climbed
+  const stairLogs = logs.filter(l => l.exerciseName === "Stairmaster" && l.floors);
+  if (stairLogs.length > 0) {
+    const maxFloors = Math.max(...stairLogs.map(l => l.floors!));
+    list.push({
+      title: "MOST FLOORS CLIMBED",
+      val: `${maxFloors} FLOORS`,
+      icon: "🪜",
+      style: "border-purple-500/30 text-purple-400"
+    });
+  }
+
+  // 6. Most Pushups Done
+  const pushupLogs = logs.filter(l => l.exerciseName === "Regular Push-Ups" && l.reps);
+  if (pushupLogs.length > 0) {
+    const maxReps = Math.max(...pushupLogs.map(l => l.reps!));
+    list.push({
+      title: "MOST PUSH-UPS",
+      val: `${maxReps} REPS`,
+      icon: "👊",
+      style: "border-cyan-500/30 text-cyan-400"
+    });
+  }
+
+  // 7. Longest Distance Ran
+  const cardioLogs = logs.filter(l => l.distance);
+  if (cardioLogs.length > 0) {
+    const maxDist = Math.max(...cardioLogs.map(l => l.distance!));
+    list.push({
+      title: "LONGEST DISTANCE RUN",
+      val: `${maxDist.toFixed(2)} MILES`,
+      icon: "🏃",
+      style: "border-rose-500/30 text-rose-400"
+    });
+  }
+
+  // 8. Most Situps
+  const situpLogs = logs.filter(l => l.exerciseName === "Sit-Ups" && l.reps);
+  if (situpLogs.length > 0) {
+    const maxReps = Math.max(...situpLogs.map(l => l.reps!));
+    list.push({
+      title: "MOST SIT-UPS",
+      val: `${maxReps} REPS`,
+      icon: "🎯",
+      style: "border-amber-500/30 text-amber-400"
+    });
+  }
+
+  // 9. Most Bodyweight Squats
+  const bwSquatLogs = logs.filter(l => l.exerciseName === "Bodyweight Squats" && l.reps);
+  if (bwSquatLogs.length > 0) {
+    const maxReps = Math.max(...bwSquatLogs.map(l => l.reps!));
+    list.push({
+      title: "MOST BODYWEIGHT SQUATS",
+      val: `${maxReps} REPS`,
+      icon: "🦵",
+      style: "border-emerald-500/30 text-emerald-400"
+    });
+  }
+
+  // 10. Longest Plank
+  const plankLogs = logs.filter(l => l.exerciseName === "Plank" && l.minutes !== undefined && l.seconds !== undefined);
+  if (plankLogs.length > 0) {
+    let maxTime = 0; // in seconds
+    plankLogs.forEach(l => {
+      const total = l.minutes! * 60 + l.seconds!;
+      if (total > maxTime) maxTime = total;
+    });
+    const mins = Math.floor(maxTime / 60);
+    const secs = maxTime % 60;
+    list.push({
+      title: "LONGEST PLANK HOLD",
+      val: `${mins}m ${secs.toString().padStart(2, "0")}s`,
+      icon: "🛡️",
+      style: "border-amber-500/30 text-amber-400"
+    });
+  }
+
+  return list;
 }

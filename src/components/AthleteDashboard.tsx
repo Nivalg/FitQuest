@@ -4,7 +4,9 @@ import {
   evaluateAthletePerformance,
   getMetricTier,
   formatLevel,
-  EXERCISE_CONFIGS
+  calculateAllRecords,
+  // EXERCISE_CONFIGS, // No longer needed here
+  calculateSubCategoryLevels
 } from "../utils/fitnessMath";
 import {
   Trophy,
@@ -25,6 +27,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import MuscleVolumeVisualizer from "./MuscleVolumeVisualizer";
+import BodyStatusMap from "./BodyStatusMap";
 
 const YOUTUBE_CHANNEL_LINK = "https://youtube.com/channel/UCwr35GfgTWfafg9qt6RQkMQ";
 
@@ -47,7 +50,7 @@ export default function AthleteDashboard({
   onNavigateToExercises
 }: AthleteDashboardProps) {
 
-  const [activeSubTab, setActiveSubTab] = React.useState<"character" | "training">("character");
+  const [activeSubTab, setActiveSubTab] = React.useState<"character" | "stats">("character");
   const [selectedStatDetail, setSelectedStatDetail] = React.useState<{
     key: string;
     label: string;
@@ -90,177 +93,17 @@ export default function AthleteDashboard({
   const recoveryRemaining = performance.recoveryRemaining;
   const exerciseDetails = performance.exerciseDetails;
 
+  // Compute individual muscle group levels for arms and legs
+  const subCategoryLevels = React.useMemo(() => {
+    return calculateSubCategoryLevels(logs, profile.bodyWeight, performance.statLevels);
+  }, [logs, profile.bodyWeight, performance.statLevels]);
+
   // Rotate achievements every 5 seconds
   const [activeRecordIndex, setActiveRecordIndex] = React.useState(0);
 
   // Compute all personal records dynamically from logs
   const records = React.useMemo(() => {
-    const list: { title: string; val: string; icon: string; style: string }[] = [];
-
-    // 1. Max Bench Press
-    const benchLogs = logs.filter(l => l.exerciseName === "Bench Press" && l.weight && l.reps);
-    if (benchLogs.length > 0) {
-      let max1RM = 0;
-      let maxLog = benchLogs[0];
-      benchLogs.forEach(l => {
-        const oneRepMax = l.weight! * (1 + l.reps! / 30);
-        if (oneRepMax > max1RM) {
-          max1RM = oneRepMax;
-          maxLog = l;
-        }
-      });
-      list.push({
-        title: "MAX BENCH PRESS (EST. 1RM)",
-        val: `${Math.round(max1RM)} LBS (${maxLog.weight} LBS x ${maxLog.reps} REPS)`,
-        icon: "🏋️",
-        style: "border-cyan-500/30 text-cyan-400"
-      });
-    }
-
-    // 2. Max Squat
-    const squatLogs = logs.filter(l => l.exerciseName === "Barbell Squat" && l.weight && l.reps);
-    if (squatLogs.length > 0) {
-      let max1RM = 0;
-      let maxLog = squatLogs[0];
-      squatLogs.forEach(l => {
-        const oneRepMax = l.weight! * (1 + l.reps! / 30);
-        if (oneRepMax > max1RM) {
-          max1RM = oneRepMax;
-          maxLog = l;
-        }
-      });
-      list.push({
-        title: "MAX BARBELL SQUAT (EST. 1RM)",
-        val: `${Math.round(max1RM)} LBS (${maxLog.weight} LBS x ${maxLog.reps} REPS)`,
-        icon: "🦵",
-        style: "border-emerald-500/30 text-emerald-400"
-      });
-    }
-
-    // 3. Max Deadlift
-    const deadliftLogs = logs.filter(l => l.exerciseName === "Deadlift" && l.weight && l.reps);
-    if (deadliftLogs.length > 0) {
-      let max1RM = 0;
-      let maxLog = deadliftLogs[0];
-      deadliftLogs.forEach(l => {
-        const oneRepMax = l.weight! * (1 + l.reps! / 30);
-        if (oneRepMax > max1RM) {
-          max1RM = oneRepMax;
-          maxLog = l;
-        }
-      });
-      list.push({
-        title: "MAX DEADLIFT (EST. 1RM)",
-        val: `${Math.round(max1RM)} LBS (${maxLog.weight} LBS x ${maxLog.reps} REPS)`,
-        icon: "💪",
-        style: "border-orange-500/30 text-orange-400"
-      });
-    }
-
-    // 4. Fastest Mile
-    const runLogs = logs.filter(l => (l.exerciseName === "Treadmill Run / Jog" || l.exerciseName === "Sprint Intervals") && l.distance && l.minutes !== undefined && l.seconds !== undefined);
-    if (runLogs.length > 0) {
-      let fastestPace = Infinity; // seconds per mile
-      let fastestLog = runLogs[0];
-      runLogs.forEach(l => {
-        const totalSeconds = l.minutes! * 60 + l.seconds!;
-        const pace = totalSeconds / l.distance!;
-        if (pace < fastestPace) {
-          fastestPace = pace;
-          fastestLog = l;
-        }
-      });
-      if (fastestPace !== Infinity) {
-        const minutesPart = Math.floor(fastestPace / 60);
-        const secondsPart = Math.round(fastestPace % 60);
-        list.push({
-          title: "FASTEST MILE PACE",
-          val: `${minutesPart}:${secondsPart.toString().padStart(2, "0")} / MILE (${fastestLog.distance} MI in ${fastestLog.minutes}m ${fastestLog.seconds}s)`,
-          icon: "⚡",
-          style: "border-rose-500/30 text-rose-400"
-        });
-      }
-    }
-
-    // 5. Most Floors Climbed
-    const stairLogs = logs.filter(l => l.exerciseName === "Stairmaster" && l.floors);
-    if (stairLogs.length > 0) {
-      const maxFloors = Math.max(...stairLogs.map(l => l.floors!));
-      list.push({
-        title: "MOST FLOORS CLIMBED",
-        val: `${maxFloors} FLOORS`,
-        icon: "🪜",
-        style: "border-purple-500/30 text-purple-400"
-      });
-    }
-
-    // 6. Most Pushups Done
-    const pushupLogs = logs.filter(l => l.exerciseName === "Regular Push-Ups" && l.reps);
-    if (pushupLogs.length > 0) {
-      const maxReps = Math.max(...pushupLogs.map(l => l.reps!));
-      list.push({
-        title: "MOST PUSH-UPS",
-        val: `${maxReps} REPS`,
-        icon: "👊",
-        style: "border-cyan-500/30 text-cyan-400"
-      });
-    }
-
-    // 7. Longest Distance Ran
-    const cardioLogs = logs.filter(l => l.distance);
-    if (cardioLogs.length > 0) {
-      const maxDist = Math.max(...cardioLogs.map(l => l.distance!));
-      list.push({
-        title: "LONGEST DISTANCE RUN",
-        val: `${maxDist.toFixed(2)} MILES`,
-        icon: "🏃",
-        style: "border-rose-500/30 text-rose-400"
-      });
-    }
-
-    // 8. Most Situps
-    const situpLogs = logs.filter(l => l.exerciseName === "Sit-Ups" && l.reps);
-    if (situpLogs.length > 0) {
-      const maxReps = Math.max(...situpLogs.map(l => l.reps!));
-      list.push({
-        title: "MOST SIT-UPS",
-        val: `${maxReps} REPS`,
-        icon: "🎯",
-        style: "border-amber-500/30 text-amber-400"
-      });
-    }
-
-    // 9. Most Bodyweight Squats
-    const bwSquatLogs = logs.filter(l => l.exerciseName === "Bodyweight Squats" && l.reps);
-    if (bwSquatLogs.length > 0) {
-      const maxReps = Math.max(...bwSquatLogs.map(l => l.reps!));
-      list.push({
-        title: "MOST BODYWEIGHT SQUATS",
-        val: `${maxReps} REPS`,
-        icon: "🦵",
-        style: "border-emerald-500/30 text-emerald-400"
-      });
-    }
-
-    // 10. Longest Plank
-    const plankLogs = logs.filter(l => l.exerciseName === "Plank" && l.minutes !== undefined && l.seconds !== undefined);
-    if (plankLogs.length > 0) {
-      let maxTime = 0; // in seconds
-      plankLogs.forEach(l => {
-        const total = l.minutes! * 60 + l.seconds!;
-        if (total > maxTime) maxTime = total;
-      });
-      const mins = Math.floor(maxTime / 60);
-      const secs = maxTime % 60;
-      list.push({
-        title: "LONGEST PLANK HOLD",
-        val: `${mins}m ${secs.toString().padStart(2, "0")}s`,
-        icon: "🛡️",
-        style: "border-amber-500/30 text-amber-400"
-      });
-    }
-
-    return list;
+    return calculateAllRecords(logs);
   }, [logs]);
 
   // Set up rotation timer
@@ -416,15 +259,15 @@ export default function AthleteDashboard({
           </button>
 
           <button
-            onClick={() => setActiveSubTab("training")}
+            onClick={() => setActiveSubTab("stats")}
             style={{ minHeight: "36px", minWidth: "120px" }}
             className={`px-4 py-1.5 rounded-full text-[10px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
-              activeSubTab === "training"
+              activeSubTab === "stats"
                 ? "text-cyan-400 font-extrabold"
                 : "text-slate-500 hover:text-slate-350"
             }`}
           >
-            TRAINING
+            STATS
           </button>
         </div>
       </div>
@@ -479,7 +322,46 @@ export default function AthleteDashboard({
             </div>
           </div>
 
-          {/* THE 7 CORE GAME STATS HUD LIST - TAP FRIENDLY AND CLEAN */}
+          {/* 🚀 DYNAMIC WEEKLY VOLUME TRACKER (BODY STATUS MAP) */}
+          <div className="space-y-3">
+            <BodyStatusMap weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
+            <MuscleVolumeVisualizer weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
+          </div>
+
+          {/* RETRO YOUTUBE SOCIAL UTILITY */}
+          <div className="pt-4 flex justify-center">
+            <a
+              href={YOUTUBE_CHANNEL_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ minHeight: "44px" }}
+              className="w-full text-red-400 hover:text-red-300 hover:border-red-500/50 border-2 border-red-500/30 bg-red-950/5 hover:bg-red-950/15 px-4 py-2.5 rounded-xl text-[9px] font-press-start tracking-wider transition flex items-center justify-center gap-2 cursor-pointer duration-150 active:scale-[0.98] uppercase shadow-sm text-center font-bold"
+            >
+              📺 VISIT THE GUILD YOUTUBE
+            </a>
+          </div>
+
+          {/* RETRO SAVE RESET UTILITY */}
+          <div className="pt-2 flex justify-center">
+            <button
+              onClick={onReset}
+              style={{ minHeight: "44px" }}
+              className="w-full text-slate-500 hover:text-red-400 hover:border-red-950/20 border-2 border-slate-800 hover:bg-red-950/5 px-4 py-2.5 rounded-xl text-[9px] font-press-start tracking-wider transition flex items-center justify-center gap-2 cursor-pointer duration-150 active:scale-[0.98]"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-red-500/60" /> RESET GAME SAVE DATA
+            </button>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div 
+          key="stats-view"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-6"
+        >
+          {/* THE 7 CORE GAME STATS HUD LIST - PERFORMANCE STRENGTH ON TOP */}
           <div className="space-y-4">
             <div>
               <h3 className="text-xs font-press-start text-cyan-300 tracking-wider uppercase">
@@ -550,7 +432,7 @@ export default function AthleteDashboard({
             </div>
           </div>
 
-          {/* PERSONAL RECORD DYNAMIC CAROUSEL TICKER */}
+          {/* PERSONAL RECORD DYNAMIC CAROUSEL TICKER - PLACED JUST BELOW IT */}
           {records.length > 0 ? (
             <div className="space-y-3">
               <div className="bg-[#161B22] border-2 border-cyan-500/50 rounded-2xl p-5 shadow-[0_0_20px_rgba(6,182,212,0.15)] relative overflow-hidden h-[120px] flex flex-col justify-center animate-fade-in">
@@ -611,49 +493,13 @@ export default function AthleteDashboard({
               </p>
             </div>
           )}
-
-          {/* RETRO YOUTUBE SOCIAL UTILITY */}
-          <div className="pt-4 flex justify-center">
-            <a
-              href={YOUTUBE_CHANNEL_LINK}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ minHeight: "44px" }}
-              className="w-full text-red-400 hover:text-red-300 hover:border-red-500/50 border-2 border-red-500/30 bg-red-950/5 hover:bg-red-950/15 px-4 py-2.5 rounded-xl text-[9px] font-press-start tracking-wider transition flex items-center justify-center gap-2 cursor-pointer duration-150 active:scale-[0.98] uppercase shadow-sm text-center font-bold"
-            >
-              📺 VISIT THE GUILD YOUTUBE
-            </a>
-          </div>
-
-          {/* RETRO SAVE RESET UTILITY */}
-          <div className="pt-2 flex justify-center">
-            <button
-              onClick={onReset}
-              style={{ minHeight: "44px" }}
-              className="w-full text-slate-500 hover:text-red-400 hover:border-red-950/20 border-2 border-slate-800 hover:bg-red-950/5 px-4 py-2.5 rounded-xl text-[9px] font-press-start tracking-wider transition flex items-center justify-center gap-2 cursor-pointer duration-150 active:scale-[0.98]"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-red-500/60" /> RESET GAME SAVE DATA
-            </button>
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div 
-          key="training-view"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-          className="space-y-6"
-        >
-          {/* 🚀 DYNAMIC WEEKLY VOLUME TRACKER */}
-          <MuscleVolumeVisualizer weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
         </motion.div>
       )}
 
       {/* 🔮 STAT RANK DETAIL MODAL OVERLAY */}
       {selectedStatDetail && (
         <div className="fixed inset-0 bg-[#090B0E]/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-[360px] bg-[#0D1117] border-2 border-cyan-500/50 rounded-2xl p-6 shadow-[0_0_30px_rgba(6,182,212,0.25)] relative overflow-hidden flex flex-col items-center text-center gap-4 animate-fade-in">
+          <div className="w-full max-w-[360px] bg-[#0D1117] border-2 border-cyan-500/50 rounded-2xl p-6 shadow-[0_0_30px_rgba(6,182,212,0.25)] relative overflow-y-auto max-h-[90vh] scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent flex flex-col items-center text-center gap-4 animate-fade-in">
             {/* Background elements */}
             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-full blur-xl pointer-events-none" />
             
@@ -698,8 +544,23 @@ export default function AthleteDashboard({
                 rankExplain = "Peerless Master Pro! You have broken past the Elite 100 threshold into uncapped kinetic capacity limits.";
               }
 
+              const showBreakdown = selectedStatDetail.key === "armStrength" || selectedStatDetail.key === "legStrength";
+              const subs = selectedStatDetail.key === "armStrength"
+                ? [
+                    { key: "biceps", label: "BICEPS" },
+                    { key: "triceps", label: "TRICEPS" },
+                    { key: "shoulders", label: "SHOULDERS" },
+                    { key: "traps", label: "TRAPS" }
+                  ]
+                : [
+                    { key: "quads", label: "QUADS" },
+                    { key: "hamstrings", label: "HAMSTRINGS" },
+                    { key: "glutes", label: "GLUTES" },
+                    { key: "calves", label: "CALVES" }
+                  ];
+
               return (
-                <div className="w-full space-y-3">
+                <div className="w-full space-y-3.5">
                   <div className={`p-2.5 rounded-xl border ${tier.bg} ${tier.border} flex flex-col items-center gap-1`}>
                     <span className="text-[8px] font-mono text-slate-500 font-black tracking-widest block uppercase leading-none">RANK TIER</span>
                     <span className={`text-xs font-mono font-black tracking-wide leading-none uppercase ${tier.color}`}>
@@ -712,6 +573,45 @@ export default function AthleteDashboard({
                     <div className="w-full h-[1px] bg-slate-800/80 my-1" />
                     <p className="text-cyan-400/90 font-bold">{rankExplain}</p>
                   </div>
+
+                  {showBreakdown && (
+                    <div className="bg-[#0D0D0E]/40 border border-slate-850 rounded-xl p-3.5 text-left space-y-3.5 shadow-inner">
+                      <span className="text-[8px] font-press-start text-cyan-300 tracking-widest block uppercase">
+                        MUSCLE SUB-SECTOR BREAKDOWN
+                      </span>
+                      
+                      <div className="space-y-3.5">
+                        {subs.map(sub => {
+                          const subLevel = subCategoryLevels[sub.key] || 0.00;
+                          const subTier = getMetricTier(subLevel);
+                          const progressPercent = Math.min(100, subLevel);
+                          
+                          return (
+                            <div key={sub.key} className="space-y-1.5 animate-fade-in">
+                              <div className="flex justify-between items-center text-[8px] font-press-start leading-none">
+                                <span className="text-slate-400 tracking-wide">{sub.label}</span>
+                                <span className={`${subTier.color} font-black font-mono text-[9.5px]`}>
+                                  LVL {subLevel.toFixed(2)}
+                                </span>
+                              </div>
+                              
+                              {/* Progress Bar Track */}
+                              <div className="w-full bg-[#12161A] border border-slate-850 h-2 rounded-full overflow-hidden relative">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    selectedStatDetail.key === "armStrength"
+                                      ? "bg-gradient-to-r from-pink-500 to-rose-500"
+                                      : "bg-gradient-to-r from-emerald-500 to-teal-500"
+                                  }`}
+                                  style={{ width: `${progressPercent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -720,7 +620,7 @@ export default function AthleteDashboard({
             <button
               onClick={() => setSelectedStatDetail(null)}
               style={{ minHeight: "40px" }}
-              className="w-full bg-cyan-500 hover:bg-cyan-600 active:scale-[0.98] transition cursor-pointer text-black font-press-start text-[9px] tracking-wider py-2.5 rounded-xl font-bold shadow-md shadow-cyan-500/10 uppercase"
+              className="w-full bg-cyan-500 hover:bg-cyan-600 active:scale-[0.98] transition cursor-pointer text-black font-press-start text-[9px] tracking-wider py-2.5 rounded-xl font-bold shadow-md shadow-cyan-500/10 uppercase shrink-0"
             >
               DISMISS
             </button>

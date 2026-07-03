@@ -61,7 +61,7 @@ export type GameStat = "chestStrength" | "armStrength" | "legStrength" | "backSt
 export interface ExerciseInfo {
   name: string;
   pillar: ExercisePillar;
-  formType: "A" | "B" | "C" | "D" | "E";
+  formType: "A" | "B" | "C" | "D" | "E" | "F";
   description: string;
   builds: {
     chestStrength?: number; // e.g. 80 for 80%
@@ -75,4 +75,9 @@ export interface ExerciseInfo {
   };
   subCategory?: string;
   subCategories?: string[];
+  link?: string;
+  image?: string;
+  images?: string[];
+  frameDuration?: number;
 }
+

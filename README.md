@@ -1,20 +1,44 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
+  <h1 align="center">FitQuest: Gamified Fitness Tracker</h1>
+  <p align="center">
+    Level up your fitness journey! FitQuest turns your workouts into an RPG experience.
+    <br />
+    Track your progress, gain XP, and watch your character's stats grow.
+  </p>
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## 🚀 About The Project
 
-View your app in AI Studio: https://ai.studio/apps/03f96267-6c29-4fa8-91e5-b3ec508f5997
+FitQuest is a web-based fitness application that gamifies your workout routine. Instead of just logging sets and reps, you're building a virtual athlete. The app translates your real-world exercises into character statistics like Strength, Speed, and Stamina, providing a fun and motivating way to visualize your progress.
 
-## Run Locally
+**Key Features:**
 
-**Prerequisites:**  Node.js
+- **Stat-Based Progression:** Watch your 7 core fitness stats level up as you train.
+- **Dynamic PRs:** Automatically calculates and displays your personal records.
+- **Workout Calendar:** Visualize your training history and consistency.
+- **Local-First:** All your data is saved securely in your browser's local storage.
+- **Retro UI:** A fun, gamified interface built with React and Tailwind CSS.
 
+## 🛠️ Getting Started
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+To get a local copy up and running, follow these simple steps.
+
+### Prerequisites
+
+- Node.js (v18 or later recommended)
+- npm (usually comes with Node.js)
+
+### Installation
+
+1.  Clone the repo:
+    ```sh
+    git clone https://github.com/your_username/fitquest.git
+    cd fitquest
+    ```
+2.  Install NPM packages:
+    `npm install`
+3.  Run the development server:
+    `npm run dev`
+4.  Open http://localhost:5173 (or the address shown in your terminal) to view it in your browser.

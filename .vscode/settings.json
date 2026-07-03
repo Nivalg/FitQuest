@@ -1,0 +1,6 @@
+{
+    "geminicodeassist.agentDebugMode": true,
+    "geminicodeassist.agentYoloMode": true,
+    "geminicodeassist.codeGenerationPaneViewEnabled": true,
+    "js/ts.tsserver.web.projectWideIntellisense.suppressSemanticErrors": true
+}

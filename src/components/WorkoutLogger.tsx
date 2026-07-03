@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { EXERCISE_DATABASE, CATEGORIES } from "../exercises";
-import { ExerciseInfo, ExercisePillar } from "../types";
+import { ExerciseInfo, ExercisePillar, AthleteProfile, FitnessLog } from "../types";
+import { evaluateAthletePerformance } from "../utils/fitnessMath";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronLeft,
@@ -18,6 +19,8 @@ import {
 } from "lucide-react";
 
 interface WorkoutLoggerProps {
+  profile: AthleteProfile;
+  logs: FitnessLog[];
   onLogWorkout: (params: {
     exerciseName: string;
     categoryName: string;
@@ -29,31 +32,93 @@ interface WorkoutLoggerProps {
     floors?: number;
     notes?: string;
   }) => void;
+  onUndoWorkout?: () => void;
 }
 
-export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
+export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: WorkoutLoggerProps) {
   // Current view states: "categories" -> "exercises" -> "form"
   const [currentView, setCurrentView] = useState<"categories" | "exercises" | "form">("categories");
   const [selectedCategory, setSelectedCategory] = useState<{ id: string; name: string } | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseInfo | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>("all");
   const [restSeconds, setRestSeconds] = useState<number>(0);
+  const [frameIndex, setFrameIndex] = useState<number>(0);
+
+  useEffect(() => {
+    if (!selectedExercise || !selectedExercise.images || selectedExercise.images.length === 0) {
+      return;
+    }
+    setFrameIndex(0);
+    const duration = selectedExercise.frameDuration || 800;
+    const timer = setInterval(() => {
+      setFrameIndex(prev => (prev + 1) % selectedExercise.images!.length);
+    }, duration);
+    return () => clearInterval(timer);
+  }, [selectedExercise]);
 
   // Equipment selection filters
-  const [activeFilters, setActiveFilters] = useState<("weights" | "machines" | "bodyweight")[]>(["weights", "machines", "bodyweight"]);
+  const [activeFilter, setActiveFilter] = useState<"weights" | "machines" | "bodyweight">("weights");
+
+  // Dynamic weekly stimulus progress calculations
+  const performance = evaluateAthletePerformance(logs, profile.bodyWeight);
+  const weeklyVolume = performance.weeklyVolume;
+  const weeklySubVolume = performance.weeklySubVolume;
+
+  const statConfig = {
+    chestStrength: { label: "Chest", colorHex: "#22d3ee" },
+    backStrength: { label: "Back", colorHex: "#fb923c" },
+    legStrength: { label: "Legs", colorHex: "#34d399" },
+    armStrength: { label: "Arms", colorHex: "#f472b6" },
+    coreStrength: { label: "Core", colorHex: "#fbbf24" },
+    speed: { label: "Speed", colorHex: "#f43f5e" },
+    stamina: { label: "Stamina", colorHex: "#c084fc" }
+  };
+
+  const subCategoryConfigs: Record<string, { label: string; colorHex: string }> = {
+    biceps: { label: "Biceps", colorHex: "#ec4899" },
+    triceps: { label: "Triceps", colorHex: "#f43f5e" },
+    shoulders: { label: "Shoulders", colorHex: "#22d3ee" },
+    traps: { label: "Traps", colorHex: "#a855f7" },
+    glutes: { label: "Glutes", colorHex: "#10b981" },
+    quads: { label: "Quads", colorHex: "#14b8a6" },
+    hamstrings: { label: "Hamstrings", colorHex: "#84cc16" },
+    calves: { label: "Calves", colorHex: "#22c55e" }
+  };
+
+  const renderProgressBar = (key: string, isSub: boolean = false) => {
+    const config = isSub ? subCategoryConfigs[key] : (statConfig as any)[key];
+    if (!config) return null;
+
+    const progressValue = isSub 
+      ? (weeklySubVolume[key] || 0) 
+      : (weeklyVolume[key] || 0);
+
+    return (
+      <div className="space-y-1.5 pb-2 animate-fade-in w-full">
+        <div className="flex justify-between items-center text-[9px] font-mono">
+          <span className="text-slate-400 uppercase tracking-wider font-bold">
+            {config.label} PROGRESS
+          </span>
+          <span className="text-white font-black">
+            {progressValue.toFixed(1)}%
+          </span>
+        </div>
+        <div className="relative w-full h-2 bg-[#12161A] border border-slate-850 rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${progressValue}%`,
+              backgroundColor: config.colorHex,
+              backgroundImage: `linear-gradient(to right, ${config.colorHex}, #3b82f6)`
+            }}
+          />
+        </div>
+      </div>
+    );
+  };
 
   const handleToggleFilter = (filter: "weights" | "machines" | "bodyweight") => {
-    setActiveFilters(prev => {
-      const isCurrentlyActive = prev.includes(filter);
-      if (isCurrentlyActive) {
-        if (prev.length > 1) {
-          return prev.filter(f => f !== filter);
-        }
-        return prev;
-      } else {
-        return [...prev, filter];
-      }
-    });
+    setActiveFilter(filter);
   };
 
   const getExerciseEquipmentType = (pillar: string, name: string): "weights" | "machines" | "bodyweight" => {
@@ -130,8 +195,11 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
   const [distanceStr, setDistanceStr] = useState<string>("1.0");
   const [floors, setFloors] = useState<number>(30);
   const [notes, setNotes] = useState<string>("");
+  const [hours, setHours] = useState<number>(1);
+  const [trailLevel, setTrailLevel] = useState<number>(10);
 
   const repsListRef = useRef<HTMLDivElement>(null);
+  const lastLoggedTimeRef = useRef<number>(0);
 
   // Countdown timer handler
   useEffect(() => {
@@ -236,6 +304,12 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
       setFloors(30);
       setMinutes(10);
       setSeconds(0);
+    } else if (exercise.formType === "F") {
+      setHours(1);
+      setMinutes(30);
+      setSeconds(0);
+      setTrailLevel(10);
+      setDistanceStr("2.5");
     }
 
     setNotes("");
@@ -253,7 +327,13 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
           "jump rope",
           "bicycle",
           "elliptical",
-          "squat jumps"
+          "squat jumps",
+          "hiking",
+          "power clean",
+          "barbell squat",
+          "dumbbell lunges",
+          "kettlebell swings",
+          "walking"
         ];
         return speedNames.includes(nameLower);
       }
@@ -268,7 +348,9 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
           "burpees",
           "kettlebell swings",
           "bicycle",
-          "stairmaster"
+          "stairmaster",
+          "hiking",
+          "walking"
         ];
         return staminaNames.includes(nameLower);
       }
@@ -293,24 +375,36 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedExercise || !selectedCategory) return;
-    if (restSeconds > 0) return; // Prevent double taps during active rest lockout
+    
+    if (restSeconds > 0) {
+      // Prevent accidental double clicks within 500ms
+      if (Date.now() - lastLoggedTimeRef.current < 500) {
+        return;
+      }
+      if (onUndoWorkout) {
+        onUndoWorkout();
+      }
+      setRestSeconds(0);
+      return;
+    }
 
     const actualCategoryName = CATEGORIES.find(c => c.id === selectedExercise.pillar)?.name || selectedCategory.name;
 
     onLogWorkout({
       exerciseName: selectedExercise.name,
       categoryName: actualCategoryName,
-      weight: selectedExercise.formType === "A" ? weight : undefined,
+      weight: selectedExercise.formType === "A" ? weight : (selectedExercise.formType === "F" ? trailLevel : undefined),
       reps: (selectedExercise.formType === "A" || selectedExercise.formType === "B") ? reps : undefined,
-      minutes: (selectedExercise.formType === "C" || selectedExercise.formType === "D" || selectedExercise.formType === "E") ? minutes : undefined,
-      seconds: (selectedExercise.formType === "C" || selectedExercise.formType === "D" || selectedExercise.formType === "E") ? seconds : undefined,
-      distance: selectedExercise.formType === "D" ? (parseFloat(distanceStr) || 1.0) : undefined,
+      minutes: (selectedExercise.formType === "C" || selectedExercise.formType === "D" || selectedExercise.formType === "E") ? minutes : (selectedExercise.formType === "F" ? (hours * 60 + minutes) : undefined),
+      seconds: (selectedExercise.formType === "C" || selectedExercise.formType === "D" || selectedExercise.formType === "E" || selectedExercise.formType === "F") ? seconds : undefined,
+      distance: (selectedExercise.formType === "D" || selectedExercise.formType === "F") ? (parseFloat(distanceStr) || 1.0) : undefined,
       floors: selectedExercise.formType === "E" ? floors : undefined,
       notes: notes.trim() || undefined
     });
 
-    // Retain form view and values (persistent weight/reps) but lock out with 30s rest timer
-    setRestSeconds(30);
+    // Retain form view and values (persistent weight/reps) but lock out with 5s rest timer
+    setRestSeconds(5);
+    lastLoggedTimeRef.current = Date.now();
   };
 
   const handleBackToCategories = () => {
@@ -328,7 +422,7 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
 
   const filteredExercises = activeExercises.filter(ex => {
     const eqType = getExerciseEquipmentType(ex.pillar, ex.name);
-    return activeFilters.includes(eqType);
+    return eqType === activeFilter;
   });
 
   return (
@@ -360,7 +454,7 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                   const isSub = group.id === "legs" || group.id === "arms";
                   setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
                   setSelectedSubCategory(isSub ? null : "all");
-                  setActiveFilters(["weights", "machines", "bodyweight"]);
+                  setActiveFilter("weights");
                   setCurrentView("exercises");
                 }}
                 className={`p-4 border-2 rounded-2xl flex items-center gap-4 text-left transition duration-150 cursor-pointer ${group.style}`}
@@ -450,7 +544,7 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                         style={{ minHeight: "84px" }}
                         onClick={() => {
                           setSelectedSubCategory(subCat);
-                          setActiveFilters(["weights", "machines", "bodyweight"]);
+                          setActiveFilter("weights");
                         }}
                         className={`p-4 border-2 rounded-2xl flex flex-col items-center justify-center text-center transition duration-150 cursor-pointer ${themeStyle}`}
                       >
@@ -464,6 +558,38 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                     );
                   })}
                 </div>
+
+                {/* Subcategory Progress Overview below the buttons */}
+                <div className="bg-[#12161A] border-2 border-slate-855 p-4.5 rounded-2xl space-y-4 shadow-xl">
+                  <h4 className="text-[10px] font-press-start text-cyan-300 uppercase tracking-wider text-center">
+                    {selectedCategory.name} PROGRESS
+                  </h4>
+                  
+                  {/* Parent progress bar */}
+                  {(() => {
+                    const focusId = selectedCategory.id.replace("focus_", "");
+                    const statKeyMap: Record<string, string> = {
+                      legs: "legStrength",
+                      arms: "armStrength"
+                    };
+                    const statKey = statKeyMap[focusId];
+                    return statKey ? renderProgressBar(statKey, false) : null;
+                  })()}
+
+                  <div className="border-t border-slate-850/80 my-2 pt-2" />
+
+                  {/* Subcategories progress bars */}
+                  <div className="space-y-3">
+                    {(selectedCategory.id === "focus_legs"
+                      ? ["quads", "hamstrings", "glutes", "calves"]
+                      : ["biceps", "triceps", "shoulders", "traps"]
+                    ).map((subCat) => (
+                      <div key={subCat}>
+                        {renderProgressBar(subCat, true)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </motion.div>
             );
           }
@@ -474,6 +600,26 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
+              {/* Progress bar above the back button / header */}
+              {(() => {
+                const focusId = selectedCategory.id.replace("focus_", "");
+                if (selectedSubCategory && selectedSubCategory !== "all") {
+                  return renderProgressBar(selectedSubCategory, true);
+                } else {
+                  const statKeyMap: Record<string, string> = {
+                    chest: "chestStrength",
+                    back: "backStrength",
+                    legs: "legStrength",
+                    arms: "armStrength",
+                    core: "coreStrength",
+                    speed: "speed",
+                    stamina: "stamina"
+                  };
+                  const statKey = statKeyMap[focusId];
+                  return statKey ? renderProgressBar(statKey, false) : null;
+                }
+              })()}
+
               <div className="flex items-center justify-between border-b border-slate-850 pb-4">
                 <button
                   onClick={hasSubCategories ? () => setSelectedSubCategory(null) : handleBackToCategories}
@@ -502,7 +648,7 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
                   { id: "machines", label: "MACHINE" },
                   { id: "weights", label: "FREE WEIGHTS" }
                 ].map((filter) => {
-                  const isActive = activeFilters.includes(filter.id as any);
+                  const isActive = activeFilter === filter.id;
                   return (
                     <button
                       key={filter.id}
@@ -573,6 +719,20 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
               </h3>
             </div>
           </div>
+
+          {/* Muscle progress bar below the header and above the form fields */}
+          {(() => {
+            if (selectedExercise.subCategories && selectedExercise.subCategories.length > 0) {
+              const subCat = selectedExercise.subCategories[0];
+              return renderProgressBar(subCat, true);
+            }
+            const buildsKeys = Object.keys(selectedExercise.builds || {});
+            const buildsStatKey = buildsKeys.find(key => (selectedExercise.builds as any)[key] > 0);
+            if (buildsStatKey) {
+              return renderProgressBar(buildsStatKey, false);
+            }
+            return null;
+          })()}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
@@ -898,6 +1058,126 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
               </div>
             )}
 
+            {/* FORM F: HIKING (CARDIO DURATION + TRAIL LEVEL + DISTANCE) */}
+            {selectedExercise.formType === "F" && (
+              <div className="space-y-4 animate-fade-in">
+                {/* Distance Box */}
+                <div className="bg-[#0D0D0E] border-2 border-slate-855 p-5 rounded-2xl text-center space-y-3">
+                  <div>
+                    <label className="text-[10px] font-press-start text-purple-400 block uppercase tracking-wider">
+                      🥾 HIKING DISTANCE (MILES)
+                    </label>
+                    <p className="text-[9px] font-mono text-slate-500 mt-1 uppercase">TAP TO ENTER ESTIMATED MILES</p>
+                  </div>
+                  
+                  <div className="flex flex-col items-center max-w-xs mx-auto">
+                    <div className="relative flex items-baseline justify-center gap-1.5">
+                      <input
+                        type="number"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={distanceStr}
+                        onChange={(e) => setDistanceStr(e.target.value)}
+                        onFocus={(e) => e.target.select()}
+                        className="bg-[#12161A] border-2 border-slate-800 text-center font-bold text-3xl text-white w-32 py-2.5 rounded-xl outline-none focus:border-cyan-500 font-mono tracking-wide"
+                        required
+                      />
+                      <span className="text-xs font-mono text-slate-500 font-bold uppercase">Miles</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Trail Level Box */}
+                <div className="bg-[#0D0D0E] border-2 border-slate-855 p-5 rounded-2xl text-center space-y-3">
+                  <div className="flex justify-between items-center px-1">
+                    <div>
+                      <label className="text-[10px] font-press-start text-cyan-300 block uppercase tracking-wider">
+                        🏔️ TRAIL DIFFICULTY LEVEL
+                      </label>
+                      <p className="text-[9px] font-mono text-slate-500 mt-1">SLIDE TO SELECT TRAIL LEVEL (1-100)</p>
+                    </div>
+                    <span className="font-mono text-xs text-slate-400 font-bold bg-[#12161A] px-2.5 py-1 rounded border border-slate-800">
+                      Level: <strong className="text-cyan-400 text-sm font-black mx-1">{trailLevel}</strong>
+                    </span>
+                  </div>
+                  
+                  <div className="pt-2 px-2">
+                    <input
+                      type="range"
+                      min="1"
+                      max="100"
+                      value={trailLevel}
+                      onChange={(e) => setTrailLevel(parseInt(e.target.value) || 1)}
+                      className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                    />
+                    <div className="flex justify-between text-[8px] font-mono text-slate-500 px-1 mt-1">
+                      <span>LVL 1 (FLAT WALK)</span>
+                      <span>LVL 50 (STEEP HILLS)</span>
+                      <span>LVL 100 (MOUNTAIN PEAK)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hiking Duration Time */}
+                <div className="bg-[#0D0D0E] border-2 border-slate-855 p-5 rounded-2xl text-center space-y-4">
+                  <div>
+                    <label className="text-[10px] font-press-start text-purple-400 block uppercase tracking-wider">
+                      ⏱️ HIKING DURATION (HOURS + MINS + SECS)
+                    </label>
+                    <p className="text-[9px] font-mono text-slate-500 mt-1">TAP NUMBERS TO ENTER TIME</p>
+                  </div>
+
+                  <div className="flex items-center justify-center gap-3 max-w-sm mx-auto">
+                    {/* Hours */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-[8px] font-press-start text-slate-500 mb-2 uppercase">Hrs</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={hours}
+                        onChange={(e) => setHours(Math.max(0, parseInt(e.target.value) || 0))}
+                        onFocus={(e) => e.target.select()}
+                        className="bg-[#12161A] border-2 border-slate-800 text-center font-bold text-2xl text-white w-16 py-2.5 rounded-xl outline-none focus:border-cyan-500 font-mono"
+                      />
+                    </div>
+
+                    <span className="text-xl font-mono text-slate-600 font-bold pt-4">:</span>
+
+                    {/* Minutes */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-[8px] font-press-start text-slate-500 mb-2 uppercase">Min</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={minutes}
+                        onChange={(e) => setMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                        onFocus={(e) => e.target.select()}
+                        className="bg-[#12161A] border-2 border-slate-800 text-center font-bold text-2xl text-white w-16 py-2.5 rounded-xl outline-none focus:border-cyan-500 font-mono"
+                      />
+                    </div>
+
+                    <span className="text-xl font-mono text-slate-600 font-bold pt-4">:</span>
+
+                    {/* Seconds */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-[8px] font-press-start text-slate-500 mb-2 uppercase">Sec</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={seconds}
+                        onChange={(e) => setSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+                        onFocus={(e) => e.target.select()}
+                        className="bg-[#12161A] border-2 border-slate-800 text-center font-bold text-2xl text-white w-16 py-2.5 rounded-xl outline-none focus:border-cyan-500 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Submit Action Box */}
             <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row gap-3">
               <button
@@ -911,37 +1191,47 @@ export function WorkoutLogger({ onLogWorkout }: WorkoutLoggerProps) {
               
               <button
                 type="submit"
-                disabled={restSeconds > 0}
                 style={{ minHeight: "50px" }}
                 className={`flex-[2] rounded-xl text-xs font-press-start text-center tracking-wider font-extrabold cursor-pointer transition select-none active:translate-y-[1px] ${
                   restSeconds > 0
-                    ? "bg-[#161B22] border-2 border-red-500/30 text-red-400 cursor-not-allowed shadow-[0_0_15px_rgba(239,68,68,0.15)] animate-pulse"
+                    ? "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-450 hover:to-orange-400 text-white shadow-lg shadow-red-500/15 animate-pulse"
                     : "bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-350 text-black shadow-lg shadow-cyan-500/10"
                 }`}
               >
-                {restSeconds > 0 ? `REST TIMER: ${restSeconds}S` : "SUBMIT SET"}
+                {restSeconds > 0 ? `UNDO SET (${restSeconds}S)` : "SUBMIT SET"}
               </button>
             </div>
 
-            {/* Optional Workout Notes */}
-            <div className="space-y-2 pt-4 border-t border-slate-800">
-              <label className="text-[8.5px] font-press-start text-slate-400 block tracking-widest pl-1">
-                📝 ACTION MEMO (OPTIONAL CLINICAL LOG)
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  maxLength={100}
-                  placeholder="e.g. Strong push. Felt great chest squeeze today."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full bg-[#0D0D0E] border border-slate-800 focus:border-cyan-500 rounded-xl py-3 px-4 text-xs font-sans text-slate-100 outline-none transition duration-150 pl-10"
-                />
-                <div className="absolute left-3.5 top-3.5 text-slate-500">
-                  <MessageSquare className="w-4 h-4" />
+            {/* Visual Form Guide (Images / Image) */}
+            {selectedExercise.images && selectedExercise.images.length > 0 ? (
+              <div className="pt-6 border-t border-slate-800 flex flex-col items-center justify-center gap-2">
+                <span className="text-[8.5px] font-press-start text-slate-500 block tracking-widest uppercase pl-1">
+                  🖼️ VISUAL FORM GUIDE
+                </span>
+                <div className="border-2 border-cyan-500/35 bg-[#0D0D0E] p-2 rounded-2xl max-w-[240px] overflow-hidden shadow-md">
+                  <img
+                    src={selectedExercise.images[frameIndex]}
+                    alt={selectedExercise.name}
+                    className="w-full h-auto rounded-lg object-contain"
+                    style={{ imageRendering: "pixelated" }}
+                  />
                 </div>
               </div>
-            </div>
+            ) : selectedExercise.image ? (
+              <div className="pt-6 border-t border-slate-800 flex flex-col items-center justify-center gap-2">
+                <span className="text-[8.5px] font-press-start text-slate-500 block tracking-widest uppercase pl-1">
+                  🖼️ VISUAL FORM GUIDE
+                </span>
+                <div className="border-2 border-cyan-500/35 bg-[#0D0D0E] p-2 rounded-2xl max-w-[240px] overflow-hidden shadow-md">
+                  <img
+                    src={selectedExercise.image}
+                    alt={selectedExercise.name}
+                    className="w-full h-auto rounded-lg object-contain"
+                    style={{ imageRendering: "pixelated" }}
+                  />
+                </div>
+              </div>
+            ) : null}
 
           </form>
         </motion.div>

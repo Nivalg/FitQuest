@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AthleteProfile, FitnessLog, FitnessMetricType } from "./types";
 import FitnessProfileSetup from "./components/FitnessProfileSetup";
 import AthleteDashboard from "./components/AthleteDashboard";
@@ -23,11 +23,15 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "log" | "calendar">("dashboard");
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const toastTimeoutRef = useRef<any>(null);
 
   // Initialize state from LocalStorage on mount and run the Decay Engine
   useEffect(() => {
-    const savedProfile = localStorage.getItem("rpg-fit_profile") || localStorage.getItem("fit-rpg_profile") || localStorage.getItem("fitrpg_profile") || localStorage.getItem("fitquest_profile");
-    const savedLogs = localStorage.getItem("rpg-fit_logs") || localStorage.getItem("fit-rpg_logs") || localStorage.getItem("fitrpg_logs") || localStorage.getItem("fitquest_logs");
+    // Migration for old keys
+    const savedProfile = localStorage.getItem("fitquest_profile") || localStorage.getItem("rpg-fit_profile") || localStorage.getItem("fit-rpg_profile") || localStorage.getItem("fitrpg_profile");
+    const savedLogs = localStorage.getItem("fitquest_logs") || localStorage.getItem("rpg-fit_logs") || localStorage.getItem("fit-rpg_logs") || localStorage.getItem("fitrpg_logs");
+    const oldKeys = ["rpg-fit_profile", "fit-rpg_profile", "fitrpg_profile", "rpg-fit_logs", "fit-rpg_logs", "fitrpg_logs"];
+    oldKeys.forEach(key => localStorage.removeItem(key));
 
     let loadedLogs: FitnessLog[] = [];
     let loadedBodyWeight = 175;
@@ -104,14 +108,8 @@ export default function App() {
   const saveProfile = (newProfile: AthleteProfile | null) => {
     setProfile(newProfile);
     if (newProfile) {
-      localStorage.setItem("rpg-fit_profile", JSON.stringify(newProfile));
-      localStorage.setItem("fit-rpg_profile", JSON.stringify(newProfile));
-      localStorage.setItem("fitrpg_profile", JSON.stringify(newProfile));
       localStorage.setItem("fitquest_profile", JSON.stringify(newProfile));
     } else {
-      localStorage.removeItem("rpg-fit_profile");
-      localStorage.removeItem("fit-rpg_profile");
-      localStorage.removeItem("fitrpg_profile");
       localStorage.removeItem("fitquest_profile");
     }
   };
@@ -119,9 +117,6 @@ export default function App() {
   // Sync log array list to storage
   const saveLogs = (newLogs: FitnessLog[]) => {
     setLogs(newLogs);
-    localStorage.setItem("rpg-fit_logs", JSON.stringify(newLogs));
-    localStorage.setItem("fit-rpg_logs", JSON.stringify(newLogs));
-    localStorage.setItem("fitrpg_logs", JSON.stringify(newLogs));
     localStorage.setItem("fitquest_logs", JSON.stringify(newLogs));
     
     const bodyWeight = profile?.bodyWeight || 175;
@@ -152,9 +147,6 @@ export default function App() {
         cardioStamina: dStats.stamina,
         cardioStaminaXP: perf.statXps.stamina,
       };
-      localStorage.setItem("rpg-fit_profile", JSON.stringify(alignedProfile));
-      localStorage.setItem("fit-rpg_profile", JSON.stringify(alignedProfile));
-      localStorage.setItem("fitrpg_profile", JSON.stringify(alignedProfile));
       localStorage.setItem("fitquest_profile", JSON.stringify(alignedProfile));
     }
   };
@@ -237,6 +229,10 @@ export default function App() {
       valueDisplay = `${params.distance} miles in ${params.minutes}m ${params.seconds}s`;
     } else if (exercise.formType === "E") {
       valueDisplay = `${params.floors} floors in ${params.minutes} mins`;
+    } else if (exercise.formType === "F") {
+      const hrs = Math.floor(params.minutes! / 60);
+      const mins = params.minutes! % 60;
+      valueDisplay = `${params.distance} miles in ${hrs}h ${mins}m on Level ${params.weight} trail`;
     }
 
     // 2. Save history log entry including raw metrics to facilitate Stateless PR recalculations
@@ -291,11 +287,74 @@ export default function App() {
       }
     });
 
+    // Compute all-time PR details summary for the logged exercise
+    const matchedLogs = updatedLogs.filter(
+      l => l.exerciseName && l.exerciseName.toLowerCase() === params.exerciseName.toLowerCase()
+    );
+
+    let prText = "";
+    if (exercise.formType === "A") {
+      const maxWeight = Math.max(...matchedLogs.map(l => l.weight || 0));
+      const maxReps = Math.max(...matchedLogs.map(l => l.reps || 0));
+      let max1RM = 0;
+      matchedLogs.forEach(l => {
+        const w = l.weight || 0;
+        const r = l.reps || 0;
+        const oneRepMax = r <= 1 ? w : w * (1 + r / 30);
+        if (oneRepMax > max1RM) max1RM = oneRepMax;
+      });
+      prText = `Max Weight: ${maxWeight} lbs, Max Reps: ${maxReps}, Max Est. 1RM: ${Math.round(max1RM)} lbs`;
+    } else if (exercise.formType === "B") {
+      const maxReps = Math.max(...matchedLogs.map(l => l.reps || 0));
+      prText = `Max Reps: ${maxReps} reps`;
+    } else if (exercise.formType === "C") {
+      let maxSecs = 0;
+      matchedLogs.forEach(l => {
+        const total = (l.minutes || 0) * 60 + (l.seconds || 0);
+        if (total > maxSecs) maxSecs = total;
+      });
+      prText = `Max Hold: ${Math.floor(maxSecs / 60)}m ${maxSecs % 60}s`;
+    } else if (exercise.formType === "D") {
+      let fastestPace = Infinity;
+      let maxDist = 0;
+      matchedLogs.forEach(l => {
+        const totalSeconds = (l.minutes || 0) * 60 + (l.seconds || 0);
+        const dist = l.distance || 0;
+        if (dist > maxDist) maxDist = dist;
+        if (dist > 0 && totalSeconds > 0) {
+          const pace = totalSeconds / dist;
+          if (pace < fastestPace) fastestPace = pace;
+        }
+      });
+      const paceStr = fastestPace !== Infinity 
+        ? `${Math.floor(fastestPace / 60)}:${Math.round(fastestPace % 60).toString().padStart(2, "0")} / mile` 
+        : "N/A";
+      prText = `Fastest Pace: ${paceStr}, Longest: ${maxDist.toFixed(2)} miles`;
+    } else if (exercise.formType === "E") {
+      const maxFloors = Math.max(...matchedLogs.map(l => l.floors || 0));
+      prText = `Most Floors: ${maxFloors} floors`;
+    } else if (exercise.formType === "F") {
+      let maxMins = 0;
+      let maxDist = 0;
+      let maxLevel = 0;
+      matchedLogs.forEach(l => {
+        const mins = l.minutes || 0;
+        const dist = l.distance || 0;
+        const lvl = l.weight || 0;
+        if (mins > maxMins) maxMins = mins;
+        if (dist > maxDist) maxDist = dist;
+        if (lvl > maxLevel) maxLevel = lvl;
+      });
+      prText = `Max Duration: ${Math.floor(maxMins / 60)}h ${maxMins % 60}m, Longest: ${maxDist.toFixed(2)} miles, Max Trail Level: ${maxLevel}`;
+    }
+
+    const feedbackStr = prText ? ` (${prText})` : "";
+
     // Show dynamic calibration surges
     if (levelUpsTriggered.length > 0) {
-      showToast(`⚡ PROFILE LEVEL SURGE! ${levelUpsTriggered.join(" | ")}`);
+      showToast(`⚡ PROFILE LEVEL SURGE! ${levelUpsTriggered.join(" | ")}${feedbackStr}`);
     } else {
-      showToast(`💪 Set Saved! Performance indices verified.`);
+      showToast(`💪 Set Saved!${feedbackStr}`);
     }
   };
 
@@ -303,6 +362,18 @@ export default function App() {
     const updatedLogs = logs.filter(l => l.id !== logId);
     saveLogs(updatedLogs);
     showToast("Log entry deleted successfully!");
+  };
+
+  const handleUndoWorkout = () => {
+    if (logs.length === 0) return;
+    const lastLog = logs[logs.length - 1];
+    if (lastLog.id === "seed_1") {
+      showToast("Cannot undo initial profile calibration!");
+      return;
+    }
+    const updatedLogs = logs.slice(0, -1);
+    saveLogs(updatedLogs);
+    showToast("Workout entry undone!");
   };
 
   // Reset/Clear everything
@@ -317,10 +388,15 @@ export default function App() {
   };
 
   const showToast = (msg: string) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
     setSuccessToast(msg);
-    setTimeout(() => {
+    const duration = Math.max(4000, 3000 + Math.ceil(msg.length / 40) * 2000);
+    toastTimeoutRef.current = setTimeout(() => {
       setSuccessToast(null);
-    }, 4000);
+      toastTimeoutRef.current = null;
+    }, duration);
   };
 
   return (
@@ -399,7 +475,12 @@ export default function App() {
 
                 {/* Workout Logger exercise directory */}
                 {activeTab === "log" && (
-                  <WorkoutLogger onLogWorkout={handleLogExerciseWorkout} />
+                  <WorkoutLogger
+                    profile={activeProfile!}
+                    logs={logs}
+                    onLogWorkout={handleLogExerciseWorkout}
+                    onUndoWorkout={handleUndoWorkout}
+                  />
                 )}
 
                 {/* Past chronicles Workout Calendar with deletion ledger */}
@@ -475,7 +556,7 @@ export default function App() {
 
               if (activeTab === "dashboard") {
                 title = "STATUS GUIDE";
-                text = "This is your Character HUD. Log exercises to level up your 7 stats instantly. Tap any stat card to view your active rank. The Personal Record Shield rotates your peak achievements.";
+                text = "This is your Character HUD. The Workout visualizer shows weekly training progress, the Personal Record Shield tracks your peak achievements, and the Performance Strength grid displays your levels.";
               } else if (activeTab === "log") {
                 title = "EXERCISE GUIDE";
                 text = "Select a category or physical focus group to find an exercise. Enter your reps, weight, or duration to log sets. Diminishing returns gate your weekly progress—more sets build more stimulus progress!";
