@@ -1296,6 +1296,7 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
 export interface DerivedPerformance {
   statLevels: StatLevels;
   statXps: Record<string, number>;
+  subCategoryLevels: Record<string, number>;
   weeklyVolume: Record<string, number>;
   weeklySubVolume: Record<string, number>;
   recoveryRemaining: Record<string, number>;
@@ -1380,6 +1381,16 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
       speed: 0,
       stamina: 0,
       cardioStamina: 0
+    },
+    subCategoryLevels: {
+      biceps: 0.00,
+      triceps: 0.00,
+      shoulders: 0.00,
+      traps: 0.00,
+      glutes: 0.00,
+      quads: 0.00,
+      hamstrings: 0.00,
+      calves: 0.00
     },
     weeklyVolume: {
       chestStrength: 0,
@@ -1532,49 +1543,78 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
     };
   });
 
-  // 4. Calculate final Stat Levels as weighted sum of exercise Effective Levels
+  // 4. Calculate individual decayed, capped levels for all 8 subcategories
+  const subCategoryNames = ["biceps", "triceps", "shoulders", "traps", "glutes", "quads", "hamstrings", "calves"] as const;
+  
+  subCategoryNames.forEach(sub => {
+    let rawSubLvl = 0;
+    let hasNonMachineLog = false;
+    let hasAnyLog = false;
+    const parentStat = ["biceps", "triceps", "shoulders", "traps"].includes(sub) ? "armStrength" : "legStrength";
+    const subsList = parentStat === "armStrength"
+      ? ["biceps", "triceps", "shoulders", "traps"]
+      : ["quads", "hamstrings", "glutes", "calves"];
+
+    EXERCISE_CONFIGS.forEach(config => {
+      const builds = config.builds as any;
+      const pct = builds[parentStat] || 0;
+      if (pct > 0) {
+        const configSubs = config.subCategories || [];
+        let isMatched = configSubs.includes(sub);
+        if (!isMatched && !configSubs.some(s => subsList.includes(s))) {
+          isMatched = true;
+        }
+
+        if (isMatched) {
+          const matchedLogs = exerciseLogs[config.name] || [];
+          const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+            config.name,
+            parentStat,
+            matchedLogs,
+            now,
+            bodyWeight
+          );
+          rawSubLvl += statEffectiveLvl * (pct / 100);
+          
+          if (matchedLogs.length > 0) {
+            hasAnyLog = true;
+            const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+            if (dbEx?.pillar !== "machines") {
+              hasNonMachineLog = true;
+            }
+          }
+        }
+      }
+    });
+
+    if (!hasAnyLog) {
+      evaluation.subCategoryLevels[sub] = 0.00;
+      return;
+    }
+
+    let finalSubLvl = Math.max(0.00, rawSubLvl);
+    if (finalSubLvl > 50) {
+      finalSubLvl = 50 + (finalSubLvl - 50) * 0.4;
+    }
+    if (!hasNonMachineLog && finalSubLvl >= 100.00) {
+      finalSubLvl = 99.00;
+    }
+
+    evaluation.subCategoryLevels[sub] = parseFloat(finalSubLvl.toFixed(2));
+  });
+
+  // Calculate final Stat Levels
   const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
 
   statNames.forEach(stat => {
     let offsetSum = 0;
 
     if (stat === "armStrength" || stat === "legStrength") {
-      const subs = stat === "armStrength"
-        ? ["biceps", "triceps", "shoulders", "traps"]
-        : ["quads", "hamstrings", "glutes", "calves"];
-
-      const subCategorySums = [0, 0, 0, 0];
-
-      EXERCISE_CONFIGS.forEach(config => {
-        const builds = config.builds as any;
-        const pct = builds[stat] || 0;
-        if (pct > 0) {
-          const matchedLogs = exerciseLogs[config.name] || [];
-          const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
-            config.name,
-            stat,
-            matchedLogs,
-            now,
-            bodyWeight
-          );
-          const contribution = statEffectiveLvl * (pct / 100);
-          const configSubs = config.subCategories || [];
-          let hasMatchedSub = false;
-          subs.forEach((sub, index) => {
-            if (configSubs.includes(sub)) {
-              subCategorySums[index] += contribution;
-              hasMatchedSub = true;
-            }
-          });
-          if (!hasMatchedSub) {
-            subs.forEach((_, index) => {
-              subCategorySums[index] += contribution;
-            });
-          }
-        }
-      });
-
-      offsetSum = (subCategorySums[0] + subCategorySums[1] + subCategorySums[2] + subCategorySums[3]) / 4;
+      if (stat === "armStrength") {
+        offsetSum = (evaluation.subCategoryLevels.biceps + evaluation.subCategoryLevels.triceps + evaluation.subCategoryLevels.shoulders + evaluation.subCategoryLevels.traps) / 4;
+      } else {
+        offsetSum = (evaluation.subCategoryLevels.quads + evaluation.subCategoryLevels.hamstrings + evaluation.subCategoryLevels.glutes + evaluation.subCategoryLevels.calves) / 4;
+      }
     } else {
       EXERCISE_CONFIGS.forEach(config => {
         const builds = config.builds as any;
@@ -1593,31 +1633,32 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
       });
     }
 
-    const clampedLvl = Math.max(0.00, offsetSum); // Uncapped! Can scale past 100.00 infinitely!
-
-    // Cap at 99.00 if only machine exercises are used for this stat
-    let hasNonMachineLog = false;
-    EXERCISE_CONFIGS.forEach(config => {
-      const builds = config.builds as any;
-      if (builds[stat] > 0) {
-        const matchedLogs = exerciseLogs[config.name] || [];
-        const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
-        if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
-          hasNonMachineLog = true;
-        }
-      }
-    });
+    const clampedLvl = Math.max(0.00, offsetSum);
 
     let finalLvl = clampedLvl;
-    if (finalLvl > 50) {
-      finalLvl = 50 + (finalLvl - 50) * 0.4;
-    }
-    if (!hasNonMachineLog && finalLvl >= 100.00) {
-      finalLvl = 99.00;
+    if (stat !== "armStrength" && stat !== "legStrength") {
+      let hasNonMachineLog = false;
+      EXERCISE_CONFIGS.forEach(config => {
+        const builds = config.builds as any;
+        if (builds[stat] > 0) {
+          const matchedLogs = exerciseLogs[config.name] || [];
+          const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+          if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
+            hasNonMachineLog = true;
+          }
+        }
+      });
+
+      if (finalLvl > 50) {
+        finalLvl = 50 + (finalLvl - 50) * 0.4;
+      }
+      if (!hasNonMachineLog && finalLvl >= 100.00) {
+        finalLvl = 99.00;
+      }
     }
 
     evaluation.statLevels[stat] = parseFloat(finalLvl.toFixed(2));
-    evaluation.statXps[stat] = Math.round(finalLvl); // Overall whole number representation
+    evaluation.statXps[stat] = Math.round(finalLvl);
   });
 
   // --- TIME-BASED STATE DECAY OVERRIDE ---
@@ -1682,17 +1723,25 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
           addedProgress *= 2.5;
         }
 
-        evaluation.weeklyVolume[stat] += addedProgress;
-
-        // Accumulate subcategory weekly progress
-        if (conf.subCategories) {
-          conf.subCategories.forEach(sub => {
-            const isArmSub = ["biceps", "triceps", "shoulders", "traps"].includes(sub);
-            const isLegSub = ["glutes", "quads", "hamstrings", "calves"].includes(sub);
-            if ((stat === "armStrength" && isArmSub) || (stat === "legStrength" && isLegSub)) {
+        if (stat !== "armStrength" && stat !== "legStrength") {
+          evaluation.weeklyVolume[stat] += addedProgress;
+        } else {
+          // Accumulate subcategory weekly progress
+          const isArm = stat === "armStrength";
+          const subsList = isArm ? ["biceps", "triceps", "shoulders", "traps"] as const : ["quads", "hamstrings", "glutes", "calves"] as const;
+          const configSubs = conf.subCategories || [];
+          let hasMatchedSub = false;
+          subsList.forEach(sub => {
+            if (configSubs.includes(sub)) {
               evaluation.weeklySubVolume[sub] += progress * (pct / 100);
+              hasMatchedSub = true;
             }
           });
+          if (!hasMatchedSub) {
+            subsList.forEach(sub => {
+              evaluation.weeklySubVolume[sub] += progress * (pct / 100);
+            });
+          }
         }
       }
     });
@@ -1706,21 +1755,23 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
     }
   });
 
-  // Clamp weekly volume (stimulus progress) values at 100.0% max
-  statNames.forEach(stat => {
-    evaluation.weeklyVolume[stat] = parseFloat(
-      Math.min(100.0, evaluation.weeklyVolume[stat]).toFixed(1)
-    );
-  });
-
-  const subCategoryNames = ["biceps", "triceps", "shoulders", "traps", "glutes", "quads", "hamstrings", "calves"] as const;
+  // Clamp subcategory weekly progress values at 100.0% max
   subCategoryNames.forEach(sub => {
     evaluation.weeklySubVolume[sub] = parseFloat(
       Math.min(100.0, evaluation.weeklySubVolume[sub]).toFixed(1)
     );
   });
 
-  // --- WORKOUT PROGRESS BALANCE DECAY (7-DAY LINEAN DECAY OVERRIDE) ---
+  // Clamp non-arm/leg weekly volume values at 100.0% max
+  statNames.forEach(stat => {
+    if (stat !== "armStrength" && stat !== "legStrength") {
+      evaluation.weeklyVolume[stat] = parseFloat(
+        Math.min(100.0, evaluation.weeklyVolume[stat]).toFixed(1)
+      );
+    }
+  });
+
+  // --- WORKOUT PROGRESS BALANCE DECAY (7-DAY LINEAR DECAY OVERRIDE) ---
   let lastWorkoutTime = 0;
   logs.forEach(log => {
     const t = new Date(log.timestamp).getTime();
@@ -1730,14 +1781,32 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
   if (lastWorkoutTime > 0) {
     const elapsedSeconds = (now - lastWorkoutTime) / 1000;
     const decayAmount = (elapsedSeconds / 604800) * 100; // Linear progress decay reaches 0 after 7 days
-    statNames.forEach(stat => {
-      const baseVol = evaluation.weeklyVolume[stat];
-      evaluation.weeklyVolume[stat] = parseFloat(Math.max(0, baseVol - decayAmount).toFixed(1));
-    });
+
     subCategoryNames.forEach(sub => {
       const baseVol = evaluation.weeklySubVolume[sub];
       evaluation.weeklySubVolume[sub] = parseFloat(Math.max(0, baseVol - decayAmount).toFixed(1));
     });
+
+    statNames.forEach(stat => {
+      if (stat !== "armStrength" && stat !== "legStrength") {
+        const baseVol = evaluation.weeklyVolume[stat];
+        evaluation.weeklyVolume[stat] = parseFloat(Math.max(0, baseVol - decayAmount).toFixed(1));
+      }
+    });
+
+    // Calculate arm and leg progress as averages of their subcategories
+    evaluation.weeklyVolume["armStrength"] = parseFloat(
+      ((evaluation.weeklySubVolume["biceps"] +
+        evaluation.weeklySubVolume["triceps"] +
+        evaluation.weeklySubVolume["shoulders"] +
+        evaluation.weeklySubVolume["traps"]) / 4).toFixed(1)
+    );
+    evaluation.weeklyVolume["legStrength"] = parseFloat(
+      ((evaluation.weeklySubVolume["quads"] +
+        evaluation.weeklySubVolume["hamstrings"] +
+        evaluation.weeklySubVolume["glutes"] +
+        evaluation.weeklySubVolume["calves"]) / 4).toFixed(1)
+    );
   } else {
     // No workouts logged = 0% progress
     statNames.forEach(stat => {
@@ -1834,42 +1903,74 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
     peakLevels[config.name] = peakScore;
   });
 
+  const subCategoryNames = ["biceps", "triceps", "shoulders", "traps", "glutes", "quads", "hamstrings", "calves"] as const;
+  const undecayedSubLevels: Record<string, number> = {};
+
+  subCategoryNames.forEach(sub => {
+    let rawSubLvl = 0;
+    let hasNonMachineLog = false;
+    let hasAnyLog = false;
+    const parentStat = ["biceps", "triceps", "shoulders", "traps"].includes(sub) ? "armStrength" : "legStrength";
+    const subsList = parentStat === "armStrength"
+      ? ["biceps", "triceps", "shoulders", "traps"]
+      : ["quads", "hamstrings", "glutes", "calves"];
+
+    EXERCISE_CONFIGS.forEach(config => {
+      const builds = config.builds as any;
+      const pct = builds[parentStat] || 0;
+      if (pct > 0) {
+        const configSubs = config.subCategories || [];
+        let isMatched = configSubs.includes(sub);
+        if (!isMatched && !configSubs.some(s => subsList.includes(s))) {
+          isMatched = true;
+        }
+
+        if (isMatched) {
+          const peak = peakLevels[config.name] || 0;
+          rawSubLvl += peak * (pct / 100);
+          
+          const matchedLogs = exerciseLogs[config.name] || [];
+          if (matchedLogs.length > 0) {
+            hasAnyLog = true;
+            const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+            if (dbEx?.pillar !== "machines") {
+              hasNonMachineLog = true;
+            }
+          }
+        }
+      }
+    });
+
+    if (!hasAnyLog) {
+      undecayedSubLevels[sub] = 0.00;
+      return;
+    }
+
+    let finalSubLvl = Math.max(0.00, rawSubLvl);
+    if (finalSubLvl > 50) {
+      finalSubLvl = 50 + (finalSubLvl - 50) * 0.4;
+    }
+    if (!hasNonMachineLog && finalSubLvl >= 100.00) {
+      finalSubLvl = 99.00;
+    }
+
+    undecayedSubLevels[sub] = parseFloat(finalSubLvl.toFixed(2));
+  });
+
   const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
   const baseStats: Record<string, number> = {};
 
   statNames.forEach(stat => {
-    let offsetSum = 0;
+    let finalLvl = 0;
 
     if (stat === "armStrength" || stat === "legStrength") {
-      const subs = stat === "armStrength"
-        ? ["biceps", "triceps", "shoulders", "traps"]
-        : ["quads", "hamstrings", "glutes", "calves"];
-
-      const subCategorySums = [0, 0, 0, 0];
-
-      EXERCISE_CONFIGS.forEach(config => {
-        const builds = config.builds as any;
-        const pct = builds[stat] || 0;
-        if (pct > 0) {
-          const contribution = (peakLevels[config.name] || 0) * (pct / 100);
-          const configSubs = config.subCategories || [];
-          let hasMatchedSub = false;
-          subs.forEach((sub, index) => {
-            if (configSubs.includes(sub)) {
-              subCategorySums[index] += contribution;
-              hasMatchedSub = true;
-            }
-          });
-          if (!hasMatchedSub) {
-            subs.forEach((_, index) => {
-              subCategorySums[index] += contribution;
-            });
-          }
-        }
-      });
-
-      offsetSum = (subCategorySums[0] + subCategorySums[1] + subCategorySums[2] + subCategorySums[3]) / 4;
+      if (stat === "armStrength") {
+        finalLvl = (undecayedSubLevels.biceps + undecayedSubLevels.triceps + undecayedSubLevels.shoulders + undecayedSubLevels.traps) / 4;
+      } else {
+        finalLvl = (undecayedSubLevels.quads + undecayedSubLevels.hamstrings + undecayedSubLevels.glutes + undecayedSubLevels.calves) / 4;
+      }
     } else {
+      let offsetSum = 0;
       EXERCISE_CONFIGS.forEach(config => {
         const builds = config.builds as any;
         const pct = builds[stat] || 0;
@@ -1877,27 +1978,26 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
           offsetSum += (peakLevels[config.name] || 0) * (pct / 100);
         }
       });
-    }
 
-    // Cap at 99.00 if only machine exercises are used for this stat
-    let hasNonMachineLog = false;
-    EXERCISE_CONFIGS.forEach(config => {
-      const builds = config.builds as any;
-      if (builds[stat] > 0) {
-        const matchedLogs = exerciseLogs[config.name] || [];
-        const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
-        if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
-          hasNonMachineLog = true;
+      let hasNonMachineLog = false;
+      EXERCISE_CONFIGS.forEach(config => {
+        const builds = config.builds as any;
+        if (builds[stat] > 0) {
+          const matchedLogs = exerciseLogs[config.name] || [];
+          const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+          if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
+            hasNonMachineLog = true;
+          }
         }
-      }
-    });
+      });
 
-    let finalLvl = offsetSum;
-    if (finalLvl > 50) {
-      finalLvl = 50 + (finalLvl - 50) * 0.4;
-    }
-    if (!hasNonMachineLog && finalLvl >= 100.00) {
-      finalLvl = 99.00;
+      finalLvl = offsetSum;
+      if (finalLvl > 50) {
+        finalLvl = 50 + (finalLvl - 50) * 0.4;
+      }
+      if (!hasNonMachineLog && finalLvl >= 100.00) {
+        finalLvl = 99.00;
+      }
     }
 
     baseStats[stat] = parseFloat(finalLvl.toFixed(2));
@@ -2109,197 +2209,9 @@ export function getMetricTier(lvl: number): { name: string; color: string; bg: s
 export function calculateSubCategoryLevels(
   logs: FitnessLog[],
   bodyWeight: number,
-  statLevels: StatLevels
+  statLevels?: StatLevels
 ): Record<string, number> {
-  const exerciseLogs: Record<string, FitnessLog[]> = {};
-  logs.forEach(log => {
-    if (!log.exerciseName) return;
-    const conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
-    const resolvedName = conf ? conf.name : log.exerciseName.trim();
-    if (!exerciseLogs[resolvedName]) {
-      exerciseLogs[resolvedName] = [];
-    }
-    exerciseLogs[resolvedName].push(log);
-  });
-
-  const prByExercise: Record<string, number> = {};
-  logs.forEach(log => {
-    if (!log.exerciseName) return;
-    const score = calculateScoreFromLog(log, bodyWeight);
-    const conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
-    const resolvedName = conf ? conf.name : log.exerciseName.trim();
-    prByExercise[resolvedName] = Math.max(prByExercise[resolvedName] || 0, score);
-  });
-
-  const peakLevels: Record<string, number> = {};
-  EXERCISE_CONFIGS.forEach(config => {
-    const matchedLogs = exerciseLogs[config.name] || [];
-    const workingLogs = matchedLogs.filter(l => {
-      const score = calculateScoreFromLog(l, bodyWeight);
-      const pr = prByExercise[config.name] || 0;
-      const ratio = pr > 0 ? (score / pr) : 1.0;
-      return ratio >= 0.60 || pr === 0;
-    });
-
-    if (workingLogs.length === 0) {
-      peakLevels[config.name] = 0;
-      return;
-    }
-
-    let peakScore = 0;
-    workingLogs.forEach(wl => {
-      const score = calculateScoreFromLog(wl, bodyWeight);
-      if (score > peakScore) {
-        peakScore = score;
-      }
-    });
-    peakLevels[config.name] = peakScore;
-  });
-
-  // Calculate undecayed sums for subcategories
-  const subCategorySums: Record<string, number> = {
-    biceps: 0,
-    triceps: 0,
-    shoulders: 0,
-    traps: 0,
-    quads: 0,
-    hamstrings: 0,
-    glutes: 0,
-    calves: 0
-  };
-
-  const hasNonMachineSubLog: Record<string, boolean> = {
-    biceps: false,
-    triceps: false,
-    shoulders: false,
-    traps: false,
-    quads: false,
-    hamstrings: false,
-    glutes: false,
-    calves: false
-  };
-
-  const hasAnySubLog: Record<string, boolean> = {
-    biceps: false,
-    triceps: false,
-    shoulders: false,
-    traps: false,
-    quads: false,
-    hamstrings: false,
-    glutes: false,
-    calves: false
-  };
-
-  const armSubs = ["biceps", "triceps", "shoulders", "traps"];
-  const legSubs = ["quads", "hamstrings", "glutes", "calves"];
-
-  EXERCISE_CONFIGS.forEach(config => {
-    const builds = config.builds as any;
-    const armPct = builds.armStrength || 0;
-    const legPct = builds.legStrength || 0;
-    const peak = peakLevels[config.name] || 0;
-    const matchedLogs = exerciseLogs[config.name] || [];
-    const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
-    const isMachine = dbEx?.pillar === "machines";
-
-    if (armPct > 0) {
-      const contribution = peak * (armPct / 100);
-      const configSubs = config.subCategories || [];
-      let hasMatchedSub = false;
-      armSubs.forEach(sub => {
-        if (configSubs.includes(sub)) {
-          subCategorySums[sub] += contribution;
-          hasMatchedSub = true;
-          if (matchedLogs.length > 0) {
-            hasAnySubLog[sub] = true;
-            if (!isMachine) hasNonMachineSubLog[sub] = true;
-          }
-        }
-      });
-      if (!hasMatchedSub) {
-        armSubs.forEach(sub => {
-          subCategorySums[sub] += contribution;
-          if (matchedLogs.length > 0) {
-            hasAnySubLog[sub] = true;
-            if (!isMachine) hasNonMachineSubLog[sub] = true;
-          }
-        });
-      }
-    }
-
-    if (legPct > 0) {
-      const contribution = peak * (legPct / 100);
-      const configSubs = config.subCategories || [];
-      let hasMatchedSub = false;
-      legSubs.forEach(sub => {
-        if (configSubs.includes(sub)) {
-          subCategorySums[sub] += contribution;
-          hasMatchedSub = true;
-          if (matchedLogs.length > 0) {
-            hasAnySubLog[sub] = true;
-            if (!isMachine) hasNonMachineSubLog[sub] = true;
-          }
-        }
-      });
-      if (!hasMatchedSub) {
-        legSubs.forEach(sub => {
-          subCategorySums[sub] += contribution;
-          if (matchedLogs.length > 0) {
-            hasAnySubLog[sub] = true;
-            if (!isMachine) hasNonMachineSubLog[sub] = true;
-          }
-        });
-      }
-    }
-  });
-
-  const undecayedStats = getUndecayedStats(logs, bodyWeight);
-  const subCategoryLevels: Record<string, number> = {};
-
-  const processSubCategory = (sub: string, parentStat: "armStrength" | "legStrength") => {
-    if (!hasAnySubLog[sub]) {
-      subCategoryLevels[sub] = 0.00;
-      return;
-    }
-
-    const baseParent = undecayedStats[parentStat] || 0;
-    const decayedParent = statLevels[parentStat] || 0;
-
-    let decayRatio = 1.0;
-    if (baseParent > 0) {
-      let rawBaseParent = baseParent;
-      if (baseParent > 50) {
-        rawBaseParent = 50 + (baseParent - 50) / 0.4;
-      }
-      
-      let rawDecayedParent = decayedParent;
-      if (decayedParent > 50) {
-        rawDecayedParent = 50 + (decayedParent - 50) / 0.4;
-      }
-
-      decayRatio = rawDecayedParent / rawBaseParent;
-    }
-
-    let decayedSubRaw = subCategorySums[sub] * decayRatio;
-    
-    // Apply diminishing returns
-    let finalSubLvl = decayedSubRaw;
-    if (finalSubLvl > 50) {
-      finalSubLvl = 50 + (finalSubLvl - 50) * 0.4;
-    }
-
-    // Apply machine cap
-    if (!hasNonMachineSubLog[sub] && finalSubLvl >= 100.00) {
-      finalSubLvl = 99.00;
-    }
-
-    subCategoryLevels[sub] = parseFloat(finalSubLvl.toFixed(2));
-  };
-
-  armSubs.forEach(sub => processSubCategory(sub, "armStrength"));
-  legSubs.forEach(sub => processSubCategory(sub, "legStrength"));
-
-  return subCategoryLevels;
+  return evaluateAthletePerformance(logs, bodyWeight).subCategoryLevels || {};
 }
 
 export function calculateAllRecords(logs: FitnessLog[]): { title: string; val: string; icon: string; style: string }[] {
@@ -2469,4 +2381,46 @@ export function calculateAllRecords(logs: FitnessLog[]): { title: string; val: s
   }
 
   return list;
+}
+
+/**
+ * Calculates the percentage distribution of logged workouts across different muscle sectors.
+ */
+export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, number> {
+  const totals: Record<string, number> = {
+    chestStrength: 0,
+    backStrength: 0,
+    armStrength: 0,
+    legStrength: 0,
+    coreStrength: 0,
+    speed: 0,
+    stamina: 0
+  };
+
+  let grandTotal = 0;
+
+  logs.forEach(log => {
+    if (!log.exerciseName) return;
+    const conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+    if (!conf) return;
+
+    const builds = conf.builds as any;
+    const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
+    statNames.forEach(stat => {
+      const pct = builds[stat] || 0;
+      if (pct > 0) {
+        totals[stat] += pct;
+        grandTotal += pct;
+      }
+    });
+  });
+
+  const distribution: Record<string, number> = {};
+  const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
+  
+  statNames.forEach(stat => {
+    distribution[stat] = grandTotal > 0 ? parseFloat(((totals[stat] / grandTotal) * 100).toFixed(1)) : 0;
+  });
+
+  return distribution;
 }

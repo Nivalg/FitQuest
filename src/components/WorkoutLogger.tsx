@@ -127,7 +127,12 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     if (pillar === "bodyweight") return "bodyweight";
     if (pillar === "cardio") {
       const nameLower = name.toLowerCase();
-      if (nameLower.includes("rope") || nameLower.includes("jump") || nameLower.includes("sprint")) {
+      if (
+        nameLower.includes("rope") ||
+        nameLower.includes("jump") ||
+        nameLower.includes("sprint") ||
+        nameLower.includes("hiking")
+      ) {
         return "bodyweight";
       }
       return "machines";

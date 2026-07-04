@@ -5,8 +5,8 @@ import {
   getMetricTier,
   formatLevel,
   calculateAllRecords,
-  // EXERCISE_CONFIGS, // No longer needed here
-  calculateSubCategoryLevels
+  calculateSubCategoryLevels,
+  calculateMuscleDistribution
 } from "../utils/fitnessMath";
 import {
   Trophy,
@@ -105,6 +105,52 @@ export default function AthleteDashboard({
   const records = React.useMemo(() => {
     return calculateAllRecords(logs);
   }, [logs]);
+
+  // Compute all-time muscle focus distribution
+  const muscleDistribution = React.useMemo(() => {
+    return calculateMuscleDistribution(logs);
+  }, [logs]);
+
+  // Compute total distance traveled in miles
+  const totalMiles = React.useMemo(() => {
+    return logs.reduce((sum, log) => sum + (log.distance || 0), 0);
+  }, [logs]);
+
+  // Compute and format top 10 logs sorted by performance score
+  const top10Logs = React.useMemo(() => {
+    const formatted = logs.map(log => {
+      const evalItem = performance.logEvaluations[log.id];
+      const score = evalItem ? evalItem.score : 0;
+      
+      let performanceText = "";
+      if (log.weight && log.reps) {
+        performanceText = `${log.weight} lbs x ${log.reps} reps`;
+      } else if (log.reps) {
+        performanceText = `${log.reps} reps`;
+      } else if (log.distance !== undefined && log.distance > 0) {
+        const timeStr = (log.minutes || log.seconds) 
+          ? ` in ${log.minutes || 0}m ${log.seconds || 0}s` 
+          : "";
+        performanceText = `${log.distance} miles${timeStr}`;
+      } else if (log.minutes !== undefined || log.seconds !== undefined) {
+        performanceText = `${log.minutes || 0}m ${log.seconds || 0}s`;
+      } else {
+        performanceText = "Completed set";
+      }
+
+      return {
+        id: log.id,
+        exerciseName: log.exerciseName || "Exercise",
+        performanceText,
+        score,
+        timestamp: log.timestamp
+      };
+    });
+
+    return formatted
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+  }, [logs, performance.logEvaluations]);
 
   // Set up rotation timer
   React.useEffect(() => {
@@ -328,6 +374,74 @@ export default function AthleteDashboard({
             <MuscleVolumeVisualizer weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
           </div>
 
+          {/* 🏆 HALL OF HEROIC SETS & TRAVELER STATS */}
+          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-press-start text-cyan-300 tracking-wider uppercase">
+                🏆 HALL OF HEROIC SETS
+              </h3>
+            </div>
+
+            {/* Total Miles walked badge */}
+            <div className="bg-[#0D0D0E]/80 border border-slate-850 rounded-xl p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🥾</span>
+                <div className="text-left">
+                  <span className="text-[7px] font-press-start text-slate-500 block uppercase tracking-wider">TRAVELER DISTANCE</span>
+                  <span className="text-[9px] font-press-start text-emerald-400 font-bold block mt-1">TOTAL WALK / RUN / HIKE</span>
+                </div>
+              </div>
+              <span className="text-sm font-mono text-white font-black">
+                {totalMiles.toFixed(2)} <span className="text-[9px] text-slate-500 font-bold">MILES</span>
+              </span>
+            </div>
+
+            {/* Top 10 Sets List */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-[7px] font-press-start text-slate-500 uppercase tracking-widest px-1 pb-1">
+                <span>EXERCISE & PERFORMANCE</span>
+                <span>RATING</span>
+              </div>
+              
+              {top10Logs.length > 0 ? (
+                <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                  {top10Logs.map((item, index) => (
+                    <div 
+                      key={item.id}
+                      className="flex items-center justify-between p-2.5 bg-[#0D0D0E]/60 border border-slate-850 hover:border-slate-700 rounded-xl transition duration-150"
+                    >
+                      <div className="min-w-0 flex-1 text-left">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[8px] font-mono text-slate-500 font-bold">
+                            #{index + 1}
+                          </span>
+                          <span className="text-[9.5px] font-press-start text-white truncate uppercase block tracking-wider">
+                            {item.exerciseName}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-mono text-slate-400 block mt-1 pl-4">
+                          {item.performanceText}
+                        </span>
+                      </div>
+                      
+                      <div className="shrink-0 pl-3 text-right">
+                        <span className="inline-block text-[9.5px] font-mono font-black text-cyan-400 bg-cyan-950/20 border border-cyan-800/30 px-2.5 py-1 rounded-lg">
+                          LVL {Math.round(item.score)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="border border-dashed border-slate-800 rounded-xl p-4 text-center">
+                  <p className="text-[9px] text-slate-550 font-press-start leading-relaxed">
+                    NO LOGGED SETS YET. YOUR TOP 10 HIGHEST-RATED SETS WILL BE IMMORTALIZED HERE.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* RETRO YOUTUBE SOCIAL UTILITY */}
           <div className="pt-4 flex justify-center">
             <a
@@ -429,6 +543,48 @@ export default function AthleteDashboard({
                   {Math.ceil(averageLevelFloat)}
                 </span>
               </button>
+            </div>
+          </div>
+
+          {/* TRAINING FOCUS DISTRIBUTION CHART */}
+          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-[10px] font-press-start text-cyan-300 tracking-wider uppercase">
+                ⚔️ TRAINING FOCUS DISTRIBUTION
+              </h3>
+              <p className="text-[8px] text-slate-400 font-mono mt-1 leading-relaxed">
+                Percentage breakdown of all-time effort spent training each physical sector.
+              </p>
+            </div>
+
+            <div className="space-y-3.5">
+              {fitnessStatsList.map((stat) => {
+                const percentage = muscleDistribution[stat.key] || 0;
+                const shortLabel = stat.label.replace("Strength", "").trim().toUpperCase();
+                
+                return (
+                  <div key={stat.key} className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[8px] font-press-start leading-none">
+                      <span className="text-slate-400 tracking-wide flex items-center gap-1.5">
+                        <span className={stat.textColor}>{shortLabel}</span>
+                      </span>
+                      <span className="font-mono text-[10px] text-slate-300 font-extrabold">
+                        {percentage.toFixed(1)}%
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-[#0D0D0E] border border-slate-850 h-3.5 rounded-full overflow-hidden relative">
+                      {/* Premium animated bar */}
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${percentage}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className={`h-full rounded-full bg-gradient-to-r ${stat.color} shadow-[0_0_8px_rgba(6,182,212,0.1)]`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
