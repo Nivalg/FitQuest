@@ -1631,6 +1631,27 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
           offsetSum += statEffectiveLvl * (pct / 100);
         }
       });
+
+      if (stat === "stamina") {
+        let maxStaminaExerciseLvl = 0;
+        EXERCISE_CONFIGS.forEach(config => {
+          const builds = config.builds as any;
+          if (builds.stamina && builds.stamina > 0) {
+            const matchedLogs = exerciseLogs[config.name] || [];
+            const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+              config.name,
+              "stamina",
+              matchedLogs,
+              now,
+              bodyWeight
+            );
+            if (statEffectiveLvl > maxStaminaExerciseLvl) {
+              maxStaminaExerciseLvl = statEffectiveLvl;
+            }
+          }
+        });
+        offsetSum = Math.min(offsetSum, maxStaminaExerciseLvl);
+      }
     }
 
     const clampedLvl = Math.max(0.00, offsetSum);
@@ -1656,6 +1677,10 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
         if (!hasNonMachineLog && finalLvl > 50.00) {
           finalLvl = 50.00;
         }
+      }
+      
+      if (stat === "stamina" && finalLvl > 100.00) {
+        finalLvl = 100.00 + (-1.00 + Math.sqrt(4.00 * finalLvl / 25.00 - 15.00)) / 2.00;
       }
     }
 
@@ -1981,6 +2006,20 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
         }
       });
 
+      if (stat === "stamina") {
+        let maxStaminaExerciseLvl = 0;
+        EXERCISE_CONFIGS.forEach(config => {
+          const builds = config.builds as any;
+          if (builds.stamina && builds.stamina > 0) {
+            const peak = peakLevels[config.name] || 0;
+            if (peak > maxStaminaExerciseLvl) {
+              maxStaminaExerciseLvl = peak;
+            }
+          }
+        });
+        offsetSum = Math.min(offsetSum, maxStaminaExerciseLvl);
+      }
+
       let hasNonMachineLog = false;
       EXERCISE_CONFIGS.forEach(config => {
         const builds = config.builds as any;
@@ -2001,6 +2040,10 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
         if (!hasNonMachineLog && finalLvl > 50.00) {
           finalLvl = 50.00;
         }
+      }
+      
+      if (stat === "stamina" && finalLvl > 100.00) {
+        finalLvl = 100.00 + (-1.00 + Math.sqrt(4.00 * finalLvl / 25.00 - 15.00)) / 2.00;
       }
     }
 
