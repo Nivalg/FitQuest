@@ -1596,8 +1596,8 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
     if (finalSubLvl > 50) {
       finalSubLvl = 50 + (finalSubLvl - 50) * 0.4;
     }
-    if (!hasNonMachineLog && finalSubLvl >= 100.00) {
-      finalSubLvl = 99.00;
+    if (!hasNonMachineLog && finalSubLvl > 50.00) {
+      finalSubLvl = 50.00;
     }
 
     evaluation.subCategoryLevels[sub] = parseFloat(finalSubLvl.toFixed(2));
@@ -1652,8 +1652,10 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
       if (finalLvl > 50) {
         finalLvl = 50 + (finalLvl - 50) * 0.4;
       }
-      if (!hasNonMachineLog && finalLvl >= 100.00) {
-        finalLvl = 99.00;
+      if (stat !== "speed" && stat !== "stamina") {
+        if (!hasNonMachineLog && finalLvl > 50.00) {
+          finalLvl = 50.00;
+        }
       }
     }
 
@@ -1950,8 +1952,8 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
     if (finalSubLvl > 50) {
       finalSubLvl = 50 + (finalSubLvl - 50) * 0.4;
     }
-    if (!hasNonMachineLog && finalSubLvl >= 100.00) {
-      finalSubLvl = 99.00;
+    if (!hasNonMachineLog && finalSubLvl > 50.00) {
+      finalSubLvl = 50.00;
     }
 
     undecayedSubLevels[sub] = parseFloat(finalSubLvl.toFixed(2));
@@ -1995,8 +1997,10 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
       if (finalLvl > 50) {
         finalLvl = 50 + (finalLvl - 50) * 0.4;
       }
-      if (!hasNonMachineLog && finalLvl >= 100.00) {
-        finalLvl = 99.00;
+      if (stat !== "speed" && stat !== "stamina") {
+        if (!hasNonMachineLog && finalLvl > 50.00) {
+          finalLvl = 50.00;
+        }
       }
     }
 
