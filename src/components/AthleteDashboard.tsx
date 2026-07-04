@@ -288,6 +288,100 @@ export default function AthleteDashboard({
     }
   ] as const;
 
+  const detailedStatsList = [
+    {
+      key: "chestStrength",
+      label: "Chest",
+      color: "from-cyan-500 to-blue-500",
+      textColor: "text-cyan-400",
+      icon: "🎯"
+    },
+    {
+      key: "backStrength",
+      label: "Back",
+      color: "from-orange-500 to-amber-500",
+      textColor: "text-orange-400",
+      icon: "🛡️"
+    },
+    {
+      key: "coreStrength",
+      label: "Core",
+      color: "from-amber-500 to-yellow-500",
+      textColor: "text-amber-400",
+      icon: "🧘"
+    },
+    {
+      key: "biceps",
+      label: "Biceps",
+      color: "from-pink-500 to-rose-500",
+      textColor: "text-pink-400",
+      icon: "💪"
+    },
+    {
+      key: "triceps",
+      label: "Triceps",
+      color: "from-pink-500/80 to-rose-500/80",
+      textColor: "text-pink-350",
+      icon: "🥊"
+    },
+    {
+      key: "shoulders",
+      label: "Shoulders",
+      color: "from-pink-500/60 to-rose-500/60",
+      textColor: "text-pink-300",
+      icon: "🏋️"
+    },
+    {
+      key: "traps",
+      label: "Traps",
+      color: "from-pink-500/40 to-rose-500/40",
+      textColor: "text-pink-200",
+      icon: "🐂"
+    },
+    {
+      key: "quads",
+      label: "Quads",
+      color: "from-emerald-500 to-teal-500",
+      textColor: "text-emerald-400",
+      icon: "🦵"
+    },
+    {
+      key: "hamstrings",
+      label: "Hamstrings",
+      color: "from-emerald-500/80 to-teal-500/80",
+      textColor: "text-emerald-350",
+      icon: "🏃"
+    },
+    {
+      key: "glutes",
+      label: "Glutes",
+      color: "from-emerald-500/60 to-teal-500/60",
+      textColor: "text-emerald-300",
+      icon: "🍑"
+    },
+    {
+      key: "calves",
+      label: "Calves",
+      color: "from-emerald-500/40 to-teal-500/40",
+      textColor: "text-emerald-200",
+      icon: "🥾"
+    },
+    {
+      key: "speed",
+      label: "Speed",
+      color: "from-rose-500 to-red-500",
+      textColor: "text-rose-400",
+      icon: "🔥"
+    },
+    {
+      key: "stamina",
+      label: "Stamina",
+      color: "from-purple-500 to-violet-500",
+      textColor: "text-purple-400",
+      icon: "⏱️"
+    }
+  ] as const;
+
   // Muscle Volume details helpers
   const volumeLabels: Record<string, string> = {
     chestStrength: "Chest Sets",
@@ -573,31 +667,33 @@ export default function AthleteDashboard({
                 ⚔️ TRAINING FOCUS DISTRIBUTION
               </h3>
               <p className="text-[8px] text-slate-400 font-mono mt-1 leading-relaxed">
-                Percentage breakdown of all-time effort spent training each physical sector.
+                Percentage breakdown of all-time effort spent training each physical sector (20%+ = fully filled).
               </p>
             </div>
 
-            <div className="space-y-3.5">
-              {fitnessStatsList.map((stat) => {
+            <div className="grid grid-cols-2 gap-4">
+              {detailedStatsList.map((stat) => {
                 const percentage = muscleDistribution[stat.key] || 0;
-                const shortLabel = stat.label.replace("Strength", "").trim().toUpperCase();
+                const barFill = Math.min(100, (percentage / 20) * 100);
+                const shortLabel = stat.label.toUpperCase();
                 
                 return (
                   <div key={stat.key} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[8px] font-press-start leading-none">
-                      <span className="text-slate-400 tracking-wide flex items-center gap-1.5">
+                    <div className="flex justify-between items-center text-[7px] font-press-start leading-none">
+                      <span className="text-slate-400 tracking-wide flex items-center gap-1">
+                        <span className="text-[9px]">{stat.icon}</span>
                         <span className={stat.textColor}>{shortLabel}</span>
                       </span>
-                      <span className="font-mono text-[10px] text-slate-300 font-extrabold">
+                      <span className="font-mono text-[9px] text-slate-300 font-extrabold">
                         {percentage.toFixed(1)}%
                       </span>
                     </div>
 
-                    <div className="w-full bg-[#0D0D0E] border border-slate-850 h-3.5 rounded-full overflow-hidden relative">
+                    <div className="w-full bg-[#0D0D0E] border border-slate-850 h-3 rounded-full overflow-hidden relative">
                       {/* Premium animated bar */}
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${percentage}%` }}
+                        animate={{ width: `${barFill}%` }}
                         transition={{ duration: 0.8, ease: "easeOut" }}
                         className={`h-full rounded-full bg-gradient-to-r ${stat.color} shadow-[0_0_8px_rgba(6,182,212,0.1)]`}
                       />

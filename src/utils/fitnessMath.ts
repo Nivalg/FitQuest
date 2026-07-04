@@ -2388,17 +2388,23 @@ export function calculateAllRecords(logs: FitnessLog[]): { title: string; val: s
 }
 
 /**
- * Calculates the percentage distribution of logged workouts across different muscle sectors.
+ * Calculates the percentage distribution of logged workouts across all 13 muscle sectors and stamina/speed.
  */
 export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, number> {
   const totals: Record<string, number> = {
     chestStrength: 0,
     backStrength: 0,
-    armStrength: 0,
-    legStrength: 0,
     coreStrength: 0,
     speed: 0,
-    stamina: 0
+    stamina: 0,
+    biceps: 0,
+    triceps: 0,
+    shoulders: 0,
+    traps: 0,
+    quads: 0,
+    hamstrings: 0,
+    glutes: 0,
+    calves: 0
   };
 
   let grandTotal = 0;
@@ -2409,21 +2415,69 @@ export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, 
     if (!conf) return;
 
     const builds = conf.builds as any;
-    const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
-    statNames.forEach(stat => {
+    
+    // Chest, Back, Core, Speed, Stamina
+    const mainStats = ["chestStrength", "backStrength", "coreStrength", "speed", "stamina"] as const;
+    mainStats.forEach(stat => {
       const pct = builds[stat] || 0;
       if (pct > 0) {
         totals[stat] += pct;
         grandTotal += pct;
       }
     });
+
+    // Arms subcategories
+    const armPct = builds.armStrength || 0;
+    if (armPct > 0) {
+      const armSubs = ["biceps", "triceps", "shoulders", "traps"] as const;
+      const configSubs = conf.subCategories || [];
+      let hasMatched = false;
+      armSubs.forEach(sub => {
+        if (configSubs.includes(sub)) {
+          totals[sub] += armPct;
+          grandTotal += armPct;
+          hasMatched = true;
+        }
+      });
+      if (!hasMatched) {
+        armSubs.forEach(sub => {
+          totals[sub] += armPct;
+          grandTotal += armPct;
+        });
+      }
+    }
+
+    // Legs subcategories
+    const legPct = builds.legStrength || 0;
+    if (legPct > 0) {
+      const legSubs = ["quads", "hamstrings", "glutes", "calves"] as const;
+      const configSubs = conf.subCategories || [];
+      let hasMatched = false;
+      legSubs.forEach(sub => {
+        if (configSubs.includes(sub)) {
+          totals[sub] += legPct;
+          grandTotal += legPct;
+          hasMatched = true;
+        }
+      });
+      if (!hasMatched) {
+        legSubs.forEach(sub => {
+          totals[sub] += legPct;
+          grandTotal += legPct;
+        });
+      }
+    }
   });
 
   const distribution: Record<string, number> = {};
-  const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
-  
-  statNames.forEach(stat => {
-    distribution[stat] = grandTotal > 0 ? parseFloat(((totals[stat] / grandTotal) * 100).toFixed(1)) : 0;
+  const allCategories = [
+    "chestStrength", "backStrength", "coreStrength", "speed", "stamina",
+    "biceps", "triceps", "shoulders", "traps",
+    "quads", "hamstrings", "glutes", "calves"
+  ] as const;
+
+  allCategories.forEach(cat => {
+    distribution[cat] = grandTotal > 0 ? parseFloat(((totals[cat] / grandTotal) * 100).toFixed(1)) : 0;
   });
 
   return distribution;
