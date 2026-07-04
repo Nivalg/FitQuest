@@ -100,6 +100,7 @@ export default function AthleteDashboard({
 
   // Rotate achievements every 5 seconds
   const [activeRecordIndex, setActiveRecordIndex] = React.useState(0);
+  const [activeAccomplishmentIndex, setActiveAccomplishmentIndex] = React.useState(0);
 
   // Compute all personal records dynamically from logs
   const records = React.useMemo(() => {
@@ -116,41 +117,74 @@ export default function AthleteDashboard({
     return logs.reduce((sum, log) => sum + (log.distance || 0), 0);
   }, [logs]);
 
-  // Compute and format top 10 logs sorted by performance score
-  const top10Logs = React.useMemo(() => {
-    const formatted = logs.map(log => {
-      const evalItem = performance.logEvaluations[log.id];
-      const score = evalItem ? evalItem.score : 0;
-      
-      let performanceText = "";
-      if (log.weight && log.reps) {
-        performanceText = `${log.weight} lbs x ${log.reps} reps`;
-      } else if (log.reps) {
-        performanceText = `${log.reps} reps`;
-      } else if (log.distance !== undefined && log.distance > 0) {
-        const timeStr = (log.minutes || log.seconds) 
-          ? ` in ${log.minutes || 0}m ${log.seconds || 0}s` 
-          : "";
-        performanceText = `${log.distance} miles${timeStr}`;
-      } else if (log.minutes !== undefined || log.seconds !== undefined) {
-        performanceText = `${log.minutes || 0}m ${log.seconds || 0}s`;
-      } else {
-        performanceText = "Completed set";
-      }
+  // Compute all-time totals and accomplishments
+  const accomplishments = React.useMemo(() => {
+    const list: { title: string; val: string; icon: string }[] = [];
 
-      return {
-        id: log.id,
-        exerciseName: log.exerciseName || "Exercise",
-        performanceText,
-        score,
-        timestamp: log.timestamp
-      };
+    // 1. Total Distance Traveled
+    if (totalMiles > 0) {
+      list.push({
+        title: "TRAVELER DISTANCE",
+        val: `${totalMiles.toFixed(2)} TOTAL MILES`,
+        icon: "🥾"
+      });
+    }
+
+    // 2. Total Sets Completed
+    if (logs.length > 0) {
+      list.push({
+        title: "WARRIOR TRAINING VOLUME",
+        val: `${logs.length} TOTAL SETS LOGGED`,
+        icon: "⚔️"
+      });
+    }
+
+    // 3. Count of each exercise
+    const counts: Record<string, number> = {};
+    logs.forEach(log => {
+      if (log.exerciseName) {
+        counts[log.exerciseName] = (counts[log.exerciseName] || 0) + 1;
+      }
     });
 
-    return formatted
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-  }, [logs, performance.logEvaluations]);
+    // Sort exercises by most logs first
+    const sortedExercises = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1]);
+
+    sortedExercises.forEach(([name, count]) => {
+      let icon = "💪";
+      const nameLower = name.toLowerCase();
+      if (nameLower.includes("run") || nameLower.includes("jog") || nameLower.includes("sprint")) icon = "🏃";
+      else if (nameLower.includes("hike") || nameLower.includes("hiking")) icon = "🥾";
+      else if (nameLower.includes("bench") || nameLower.includes("press")) icon = "🏋️";
+      else if (nameLower.includes("push") || nameLower.includes("pushup") || nameLower.includes("push-up")) icon = "🔥";
+      else if (nameLower.includes("pull") || nameLower.includes("chin")) icon = "🦇";
+      else if (nameLower.includes("plank") || nameLower.includes("sit-up") || nameLower.includes("core")) icon = "🛡️";
+      else if (nameLower.includes("squat") || nameLower.includes("leg")) icon = "🦵";
+      else if (nameLower.includes("row")) icon = "🚣";
+
+      list.push({
+        title: `${name.toUpperCase()} TOTALS`,
+        val: `${count} COMPLETED SET${count > 1 ? "S" : ""}`,
+        icon
+      });
+    });
+
+    return list;
+  }, [logs, totalMiles]);
+
+  // Set up accomplishments rotation timer
+  React.useEffect(() => {
+    setActiveAccomplishmentIndex(0);
+  }, [accomplishments.length]);
+
+  React.useEffect(() => {
+    if (accomplishments.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveAccomplishmentIndex(prev => (prev + 1) % accomplishments.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [accomplishments]);
 
   // Set up rotation timer
   React.useEffect(() => {
@@ -374,73 +408,59 @@ export default function AthleteDashboard({
             <MuscleVolumeVisualizer weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
           </div>
 
-          {/* 🏆 HALL OF HEROIC SETS & TRAVELER STATS */}
-          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[10px] font-press-start text-cyan-300 tracking-wider uppercase">
-                🏆 HALL OF HEROIC SETS
-              </h3>
-            </div>
-
-            {/* Total Miles walked badge */}
-            <div className="bg-[#0D0D0E]/80 border border-slate-850 rounded-xl p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🥾</span>
-                <div className="text-left">
-                  <span className="text-[7px] font-press-start text-slate-500 block uppercase tracking-wider">TRAVELER DISTANCE</span>
-                  <span className="text-[9px] font-press-start text-emerald-400 font-bold block mt-1">TOTAL WALK / RUN / HIKE</span>
-                </div>
-              </div>
-              <span className="text-sm font-mono text-white font-black">
-                {totalMiles.toFixed(2)} <span className="text-[9px] text-slate-500 font-bold">MILES</span>
-              </span>
-            </div>
-
-            {/* Top 10 Sets List */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-[7px] font-press-start text-slate-500 uppercase tracking-widest px-1 pb-1">
-                <span>EXERCISE & PERFORMANCE</span>
-                <span>RATING</span>
-              </div>
-              
-              {top10Logs.length > 0 ? (
-                <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                  {top10Logs.map((item, index) => (
-                    <div 
-                      key={item.id}
-                      className="flex items-center justify-between p-2.5 bg-[#0D0D0E]/60 border border-slate-850 hover:border-slate-700 rounded-xl transition duration-150"
-                    >
-                      <div className="min-w-0 flex-1 text-left">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[8px] font-mono text-slate-500 font-bold">
-                            #{index + 1}
-                          </span>
-                          <span className="text-[9.5px] font-press-start text-white truncate uppercase block tracking-wider">
-                            {item.exerciseName}
-                          </span>
-                        </div>
-                        <span className="text-[11px] font-mono text-slate-400 block mt-1 pl-4">
-                          {item.performanceText}
-                        </span>
-                      </div>
-                      
-                      <div className="shrink-0 pl-3 text-right">
-                        <span className="inline-block text-[9.5px] font-mono font-black text-cyan-400 bg-cyan-950/20 border border-cyan-800/30 px-2.5 py-1 rounded-lg">
-                          LVL {Math.round(item.score)}
-                        </span>
-                      </div>
+          {/* 🏆 HALL OF HEROIC SETS (ACCOMPLISHMENTS CAROUSEL) */}
+          {accomplishments.length > 0 ? (
+            <div className="space-y-3">
+              <div className="bg-[#161B22] border-2 border-cyan-500/50 rounded-2xl p-5 shadow-[0_0_20px_rgba(6,182,212,0.15)] relative overflow-hidden h-[120px] flex flex-col justify-center animate-fade-in">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-full blur-xl pointer-events-none" />
+                
+                <div className="flex items-center gap-4">
+                  <div className="text-3xl shrink-0 p-2.5 bg-[#0D0D0E] border border-slate-800 rounded-xl">
+                    {accomplishments[activeAccomplishmentIndex]?.icon || "🏆"}
+                  </div>
+                  
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping shrink-0" />
+                      <span className="text-[8px] font-press-start text-cyan-400 tracking-widest block uppercase">
+                        HEROIC ACCOMPLISHMENTS
+                      </span>
                     </div>
-                  ))}
+                    <h3 className="text-[10px] font-press-start text-white truncate uppercase tracking-wider block mt-1">
+                      {accomplishments[activeAccomplishmentIndex]?.title || "ACCOMPLISHMENT"}
+                    </h3>
+                    <p className="text-xs font-mono font-black text-emerald-400 block tracking-wide mt-1">
+                      {accomplishments[activeAccomplishmentIndex]?.val || "0"}
+                    </p>
+                  </div>
                 </div>
-              ) : (
-                <div className="border border-dashed border-slate-800 rounded-xl p-4 text-center">
-                  <p className="text-[9px] text-slate-550 font-press-start leading-relaxed">
-                    NO LOGGED SETS YET. YOUR TOP 10 HIGHEST-RATED SETS WILL BE IMMORTALIZED HERE.
-                  </p>
-                </div>
-              )}
+                
+                {/* Pagination Dots at bottom center */}
+                {accomplishments.length > 1 && (
+                  <div className="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
+                    {accomplishments.map((_, i) => (
+                      <div 
+                        key={i} 
+                        className={`h-1 rounded-full transition-all duration-305 ${
+                          i === activeAccomplishmentIndex ? "w-4 bg-cyan-400" : "w-1.5 bg-slate-850"
+                        }`} 
+                        style={{ minWidth: i === activeAccomplishmentIndex ? "16px" : "6px" }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-[#161B22] border-2 border-dashed border-slate-800 rounded-2xl p-5 shadow-inner text-center">
+              <h3 className="text-xs font-press-start text-slate-500 tracking-wider">
+                🏆 HEROIC TOTALS SHIELD
+              </h3>
+              <p className="text-[10px] text-slate-400 font-mono mt-3 leading-relaxed">
+                No exercises logged yet. Log exercises under the EXERCISE tab to build up your totals and unlock accomplishments here!
+              </p>
+            </div>
+          )}
 
           {/* RETRO YOUTUBE SOCIAL UTILITY */}
           <div className="pt-4 flex justify-center">
