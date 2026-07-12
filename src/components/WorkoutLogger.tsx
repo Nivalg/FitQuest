@@ -69,6 +69,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const [newRoutineName, setNewRoutineName] = useState("");
   const [selectedExerciseNames, setSelectedExerciseNames] = useState<string[]>([]);
   const [routineSearchQuery, setRoutineSearchQuery] = useState("");
+  const [formBackTarget, setFormBackTarget] = useState<"categories" | "exercises">("exercises");
 
   // Dynamic Recents calculation
   const recents = React.useMemo(() => {
@@ -337,8 +338,15 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   };
 
   // Handle exercise selection
-  const handleSelectExercise = (exercise: ExerciseInfo) => {
+  const handleSelectExercise = (exercise: ExerciseInfo, fromView: "categories" | "exercises" = "exercises") => {
     setSelectedExercise(exercise);
+    setFormBackTarget(fromView);
+    
+    // Ensure selectedCategory is set so the form renders successfully
+    if (!selectedCategory || fromView === "categories") {
+      const cat = CATEGORIES.find(c => c.id === exercise.pillar) || { id: exercise.pillar, name: exercise.pillar };
+      setSelectedCategory(cat);
+    }
     
     // Set default reasonable states depending on form type to speed up logging
     if (exercise.formType === "A") {
@@ -568,7 +576,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                     <button
                       key={name}
                       type="button"
-                      onClick={() => handleSelectExercise(ex)}
+                      onClick={() => handleSelectExercise(ex, "categories")}
                       className="px-3 py-2 bg-[#0D0D0E] border border-slate-800 hover:border-cyan-400/40 text-slate-350 hover:text-white rounded-xl text-[9px] font-press-start tracking-wide cursor-pointer transition shrink-0"
                     >
                       {ex.name}
@@ -590,7 +598,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   <button
                     key={ex.name}
                     type="button"
-                    onClick={() => handleSelectExercise(ex)}
+                    onClick={() => handleSelectExercise(ex, "categories")}
                     className="px-3.5 py-2.5 bg-[#12161A] border border-slate-850 hover:border-cyan-500/40 rounded-xl text-[9px] font-press-start text-white tracking-wide cursor-pointer transition shrink-0"
                   >
                     {ex.name}
@@ -923,7 +931,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   <button
                     key={ex.name}
                     id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
-                    onClick={() => handleSelectExercise(ex)}
+                    onClick={() => handleSelectExercise(ex, "exercises")}
                     style={{ minHeight: "56px" }}
                     className="w-full p-4 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1.5 cursor-pointer"
                   >
@@ -956,11 +964,17 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <button
-              onClick={() => { setSelectedExercise(null); setCurrentView("exercises"); }}
+              onClick={() => {
+                setSelectedExercise(null);
+                if (formBackTarget === "categories") {
+                  setSelectedCategory(null);
+                }
+                setCurrentView(formBackTarget);
+              }}
               style={{ minHeight: "44px" }}
               className="px-4 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
             >
-              <ChevronLeft className="w-4 h-4 text-cyan-400" /> EXERCISES
+              <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
             </button>
 
             <div className="text-right">
@@ -984,7 +998,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                     <button
                       key={ex.name}
                       type="button"
-                      onClick={() => handleSelectExercise(ex)}
+                      onClick={() => handleSelectExercise(ex, formBackTarget)}
                       className={`px-3.5 py-2 text-[9px] font-press-start rounded-xl border cursor-pointer transition shrink-0 uppercase ${
                         isActive
                           ? "bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
