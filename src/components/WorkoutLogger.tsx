@@ -1001,16 +1001,37 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
           {/* Muscle progress bar below the header and above the form fields */}
           {(() => {
+            const progressBarsToRender: React.ReactNode[] = [];
+            
+            // 1. Gather all subcategories (e.g. quads, glutes, biceps, etc.)
             if (selectedExercise.subCategories && selectedExercise.subCategories.length > 0) {
-              const subCat = selectedExercise.subCategories[0];
-              return renderProgressBar(subCat, true);
+              selectedExercise.subCategories.forEach((subCat) => {
+                const bar = renderProgressBar(subCat, true);
+                if (bar) progressBarsToRender.push(bar);
+              });
             }
+
+            // 2. Gather all builds keys that are main muscles (excluding speed and stamina)
             const buildsKeys = Object.keys(selectedExercise.builds || {});
-            const buildsStatKey = buildsKeys.find(key => (selectedExercise.builds as any)[key] > 0);
-            if (buildsStatKey) {
-              return renderProgressBar(buildsStatKey, false);
-            }
-            return null;
+            const muscleKeys = ["chestStrength", "backStrength", "legStrength", "armStrength", "coreStrength"];
+            
+            buildsKeys.forEach((key) => {
+              const value = (selectedExercise.builds as any)[key] || 0;
+              if (value > 0 && muscleKeys.includes(key)) {
+                const bar = renderProgressBar(key, false);
+                if (bar) progressBarsToRender.push(bar);
+              }
+            });
+
+            if (progressBarsToRender.length === 0) return null;
+
+            return (
+              <div className="space-y-3 pb-1 border-b border-slate-800/60">
+                {progressBarsToRender.map((bar, idx) => (
+                  <div key={idx} className="animate-fade-in">{bar}</div>
+                ))}
+              </div>
+            );
           })()}
 
           <form onSubmit={handleSubmit} className="space-y-6">
