@@ -1211,6 +1211,16 @@ export default function AthleteDashboard({
             }
           ` }} />
 
+          {/* Centered Level Header - Moved on top of Physique HUD */}
+          <div className="flex items-center justify-center py-4 border-b border-[#4FC3F7]/15 w-full gap-4 mb-4">
+            <span className="text-[28px] font-press-start holo-text font-black select-none tracking-widest">
+              LEVEL
+            </span>
+            <span className="text-[28px] font-press-start holo-text font-black select-none tracking-tighter">
+              {Math.ceil(displayedAverageLevel)}
+            </span>
+          </div>
+
           {/* Stats Page Muscle Map HUD */}
           <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
             <div className="text-center">
@@ -1411,18 +1421,8 @@ export default function AthleteDashboard({
 
               return (
                 <div className="flex flex-col space-y-4">
-                  {/* Centered Level Header */}
-                  <div className="flex items-center justify-center py-4 border-b border-[#4FC3F7]/15 w-full gap-4">
-                    <span className="text-[28px] font-press-start holo-text font-black select-none tracking-widest">
-                      LEVEL
-                    </span>
-                    <span className="text-[28px] font-press-start holo-text font-black select-none tracking-tighter">
-                      {Math.ceil(displayedAverageLevel)}
-                    </span>
-                  </div>
-
                   {/* 2-Column Symmetrical Stats Grid */}
-                  <div className="flex flex-col space-y-2.5 pt-2">
+                  <div className="flex flex-col space-y-2.5">
                     {/* Row 1: CHEST vs BACK */}
                     <div className="grid grid-cols-2 gap-x-8">
                       {renderHoloRow(chestStat.icon, "CHEST", chestVal)}
