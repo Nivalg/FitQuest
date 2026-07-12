@@ -948,19 +948,26 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     baseline: 0,
     peak: 100,
     builds: { stamina: 40, legStrength: 30, speed: 30 }
+  },
+  {
+    name: "Bodyweight Volume Stamina",
+    formType: "E",
+    baseline: 0,
+    peak: 100,
+    builds: { stamina: 40 }
   }
 ];
 
 // Algorithmic anchors representing average (score = 50) and elite (score = 100) real-world thresholds
 export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "seconds" | "paceSeconds" | "distanceVolume" | "floors"; avg: number; elite: number }> = {
-  "Bench Press": { type: "weightRatio", avg: 1.0, elite: 1.75 },
-  "Barbell Squat": { type: "weightRatio", avg: 1.25, elite: 2.25 },
+  "Bench Press": { type: "weightRatio", avg: 0.9, elite: 1.9 },
+  "Barbell Squat": { type: "weightRatio", avg: 1.2, elite: 2.4 },
   "Power Clean": { type: "weightRatio", avg: 0.6, elite: 1.25 },
   "Dumbbell Lunges": { type: "weightRatio", avg: 0.4, elite: 0.9 },
-  "Deadlift": { type: "weightRatio", avg: 1.5, elite: 2.5 },
+  "Deadlift": { type: "weightRatio", avg: 1.5, elite: 2.8 },
   "Barbell Row": { type: "weightRatio", avg: 0.8, elite: 1.4 },
   "Romanian Deadlift": { type: "weightRatio", avg: 1.1, elite: 2.0 },
-  "Barbell Overhead Press": { type: "weightRatio", avg: 0.65, elite: 1.1 },
+  "Barbell Overhead Press": { type: "weightRatio", avg: 0.6, elite: 1.2 },
   "Barbell Bicep Curl": { type: "weightRatio", avg: 0.45, elite: 0.85 },
   "Kettlebell Swings": { type: "weightRatio", avg: 0.3, elite: 0.6 },
   "Barbell Hip Thrust": { type: "weightRatio", avg: 1.25, elite: 2.25 },
@@ -991,14 +998,14 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Machine Standing Calf Raises": { type: "weightRatio", avg: 0.8, elite: 1.5 },
   "Machine Sitting Calf Raises": { type: "weightRatio", avg: 0.6, elite: 1.2 },
   "Cable Shrug": { type: "weightRatio", avg: 0.6, elite: 1.2 },
-  "Regular Push-Ups": { type: "reps", avg: 25, elite: 60 },
+  "Regular Push-Ups": { type: "reps", avg: 25, elite: 90 },
   "Dips": { type: "reps", avg: 12, elite: 35 },
-  "Overhand Pull-Ups": { type: "reps", avg: 8, elite: 22 },
+  "Overhand Pull-Ups": { type: "reps", avg: 6, elite: 28 },
   "Inverted Rows": { type: "reps", avg: 15, elite: 40 },
   "Bodyweight Squats": { type: "reps", avg: 40, elite: 100 },
   "Chin-Ups": { type: "reps", avg: 9, elite: 24 },
   "Hanging Knee Raises": { type: "reps", avg: 15, elite: 35 },
-  "Sit-Ups": { type: "reps", avg: 30, elite: 75 },
+  "Sit-Ups": { type: "reps", avg: 30, elite: 90 },
   "Ab Wheel Rollout": { type: "reps", avg: 10, elite: 30 },
   "Decline Crunch": { type: "reps", avg: 20, elite: 50 },
   "Agility Ladder Drills": { type: "reps", avg: 3, elite: 8 },
@@ -1006,7 +1013,7 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Calf Raises": { type: "reps", avg: 20, elite: 50 },
   "Lunges": { type: "reps", avg: 20, elite: 50 },
   "Forward Lunges": { type: "reps", avg: 20, elite: 50 },
-  "Plank": { type: "seconds", avg: 120, elite: 300 },
+  "Plank": { type: "seconds", avg: 90, elite: 300 },
   "Treadmill Run / Jog": { type: "paceSeconds", avg: 660, elite: 420 }, 
   "Walking": { type: "paceSeconds", avg: 1080, elite: 720 }, 
   "Sprint Intervals": { type: "distanceVolume", avg: 0.25, elite: 1.0 },
@@ -1167,7 +1174,12 @@ export function getSessionSetCount(log: FitnessLog, allLogs: FitnessLog[]): numb
 /**
  * Core dynamic JavaScript score processor translating logged workouts to uncapped stat values
  */
-export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175, targetStat?: string): number {
+export function calculateScoreFromLog(
+  log: FitnessLog,
+  bodyWeight: number = 175,
+  targetStat?: string,
+  gender: "male" | "female" = "male"
+): number {
   if (!log.exerciseName) return 0;
   
   const conf = getExerciseConfig(log.exerciseName);
@@ -1175,15 +1187,46 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
 
   const m = parseLogMetrics(log);
 
+  if (resolvedName === "Bodyweight Volume Stamina") {
+    const reps = m.reps || 0;
+    if (reps <= 0) return 0;
+    const scoreVal = ((reps - 100) / 400) * 50 + 50;
+    return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
+  }
+
   if (resolvedName === "Hiking") {
     const mins = m.minutes || 0;
     const trailLevel = m.weight || 1; // stored in weight field
     const scoreVal = (mins * trailLevel) / 480;
-    return Math.max(0.00, parseFloat(scoreVal.toFixed(2)));
+    return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
   }
 
   const anchor = SCALING_ANCHORS[resolvedName];
   if (!anchor) return 0;
+
+  // Scale anchor by gender if it's a strength/core stat
+  let scaledAvg = anchor.avg;
+  let scaledElite = anchor.elite;
+  
+  if (gender === "female") {
+    let scale = 1.0;
+    if (targetStat === "legStrength") {
+      scale = 0.80; // 80% for lower body
+    } else if (targetStat === "chestStrength" || targetStat === "backStrength" || targetStat === "armStrength") {
+      scale = 0.65; // 65% for upper body
+    } else if (targetStat === "coreStrength") {
+      scale = 0.85; // 85% for core
+    } else {
+      if (conf) {
+        const builds = conf.builds as any;
+        if (builds.legStrength) scale = 0.80;
+        else if (builds.chestStrength || builds.backStrength || builds.armStrength) scale = 0.65;
+        else if (builds.coreStrength) scale = 0.85;
+      }
+    }
+    scaledAvg = anchor.avg * scale;
+    scaledElite = anchor.elite * scale;
+  }
 
   let score = 0;
 
@@ -1207,16 +1250,56 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
       if (isTreadmill || isBicycle || isElliptical || isRower || isStairmaster || isWalking) {
         if (totalSeconds <= 0) return 0;
         
-        let avgSecs = 1200;   // 20 mins
+        let avgSecs = 1800;   // 30 mins
         let eliteSecs = 7200; // 120 mins (2 hours)
         
         if (isBicycle) {
-          avgSecs = 1800;    // 30 mins
+          avgSecs = 2700;    // 45 mins
           eliteSecs = 10800; // 180 mins (3 hours)
         }
         
+        let intensityFactor = 1.0;
+        if (isWalking) {
+          if (dist > 0) {
+            const pace = totalSeconds / dist;
+            if (pace >= 1200) return 0.0; // slower than 20 min/mile
+          }
+          intensityFactor = 0.5;
+        } else if (isTreadmill) {
+          if (dist > 0) {
+            const pace = totalSeconds / dist;
+            if (pace >= 1200) return 0.0; // slower than 20 min/mile
+            if (pace < 600) intensityFactor = 1.3; // running (faster than 10 min/mile)
+            else intensityFactor = 1.0; // jogging
+          } else {
+            intensityFactor = 1.0;
+          }
+        } else if (isBicycle) {
+          if (dist > 0) {
+            const pace = totalSeconds / dist;
+            if (pace >= 360) return 0.0; // slower than 6 min/mile (10 mph)
+            if (pace < 240) intensityFactor = 1.0;
+            else intensityFactor = 0.8;
+          } else {
+            intensityFactor = 1.0;
+          }
+        } else if (isElliptical) {
+          if (dist > 0) {
+            const pace = totalSeconds / dist;
+            if (pace >= 1200) return 0.0;
+          }
+          intensityFactor = 0.9;
+        } else if (isStairmaster) {
+          if (floors > 0) {
+            const pace = totalSeconds / floors;
+            if (pace > 30) return 0.0; // slower than 2 floors/min
+          }
+          intensityFactor = 1.0;
+        }
+        
         const scoreVal = ((totalSeconds - avgSecs) / (eliteSecs - avgSecs)) * 50 + 50;
-        return Math.max(0.00, parseFloat(scoreVal.toFixed(2)));
+        const finalStaminaScore = scoreVal * intensityFactor;
+        return Math.max(0.00, Math.min(110.00, parseFloat(finalStaminaScore.toFixed(2))));
       }
     }
     else if (targetStat === "speed") {
@@ -1227,12 +1310,25 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
           const avgPace = 15;
           const elitePace = 6;
           const scoreVal = ((avgPace - inputPaceSeconds) / (avgPace - elitePace)) * 50 + 50;
-          return Math.max(0.00, parseFloat(scoreVal.toFixed(2)));
+          return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
         } else {
           if (dist <= 0 || totalSeconds <= 0) return 0;
           const inputPaceSeconds = totalSeconds / dist;
-          const scoreVal = ((anchor.avg - inputPaceSeconds) / (anchor.avg - anchor.elite)) * 50 + 50;
-          return Math.max(0.00, parseFloat(scoreVal.toFixed(2)));
+          
+          let avgPace = scaledAvg;
+          let elitePace = scaledElite;
+          
+          if (isTreadmill) {
+            avgPace = 570; // 9:30 for Mile
+            elitePace = 330; // 5:30 for Mile
+            if (dist >= 2.5) {
+              avgPace = 1800 / 3.1; // 30:00 for 5K
+              elitePace = 1050 / 3.1; // 17:30 for 5K
+            }
+          }
+          
+          const scoreVal = ((avgPace - inputPaceSeconds) / (avgPace - elitePace)) * 50 + 50;
+          return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
         }
       }
     }
@@ -1242,28 +1338,28 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
     let weight = m.weight || 0;
     const reps = m.reps || 0;
     if (weight <= 0) return 0;
-    // Check if dumbbell exercise (user inputs single dumbbell weight)
     const nameLower = resolvedName.toLowerCase();
     const isDumbbell = nameLower.includes("dumbbell") || nameLower.includes("dumbell") || nameLower.includes("hammer curl");
     if (isDumbbell) {
       weight = weight * 2;
     }
-    // 1RM Epley Estimation
-    const estimated1RM = reps <= 1 ? weight : weight * (1 + reps / 30);
+    // Cap the rep count used in the 1RM estimation at 10
+    const epleyReps = Math.min(10, reps);
+    const estimated1RM = epleyReps <= 1 ? weight : weight * (1 + epleyReps / 30);
     const ratio = estimated1RM / bodyWeight;
-    score = ((ratio - anchor.avg) / (anchor.elite - anchor.avg)) * 50 + 50;
+    score = ((ratio - scaledAvg) / (scaledElite - scaledAvg)) * 50 + 50;
   }
   else if (anchor.type === "reps") {
     const reps = m.reps || 0;
     if (reps <= 0) return 0;
-    score = ((reps - anchor.avg) / (anchor.elite - anchor.avg)) * 50 + 50;
+    score = ((reps - scaledAvg) / (scaledElite - scaledAvg)) * 50 + 50;
   }
   else if (anchor.type === "seconds") {
     const mins = m.minutes || 0;
     const secs = m.seconds || 0;
     const inputSeconds = mins * 60 + secs;
     if (inputSeconds <= 0) return 0;
-    score = ((inputSeconds - anchor.avg) / (anchor.elite - anchor.avg)) * 50 + 50;
+    score = ((inputSeconds - scaledAvg) / (scaledElite - scaledAvg)) * 50 + 50;
   }
   else if (anchor.type === "paceSeconds") {
     const mins = m.minutes || 0;
@@ -1272,22 +1368,20 @@ export function calculateScoreFromLog(log: FitnessLog, bodyWeight: number = 175,
     const totalSeconds = mins * 60 + secs;
     if (dist <= 0 || totalSeconds <= 0) return 0;
     const inputPaceSeconds = totalSeconds / dist;
-    // Lower pace seconds is better performance
-    score = ((anchor.avg - inputPaceSeconds) / (anchor.avg - anchor.elite)) * 50 + 50;
+    score = ((scaledAvg - inputPaceSeconds) / (scaledAvg - scaledElite)) * 50 + 50;
   }
   else if (anchor.type === "distanceVolume") {
     const dist = m.distance || 0;
     if (dist <= 0) return 0;
-    score = ((dist - anchor.avg) / (anchor.elite - anchor.avg)) * 50 + 50;
+    score = ((dist - scaledAvg) / (scaledElite - scaledAvg)) * 50 + 50;
   }
   else if (anchor.type === "floors") {
     const floors = m.floors || 0;
     if (floors <= 0) return 0;
-    score = ((floors - anchor.avg) / (anchor.elite - anchor.avg)) * 50 + 50;
+    score = ((floors - scaledAvg) / (scaledElite - scaledAvg)) * 50 + 50;
   }
 
-  // Graceful minimum floor at 0.00 (Uncapped past 100 for elite players!)
-  return Math.max(0.00, parseFloat(score.toFixed(2)));
+  return Math.max(0.00, Math.min(110.00, parseFloat(score.toFixed(2))));
 }
 
 /**
@@ -1322,18 +1416,19 @@ function getEffectiveLevelForExerciseAndStat(
   stat: string,
   matchedLogs: FitnessLog[],
   now: number,
-  bodyWeight: number
+  bodyWeight: number,
+  gender: "male" | "female" = "male"
 ): number {
   if (matchedLogs.length === 0) return 0;
   
   let pr = 0;
   matchedLogs.forEach(l => {
-    const score = calculateScoreFromLog(l, bodyWeight, stat);
+    const score = calculateScoreFromLog(l, bodyWeight, stat, gender);
     if (score > pr) pr = score;
   });
   
   const workingLogs = matchedLogs.filter(l => {
-    const score = calculateScoreFromLog(l, bodyWeight, stat);
+    const score = calculateScoreFromLog(l, bodyWeight, stat, gender);
     const ratio = pr > 0 ? (score / pr) : 1.0;
     return ratio >= 0.60 || pr === 0;
   });
@@ -1343,7 +1438,7 @@ function getEffectiveLevelForExerciseAndStat(
   let peakScore = 0;
   let newestTimestamp = 0;
   workingLogs.forEach(wl => {
-    const score = calculateScoreFromLog(wl, bodyWeight, stat);
+    const score = calculateScoreFromLog(wl, bodyWeight, stat, gender);
     if (score > peakScore) peakScore = score;
     const setTime = new Date(wl.timestamp).getTime();
     if (setTime > newestTimestamp) newestTimestamp = setTime;
@@ -1351,15 +1446,27 @@ function getEffectiveLevelForExerciseAndStat(
   
   const daysElapsed = Math.max(0, (now - newestTimestamp) / (1000 * 60 * 60 * 24));
   let decayMultiplier = 1.0;
-  if (daysElapsed > 14) {
-    if (daysElapsed >= 30) decayMultiplier = 0.0;
-    else decayMultiplier = 1.0 - (daysElapsed - 14) / 16.0;
+  
+  if (stat === "stamina") {
+    if (daysElapsed > 7) {
+      if (daysElapsed >= 21) decayMultiplier = 0.4;
+      else decayMultiplier = 1.0 - ((daysElapsed - 7) / 14.0) * 0.6;
+    }
+  } else {
+    if (daysElapsed > 14) {
+      if (daysElapsed >= 30) decayMultiplier = 0.4;
+      else decayMultiplier = 1.0 - ((daysElapsed - 14) / 16.0) * 0.6;
+    }
   }
   
   return peakScore * decayMultiplier;
 }
 
-export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: number = 175): DerivedPerformance {
+export function evaluateAthletePerformance(
+  logs: FitnessLog[],
+  bodyWeight: number = 175,
+  gender: "male" | "female" = "male"
+): DerivedPerformance {
   const now = Date.now();
   const evaluation: DerivedPerformance = {
     statLevels: {
@@ -1424,9 +1531,47 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
     exerciseDetails: {}
   };
 
+  // 0. Dual Crediting: Group rep-based bodyweight logs & overflow reps from weightRatio sets by day
+  const dailyRepVolume: Record<string, number> = {};
+  logs.forEach(log => {
+    if (!log.exerciseName) return;
+    const conf = getExerciseConfig(log.exerciseName);
+    const resolvedName = conf ? conf.name : log.exerciseName.trim();
+    const anchor = SCALING_ANCHORS[resolvedName];
+    if (!anchor) return;
+    
+    const dateStr = new Date(log.timestamp).toISOString().split("T")[0];
+    
+    if (anchor.type === "reps") {
+      const reps = log.reps || 0;
+      if (reps > 0) {
+        dailyRepVolume[dateStr] = (dailyRepVolume[dateStr] || 0) + reps;
+      }
+    } else if (anchor.type === "weightRatio") {
+      const reps = log.reps || 0;
+      if (reps > 10) {
+        const overflow = reps - 10;
+        dailyRepVolume[dateStr] = (dailyRepVolume[dateStr] || 0) + overflow;
+      }
+    }
+  });
+
+  const virtualLogs: FitnessLog[] = [...logs];
+  Object.entries(dailyRepVolume).forEach(([dateStr, totalReps]) => {
+    virtualLogs.push({
+      id: `virtual-bw-stamina-${dateStr}`,
+      timestamp: `${dateStr}T12:00:00.000Z`,
+      metricType: "general_workout",
+      title: "Daily Bodyweight / Rep Volume",
+      exerciseName: "Bodyweight Volume Stamina",
+      newValue: `${totalReps} reps`,
+      reps: totalReps
+    });
+  });
+
   // 1. Group logs by exercise to calculate All-time PR first
   const exerciseLogs: Record<string, FitnessLog[]> = {};
-  logs.forEach(log => {
+  virtualLogs.forEach(log => {
     if (!log.exerciseName) return;
     const conf = getExerciseConfig(log.exerciseName);
     const resolvedName = conf ? conf.name : log.exerciseName.trim();
@@ -1437,9 +1582,9 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
   });
 
   const prByExercise: Record<string, number> = {};
-  logs.forEach(log => {
+  virtualLogs.forEach(log => {
     if (!log.exerciseName) return;
-    const score = calculateScoreFromLog(log, bodyWeight);
+    const score = calculateScoreFromLog(log, bodyWeight, undefined, gender);
     const conf = getExerciseConfig(log.exerciseName);
     const resolvedName = conf ? conf.name : log.exerciseName.trim();
     prByExercise[resolvedName] = Math.max(prByExercise[resolvedName] || 0, score);
@@ -1451,7 +1596,7 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
     const conf = getExerciseConfig(log.exerciseName);
     const resolvedName = conf ? conf.name : log.exerciseName.trim();
     
-    const score = calculateScoreFromLog(log, bodyWeight);
+    const score = calculateScoreFromLog(log, bodyWeight, undefined, gender);
     const pr = prByExercise[resolvedName] || 0;
     const ratio = pr > 0 ? (score / pr) : 1.0;
     
@@ -1547,7 +1692,7 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
   const subCategoryNames = ["biceps", "triceps", "shoulders", "traps", "glutes", "quads", "hamstrings", "calves"] as const;
   
   subCategoryNames.forEach(sub => {
-    let rawSubLvl = 0;
+    const contributions: number[] = [];
     let hasNonMachineLog = false;
     let hasAnyLog = false;
     const parentStat = ["biceps", "triceps", "shoulders", "traps"].includes(sub) ? "armStrength" : "legStrength";
@@ -1572,11 +1717,12 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
             parentStat,
             matchedLogs,
             now,
-            bodyWeight
+            bodyWeight,
+            gender
           );
-          rawSubLvl += statEffectiveLvl * (pct / 100);
-          
-          if (matchedLogs.length > 0) {
+          const contrib = statEffectiveLvl * (pct / 100);
+          if (contrib > 0) {
+            contributions.push(contrib);
             hasAnyLog = true;
             const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
             if (dbEx?.pillar !== "machines") {
@@ -1592,9 +1738,16 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
       return;
     }
 
+    contributions.sort((a, b) => b - a);
+    let rawSubLvl = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
+
     let finalSubLvl = Math.max(0.00, rawSubLvl);
     if (finalSubLvl > 50) {
-      finalSubLvl = 50 + (finalSubLvl - 50) * 0.4;
+      if (finalSubLvl > 100) {
+        finalSubLvl = 100.00 + 100.00 * (finalSubLvl - 100.00) / (finalSubLvl - 100.00 + 400.00);
+      } else {
+        finalSubLvl = 100.00 * finalSubLvl / (finalSubLvl + 50.00);
+      }
     }
     if (!hasNonMachineLog && finalSubLvl > 50.00) {
       finalSubLvl = 50.00;
@@ -1616,41 +1769,68 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
         offsetSum = (evaluation.subCategoryLevels.quads + evaluation.subCategoryLevels.hamstrings + evaluation.subCategoryLevels.glutes + evaluation.subCategoryLevels.calves) / 4;
       }
     } else {
-      EXERCISE_CONFIGS.forEach(config => {
-        const builds = config.builds as any;
-        const pct = builds[stat] || 0;
-        if (pct > 0) {
-          const matchedLogs = exerciseLogs[config.name] || [];
-          const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
-            config.name,
-            stat,
-            matchedLogs,
-            now,
-            bodyWeight
-          );
-          offsetSum += statEffectiveLvl * (pct / 100);
-        }
-      });
-
-      if (stat === "stamina") {
-        let maxStaminaExerciseLvl = 0;
+      if (stat === "chestStrength" || stat === "backStrength" || stat === "coreStrength") {
+        const contributions: number[] = [];
         EXERCISE_CONFIGS.forEach(config => {
           const builds = config.builds as any;
-          if (builds.stamina && builds.stamina > 0) {
+          const pct = builds[stat] || 0;
+          if (pct > 0) {
             const matchedLogs = exerciseLogs[config.name] || [];
             const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
               config.name,
-              "stamina",
+              stat,
               matchedLogs,
               now,
-              bodyWeight
+              bodyWeight,
+              gender
             );
-            if (statEffectiveLvl > maxStaminaExerciseLvl) {
-              maxStaminaExerciseLvl = statEffectiveLvl;
+            const contrib = statEffectiveLvl * (pct / 100);
+            if (contrib > 0) {
+              contributions.push(contrib);
             }
           }
         });
-        offsetSum = Math.min(offsetSum, maxStaminaExerciseLvl);
+        contributions.sort((a, b) => b - a);
+        offsetSum = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
+      } else {
+        EXERCISE_CONFIGS.forEach(config => {
+          const builds = config.builds as any;
+          const pct = builds[stat] || 0;
+          if (pct > 0) {
+            const matchedLogs = exerciseLogs[config.name] || [];
+            const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+              config.name,
+              stat,
+              matchedLogs,
+              now,
+              bodyWeight,
+              gender
+            );
+            offsetSum += statEffectiveLvl * (pct / 100);
+          }
+        });
+
+        if (stat === "stamina") {
+          let maxStaminaExerciseLvl = 0;
+          EXERCISE_CONFIGS.forEach(config => {
+            const builds = config.builds as any;
+            if (builds.stamina && builds.stamina > 0) {
+              const matchedLogs = exerciseLogs[config.name] || [];
+              const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+                config.name,
+                "stamina",
+                matchedLogs,
+                now,
+                bodyWeight,
+                gender
+              );
+              if (statEffectiveLvl > maxStaminaExerciseLvl) {
+                maxStaminaExerciseLvl = statEffectiveLvl;
+              }
+            }
+          });
+          offsetSum = Math.min(offsetSum, maxStaminaExerciseLvl);
+        }
       }
     }
 
@@ -1671,16 +1851,37 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
       });
 
       if (finalLvl > 50) {
-        finalLvl = 50 + (finalLvl - 50) * 0.4;
+        if (finalLvl > 100) {
+          finalLvl = 100.00 + 100.00 * (finalLvl - 100.00) / (finalLvl - 100.00 + 400.00);
+        } else {
+          finalLvl = 100.00 * finalLvl / (finalLvl + 50.00);
+        }
       }
       if (stat !== "speed" && stat !== "stamina") {
         if (!hasNonMachineLog && finalLvl > 50.00) {
           finalLvl = 50.00;
         }
       }
-      
-      if (stat === "stamina" && finalLvl > 100.00) {
-        finalLvl = 100.00 + (-1.00 + Math.sqrt(4.00 * finalLvl / 25.00 - 15.00)) / 2.00;
+
+      if (stat === "stamina") {
+        let qualifyingStaminaLogsCount = 0;
+        logs.forEach(l => {
+          if (!l.exerciseName) return;
+          const conf = getExerciseConfig(l.exerciseName);
+          if (conf && conf.builds && (conf.builds as any).stamina > 0) {
+            const score = calculateScoreFromLog(l, bodyWeight, "stamina", gender);
+            const pr = prByExercise[conf.name] || 0;
+            const isWorkingSet = pr > 0 ? (score / pr >= 0.60) : true;
+            
+            const ageDays = (now - new Date(l.timestamp).getTime()) / (1000 * 60 * 60 * 24);
+            if (isWorkingSet && ageDays <= 14 && score > 0) {
+              qualifyingStaminaLogsCount++;
+            }
+          }
+        });
+        
+        const consistencyMultiplier = Math.min(1.0, qualifyingStaminaLogsCount / 2.0);
+        finalLvl = finalLvl * consistencyMultiplier;
       }
     }
 
@@ -1884,9 +2085,50 @@ export function evaluateAthletePerformance(logs: FitnessLog[], bodyWeight: numbe
 /**
  * Calculates the undecayed baseline stat values based strictly on log history
  */
-export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175): Record<string, number> {
-  const exerciseLogs: Record<string, FitnessLog[]> = {};
+export function getUndecayedStats(
+  logs: FitnessLog[],
+  bodyWeight: number = 175,
+  gender: "male" | "female" = "male"
+): Record<string, number> {
+  const dailyRepVolume: Record<string, number> = {};
   logs.forEach(log => {
+    if (!log.exerciseName) return;
+    const conf = getExerciseConfig(log.exerciseName);
+    const resolvedName = conf ? conf.name : log.exerciseName.trim();
+    const anchor = SCALING_ANCHORS[resolvedName];
+    if (!anchor) return;
+    
+    const dateStr = new Date(log.timestamp).toISOString().split("T")[0];
+    
+    if (anchor.type === "reps") {
+      const reps = log.reps || 0;
+      if (reps > 0) {
+        dailyRepVolume[dateStr] = (dailyRepVolume[dateStr] || 0) + reps;
+      }
+    } else if (anchor.type === "weightRatio") {
+      const reps = log.reps || 0;
+      if (reps > 10) {
+        const overflow = reps - 10;
+        dailyRepVolume[dateStr] = (dailyRepVolume[dateStr] || 0) + overflow;
+      }
+    }
+  });
+
+  const virtualLogs: FitnessLog[] = [...logs];
+  Object.entries(dailyRepVolume).forEach(([dateStr, totalReps]) => {
+    virtualLogs.push({
+      id: `virtual-bw-stamina-${dateStr}`,
+      timestamp: `${dateStr}T12:00:00.000Z`,
+      metricType: "general_workout",
+      title: "Daily Bodyweight / Rep Volume",
+      exerciseName: "Bodyweight Volume Stamina",
+      newValue: `${totalReps} reps`,
+      reps: totalReps
+    });
+  });
+
+  const exerciseLogs: Record<string, FitnessLog[]> = {};
+  virtualLogs.forEach(log => {
     if (!log.exerciseName) return;
     const conf = getExerciseConfig(log.exerciseName);
     const resolvedName = conf ? conf.name : log.exerciseName.trim();
@@ -1897,9 +2139,9 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
   });
 
   const prByExercise: Record<string, number> = {};
-  logs.forEach(log => {
+  virtualLogs.forEach(log => {
     if (!log.exerciseName) return;
-    const score = calculateScoreFromLog(log, bodyWeight);
+    const score = calculateScoreFromLog(log, bodyWeight, undefined, gender);
     const conf = getExerciseConfig(log.exerciseName);
     const resolvedName = conf ? conf.name : log.exerciseName.trim();
     prByExercise[resolvedName] = Math.max(prByExercise[resolvedName] || 0, score);
@@ -1909,7 +2151,7 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
   EXERCISE_CONFIGS.forEach(config => {
     const matchedLogs = exerciseLogs[config.name] || [];
     const workingLogs = matchedLogs.filter(l => {
-      const score = calculateScoreFromLog(l, bodyWeight);
+      const score = calculateScoreFromLog(l, bodyWeight, undefined, gender);
       const pr = prByExercise[config.name] || 0;
       const ratio = pr > 0 ? (score / pr) : 1.0;
       return ratio >= 0.60 || pr === 0;
@@ -1922,7 +2164,7 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
 
     let peakScore = 0;
     workingLogs.forEach(wl => {
-      const score = calculateScoreFromLog(wl, bodyWeight);
+      const score = calculateScoreFromLog(wl, bodyWeight, undefined, gender);
       if (score > peakScore) {
         peakScore = score;
       }
@@ -1934,7 +2176,7 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
   const undecayedSubLevels: Record<string, number> = {};
 
   subCategoryNames.forEach(sub => {
-    let rawSubLvl = 0;
+    const contributions: number[] = [];
     let hasNonMachineLog = false;
     let hasAnyLog = false;
     const parentStat = ["biceps", "triceps", "shoulders", "traps"].includes(sub) ? "armStrength" : "legStrength";
@@ -1954,10 +2196,9 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
 
         if (isMatched) {
           const peak = peakLevels[config.name] || 0;
-          rawSubLvl += peak * (pct / 100);
-          
-          const matchedLogs = exerciseLogs[config.name] || [];
-          if (matchedLogs.length > 0) {
+          const contrib = peak * (pct / 100);
+          if (contrib > 0) {
+            contributions.push(contrib);
             hasAnyLog = true;
             const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
             if (dbEx?.pillar !== "machines") {
@@ -1973,9 +2214,16 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
       return;
     }
 
+    contributions.sort((a, b) => b - a);
+    let rawSubLvl = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
+
     let finalSubLvl = Math.max(0.00, rawSubLvl);
     if (finalSubLvl > 50) {
-      finalSubLvl = 50 + (finalSubLvl - 50) * 0.4;
+      if (finalSubLvl > 100) {
+        finalSubLvl = 100.00 + 100.00 * (finalSubLvl - 100.00) / (finalSubLvl - 100.00 + 400.00);
+      } else {
+        finalSubLvl = 100.00 * finalSubLvl / (finalSubLvl + 50.00);
+      }
     }
     if (!hasNonMachineLog && finalSubLvl > 50.00) {
       finalSubLvl = 50.00;
@@ -1998,26 +2246,43 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
       }
     } else {
       let offsetSum = 0;
-      EXERCISE_CONFIGS.forEach(config => {
-        const builds = config.builds as any;
-        const pct = builds[stat] || 0;
-        if (pct > 0) {
-          offsetSum += (peakLevels[config.name] || 0) * (pct / 100);
-        }
-      });
-
-      if (stat === "stamina") {
-        let maxStaminaExerciseLvl = 0;
+      if (stat === "chestStrength" || stat === "backStrength" || stat === "coreStrength") {
+        const contributions: number[] = [];
         EXERCISE_CONFIGS.forEach(config => {
           const builds = config.builds as any;
-          if (builds.stamina && builds.stamina > 0) {
+          const pct = builds[stat] || 0;
+          if (pct > 0) {
             const peak = peakLevels[config.name] || 0;
-            if (peak > maxStaminaExerciseLvl) {
-              maxStaminaExerciseLvl = peak;
+            const contrib = peak * (pct / 100);
+            if (contrib > 0) {
+              contributions.push(contrib);
             }
           }
         });
-        offsetSum = Math.min(offsetSum, maxStaminaExerciseLvl);
+        contributions.sort((a, b) => b - a);
+        offsetSum = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
+      } else {
+        EXERCISE_CONFIGS.forEach(config => {
+          const builds = config.builds as any;
+          const pct = builds[stat] || 0;
+          if (pct > 0) {
+            offsetSum += (peakLevels[config.name] || 0) * (pct / 100);
+          }
+        });
+
+        if (stat === "stamina") {
+          let maxStaminaExerciseLvl = 0;
+          EXERCISE_CONFIGS.forEach(config => {
+            const builds = config.builds as any;
+            if (builds.stamina && builds.stamina > 0) {
+              const peak = peakLevels[config.name] || 0;
+              if (peak > maxStaminaExerciseLvl) {
+                maxStaminaExerciseLvl = peak;
+              }
+            }
+          });
+          offsetSum = Math.min(offsetSum, maxStaminaExerciseLvl);
+        }
       }
 
       let hasNonMachineLog = false;
@@ -2034,16 +2299,37 @@ export function getUndecayedStats(logs: FitnessLog[], bodyWeight: number = 175):
 
       finalLvl = offsetSum;
       if (finalLvl > 50) {
-        finalLvl = 50 + (finalLvl - 50) * 0.4;
+        if (finalLvl > 100) {
+          finalLvl = 100.00 + 100.00 * (finalLvl - 100.00) / (finalLvl - 100.00 + 400.00);
+        } else {
+          finalLvl = 100.00 * finalLvl / (finalLvl + 50.00);
+        }
       }
       if (stat !== "speed" && stat !== "stamina") {
         if (!hasNonMachineLog && finalLvl > 50.00) {
           finalLvl = 50.00;
         }
       }
-      
-      if (stat === "stamina" && finalLvl > 100.00) {
-        finalLvl = 100.00 + (-1.00 + Math.sqrt(4.00 * finalLvl / 25.00 - 15.00)) / 2.00;
+
+      if (stat === "stamina") {
+        let qualifyingStaminaLogsCount = 0;
+        logs.forEach(l => {
+          if (!l.exerciseName) return;
+          const conf = getExerciseConfig(l.exerciseName);
+          if (conf && conf.builds && (conf.builds as any).stamina > 0) {
+            const score = calculateScoreFromLog(l, bodyWeight, "stamina", gender);
+            const pr = prByExercise[conf.name] || 0;
+            const isWorkingSet = pr > 0 ? (score / pr >= 0.60) : true;
+            
+            const ageDays = (Date.now() - new Date(l.timestamp).getTime()) / (1000 * 60 * 60 * 24);
+            if (isWorkingSet && ageDays <= 14 && score > 0) {
+              qualifyingStaminaLogsCount++;
+            }
+          }
+        });
+        
+        const consistencyMultiplier = Math.min(1.0, qualifyingStaminaLogsCount / 2.0);
+        finalLvl = finalLvl * consistencyMultiplier;
       }
     }
 
@@ -2061,8 +2347,21 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
 
   const now = Date.now();
   
+  let gender: "male" | "female" = "male";
+  try {
+    const profileStr = localStorage.getItem("fitquest_profile");
+    if (profileStr) {
+      const parsed = JSON.parse(profileStr);
+      if (parsed.gender === "female") {
+        gender = "female";
+      }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
   // 1. Calculate undecayed baseline stats
-  const baseStats = getUndecayedStats(logs, bodyWeight);
+  const baseStats = getUndecayedStats(logs, bodyWeight, gender);
 
   // 2. Load stored decay states
   const storedStr = localStorage.getItem("fitrpg_decay_stats");

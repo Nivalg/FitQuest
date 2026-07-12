@@ -11,6 +11,7 @@ export default function FitnessProfileSetup({ onSetupComplete }: FitnessProfileS
   const [name, setName] = useState("");
   const [age, setAge] = useState<string>("25");
   const [bodyWeight, setBodyWeight] = useState<string>("175");
+  const [gender, setGender] = useState<"male" | "female">("male");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +24,7 @@ export default function FitnessProfileSetup({ onSetupComplete }: FitnessProfileS
       name: name.trim(),
       age: finalAge,
       bodyWeight: finalBodyWeight,
+      gender,
       chestStrength: 0,
       chestStrengthXP: 0,
       backStrength: 0,
@@ -126,6 +128,20 @@ export default function FitnessProfileSetup({ onSetupComplete }: FitnessProfileS
                   lbs
                 </div>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] sm:text-xs font-press-start text-slate-400 mb-3 tracking-widest">
+                GENDER
+              </label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value as "male" | "female")}
+                className="w-full bg-[#0D0D0E] border border-slate-800 focus:border-cyan-500 rounded-xl py-4 px-5 text-sm sm:text-base font-mono text-slate-100 outline-none transition cursor-pointer"
+              >
+                <option value="male" className="bg-[#0D0D0E] text-slate-100">MALE</option>
+                <option value="female" className="bg-[#0D0D0E] text-slate-100">FEMALE</option>
+              </select>
             </div>
           </div>
 

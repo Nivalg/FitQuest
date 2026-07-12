@@ -2,6 +2,7 @@ export interface AthleteProfile {
   name: string;
   age: number;
   bodyWeight: number; // in lbs
+  gender?: "male" | "female";
   
   // 7 profile stats: levels (start at 1.00 to 100.00) and sub-level index tracking
   chestStrength: number;

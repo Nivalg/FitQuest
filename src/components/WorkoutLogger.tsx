@@ -15,7 +15,12 @@ import {
   Award,
   Timer,
   Shield,
-  Target
+  Target,
+  Search,
+  Trash2,
+  Play,
+  Square,
+  Save
 } from "lucide-react";
 
 interface WorkoutLoggerProps {
@@ -36,13 +41,68 @@ interface WorkoutLoggerProps {
 }
 
 export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: WorkoutLoggerProps) {
-  // Current view states: "categories" -> "exercises" -> "form"
-  const [currentView, setCurrentView] = useState<"categories" | "exercises" | "form">("categories");
+  // Current view states: "categories" | "exercises" | "form" | "create-routine"
+  const [currentView, setCurrentView] = useState<"categories" | "exercises" | "form" | "create-routine">("categories");
   const [selectedCategory, setSelectedCategory] = useState<{ id: string; name: string } | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseInfo | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>("all");
   const [restSeconds, setRestSeconds] = useState<number>(0);
   const [frameIndex, setFrameIndex] = useState<number>(0);
+
+  // Custom Workout Routines and Recents states
+  const [routines, setRoutines] = useState<{ name: string; exercises: string[] }[]>(() => {
+    try {
+      const saved = localStorage.getItem("fitquest_custom_routines");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error("Error loading routines:", e);
+    }
+    // Default preset routines
+    return [
+      { name: "Arm & Shoulder Day", exercises: ["Barbell Overhead Press", "Barbell Bicep Curl", "Dumbbell Skull Crushers", "Barbell Shrug"] },
+      { name: "Leg & Core Day", exercises: ["Barbell Squat", "Romanian Deadlift", "Calf Raises", "Plank"] }
+    ];
+  });
+  const [activeRoutine, setActiveRoutine] = useState<{ name: string; exercises: string[] } | null>(null);
+
+  // Routine Creator Form states
+  const [newRoutineName, setNewRoutineName] = useState("");
+  const [selectedExerciseNames, setSelectedExerciseNames] = useState<string[]>([]);
+  const [routineSearchQuery, setRoutineSearchQuery] = useState("");
+
+  // Dynamic Recents calculation
+  const recents = React.useMemo(() => {
+    const uniqueNames: string[] = [];
+    const sortedLogs = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    for (const log of sortedLogs) {
+      if (log.exerciseName) {
+        const match = EXERCISE_DATABASE.find(e => e.name.toLowerCase() === log.exerciseName!.toLowerCase());
+        if (match && !uniqueNames.includes(match.name)) {
+          uniqueNames.push(match.name);
+          if (uniqueNames.length >= 6) break;
+        }
+      }
+    }
+    return uniqueNames.map(name => EXERCISE_DATABASE.find(e => e.name === name)!).filter(Boolean);
+  }, [logs]);
+
+  const switcherExercises = React.useMemo(() => {
+    if (activeRoutine) {
+      return activeRoutine.exercises
+        .map(name => EXERCISE_DATABASE.find(e => e.name === name)!)
+        .filter(Boolean);
+    }
+    if (recents.length > 0) {
+      return recents;
+    }
+    // Fallback default exercises if user has no logs yet
+    return [
+      "Bench Press",
+      "Barbell Squat",
+      "Deadlift",
+      "Barbell Bicep Curl"
+    ].map(name => EXERCISE_DATABASE.find(e => e.name === name)!).filter(Boolean);
+  }, [activeRoutine, recents]);
 
   useEffect(() => {
     if (!selectedExercise || !selectedExercise.images || selectedExercise.images.length === 0) {
@@ -412,6 +472,39 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     lastLoggedTimeRef.current = Date.now();
   };
 
+  const handleSaveRoutine = () => {
+    if (!newRoutineName.trim()) return;
+    if (selectedExerciseNames.length === 0) return;
+    
+    const newRoutine = {
+      name: newRoutineName.trim(),
+      exercises: selectedExerciseNames
+    };
+    
+    const updated = [...routines, newRoutine];
+    setRoutines(updated);
+    localStorage.setItem("fitquest_custom_routines", JSON.stringify(updated));
+    
+    // Set active
+    setActiveRoutine(newRoutine);
+    
+    // Reset form & go back
+    setNewRoutineName("");
+    setSelectedExerciseNames([]);
+    setRoutineSearchQuery("");
+    setCurrentView("categories");
+  };
+
+  const handleDeleteRoutine = (routineName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // prevent activating it
+    const updated = routines.filter(r => r.name !== routineName);
+    setRoutines(updated);
+    localStorage.setItem("fitquest_custom_routines", JSON.stringify(updated));
+    if (activeRoutine?.name === routineName) {
+      setActiveRoutine(null);
+    }
+  };
+
   const handleBackToCategories = () => {
     setSelectedSubCategory("all");
     setCurrentView("categories");
@@ -449,34 +542,187 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
             </p>
           </div>
 
-          <div className="flex flex-col gap-4">
-            {focusGroups.map((group) => (
+          {/* A. ACTIVE WORKOUT ROUTINE STATUS BANNER */}
+          {activeRoutine && (
+            <div className="p-4 bg-cyan-950/15 border border-cyan-500/30 rounded-2xl space-y-3 shadow-lg shadow-cyan-950/5 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping" />
+                  <span className="text-[9px] font-press-start text-cyan-300 uppercase tracking-widest">
+                    ACTIVE: {activeRoutine.name}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveRoutine(null)}
+                  className="px-2.5 py-1 bg-red-950/20 border border-red-500/30 hover:border-red-500 text-red-400 rounded-lg text-[8px] font-press-start flex items-center gap-1.5 cursor-pointer transition active:scale-95"
+                >
+                  <Square className="w-2.5 h-2.5" /> STOP
+                </button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {activeRoutine.exercises.map(name => {
+                  const ex = EXERCISE_DATABASE.find(e => e.name === name);
+                  if (!ex) return null;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => handleSelectExercise(ex)}
+                      className="px-3 py-2 bg-[#0D0D0E] border border-slate-800 hover:border-cyan-400/40 text-slate-350 hover:text-white rounded-xl text-[9px] font-press-start tracking-wide cursor-pointer transition shrink-0"
+                    >
+                      {ex.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* B. QUICK-LOG RECENTS BAR */}
+          {recents.length > 0 && (
+            <div className="space-y-2">
+              <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
+                ⚡️ QUICK-LOG RECENTS
+              </span>
+              <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none w-full">
+                {recents.map((ex) => (
+                  <button
+                    key={ex.name}
+                    type="button"
+                    onClick={() => handleSelectExercise(ex)}
+                    className="px-3.5 py-2.5 bg-[#12161A] border border-slate-850 hover:border-cyan-500/40 rounded-xl text-[9px] font-press-start text-white tracking-wide cursor-pointer transition shrink-0"
+                  >
+                    {ex.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* C. CUSTOM WORKOUT ROUTINES LIST */}
+          <div className="bg-[#12161A] border border-slate-855 p-4.5 rounded-2xl space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-850/80 pb-2.5">
+              <span className="text-[9px] font-press-start text-cyan-300 uppercase tracking-wider">
+                📋 CUSTOM WORKOUT ROUTINES
+              </span>
               <button
-                key={group.id}
-                id={`focus-${group.id}`}
-                style={{ minHeight: "84px" }}
+                type="button"
                 onClick={() => {
-                  const isSub = group.id === "legs" || group.id === "arms";
-                  setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
-                  setSelectedSubCategory(isSub ? null : "all");
-                  setActiveFilter("weights");
-                  setCurrentView("exercises");
+                  setNewRoutineName("");
+                  setSelectedExerciseNames([]);
+                  setRoutineSearchQuery("");
+                  setCurrentView("create-routine");
                 }}
-                className={`p-4 border-2 rounded-2xl flex items-center gap-4 text-left transition duration-150 cursor-pointer ${group.style}`}
+                className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-400/30 hover:border-cyan-400 text-cyan-300 rounded-lg text-[8px] font-press-start flex items-center gap-1 cursor-pointer transition active:scale-95"
               >
-                <div className="p-3.5 bg-[#0D0D0E] border border-slate-800 rounded-xl shrink-0">
-                  {group.icon}
-                </div>
-                <div>
-                  <span className="text-xs font-press-start text-white tracking-wider block">
-                    {group.name.toUpperCase()}
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-450 mt-1 block">
-                    {group.desc}
-                  </span>
-                </div>
+                <Plus className="w-2.5 h-2.5" /> CREATE
               </button>
-            ))}
+            </div>
+
+            <div className="space-y-2.5">
+              {routines.map((routine) => {
+                const isActive = activeRoutine?.name === routine.name;
+                return (
+                  <div
+                    key={routine.name}
+                    onClick={() => setActiveRoutine(routine)}
+                    className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition ${
+                      isActive
+                        ? "border-cyan-400 bg-cyan-950/10"
+                        : "border-slate-850 bg-[#161B22]/40 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-press-start text-white tracking-wide block">
+                        {routine.name.toUpperCase()}
+                      </span>
+                      <span className="text-[8px] font-mono text-slate-500 block uppercase">
+                        {routine.exercises.length} Exercises: {routine.exercises.slice(0, 3).join(", ")}{routine.exercises.length > 3 ? "..." : ""}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {!isActive ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveRoutine(routine);
+                          }}
+                          className="p-1.5 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-cyan-400 rounded-lg cursor-pointer transition"
+                          title="Start Workout"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveRoutine(null);
+                          }}
+                          className="p-1.5 bg-cyan-950/30 border border-cyan-400 text-cyan-300 rounded-lg cursor-pointer transition"
+                          title="Stop Workout"
+                        >
+                          <Square className="w-3 h-3 fill-current" />
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteRoutine(routine.name, e)}
+                        className="p-1.5 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-red-400 rounded-lg cursor-pointer transition"
+                        title="Delete Routine"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {routines.length === 0 && (
+                <div className="text-center py-4 text-slate-500 font-mono text-[9px] uppercase">
+                  No routines saved. Create one to get started!
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* D. TARGET TRAINING ZONES */}
+          <div className="space-y-2">
+            <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
+              🎯 TARGET ZONES
+            </span>
+            <div className="flex flex-col gap-4">
+              {focusGroups.map((group) => (
+                <button
+                  key={group.id}
+                  id={`focus-${group.id}`}
+                  style={{ minHeight: "84px" }}
+                  onClick={() => {
+                    const isSub = group.id === "legs" || group.id === "arms";
+                    setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
+                    setSelectedSubCategory(isSub ? null : "all");
+                    setActiveFilter("weights");
+                    setCurrentView("exercises");
+                  }}
+                  className={`p-4 border-2 rounded-2xl flex items-center gap-4 text-left transition duration-150 cursor-pointer ${group.style}`}
+                >
+                  <div className="p-3.5 bg-[#0D0D0E] border border-slate-800 rounded-xl shrink-0">
+                    {group.icon}
+                  </div>
+                  <div>
+                    <span className="text-xs font-press-start text-white tracking-wider block">
+                      {group.name.toUpperCase()}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-450 mt-1 block">
+                      {group.desc}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </motion.div>
       )}
@@ -724,6 +970,34 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               </h3>
             </div>
           </div>
+
+          {/* Superset Switcher Bar */}
+          {switcherExercises.length > 0 && (
+            <div className="bg-[#0D0D0E]/80 border border-slate-850 p-3 rounded-2xl flex flex-col space-y-2 animate-fade-in">
+              <span className="text-[7.5px] font-press-start text-cyan-300 uppercase tracking-wider block">
+                🔄 SUPERSET / QUICK SWITCH
+              </span>
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none items-center w-full">
+                {switcherExercises.map((ex) => {
+                  const isActive = ex.name === selectedExercise.name;
+                  return (
+                    <button
+                      key={ex.name}
+                      type="button"
+                      onClick={() => handleSelectExercise(ex)}
+                      className={`px-3.5 py-2 text-[9px] font-press-start rounded-xl border cursor-pointer transition shrink-0 uppercase ${
+                        isActive
+                          ? "bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+                          : "bg-[#161B22]/40 border-slate-850 text-slate-550 hover:text-slate-400"
+                      }`}
+                    >
+                      {ex.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Muscle progress bar below the header and above the form fields */}
           {(() => {
@@ -1239,6 +1513,122 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
             ) : null}
 
           </form>
+        </motion.div>
+      )}
+
+      {/* 4. WORKOUT ROUTINE CREATOR VIEW */}
+      {currentView === "create-routine" && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-[#161B22] border-2 border-slate-850 rounded-2xl p-5 md:p-6 shadow-2xl space-y-6 animate-fade-in"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <button
+              type="button"
+              onClick={() => setCurrentView("categories")}
+              style={{ minHeight: "44px" }}
+              className="px-4 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
+            >
+              <ChevronLeft className="w-4 h-4 text-cyan-400" /> CANCEL
+            </button>
+
+            <div className="text-right">
+              <span className="text-[8px] font-press-start text-slate-500 block uppercase">ROUTINE CREATOR</span>
+              <h3 className="text-xs font-press-start text-cyan-400 mt-0.5 block uppercase tracking-wide">
+                NEW ROUTINE
+              </h3>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Input Name field */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-press-start text-cyan-300 block uppercase tracking-wider">
+                ROUTINE NAME
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Push Day, Arm Blaster"
+                value={newRoutineName}
+                onChange={(e) => setNewRoutineName(e.target.value)}
+                className="w-full bg-[#12161A] border-2 border-slate-850 text-white px-4 py-3 rounded-xl outline-none focus:border-cyan-500 font-mono tracking-wide"
+              />
+            </div>
+
+            {/* Search Exercises field */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-press-start text-slate-400 block uppercase tracking-wider">
+                SELECT EXERCISES
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                <input
+                  type="text"
+                  placeholder="Search exercise..."
+                  value={routineSearchQuery}
+                  onChange={(e) => setRoutineSearchQuery(e.target.value)}
+                  className="w-full bg-[#12161A] border-2 border-slate-850 text-white pl-10 pr-4 py-3 rounded-xl outline-none focus:border-cyan-500 font-mono tracking-wide"
+                />
+              </div>
+            </div>
+
+            {/* List of exercises with checkboxes */}
+            <div className="max-h-[250px] overflow-y-auto border-2 border-slate-850 rounded-2xl bg-[#0D0D0E] divide-y divide-slate-900 scrollbar-thin">
+              {EXERCISE_DATABASE.filter(ex => 
+                ex.name.toLowerCase().includes(routineSearchQuery.toLowerCase())
+              ).map((ex) => {
+                const isChecked = selectedExerciseNames.includes(ex.name);
+                const handleToggle = () => {
+                  if (isChecked) {
+                    setSelectedExerciseNames(prev => prev.filter(name => name !== ex.name));
+                  } else {
+                    setSelectedExerciseNames(prev => [...prev, ex.name]);
+                  }
+                };
+
+                return (
+                  <div
+                    key={ex.name}
+                    onClick={handleToggle}
+                    className="p-3 flex items-center justify-between hover:bg-[#161B22]/30 cursor-pointer transition select-none"
+                  >
+                    <div className="space-y-0.5 pr-4 text-left">
+                      <span className="text-[9px] font-press-start text-white block">
+                        {ex.name}
+                      </span>
+                      <span className="text-[8px] font-mono text-cyan-400/85 uppercase block">
+                        {ex.pillar.toUpperCase()} • builds: {Object.keys(ex.builds).join(", ")}
+                      </span>
+                    </div>
+
+                    <div className="shrink-0 pr-1">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={handleToggle}
+                        className="w-4 h-4 rounded border-slate-800 text-cyan-500 focus:ring-cyan-500/20 bg-[#12161A] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Save Button */}
+            <button
+              onClick={handleSaveRoutine}
+              disabled={!newRoutineName.trim() || selectedExerciseNames.length === 0}
+              className={`w-full py-3.5 rounded-xl text-xs font-press-start tracking-wider flex items-center justify-center gap-2 transition active:scale-95 ${
+                newRoutineName.trim() && selectedExerciseNames.length > 0
+                  ? "bg-cyan-500 hover:bg-cyan-450 border border-cyan-400 text-slate-950 font-black cursor-pointer shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                  : "bg-slate-800 border border-slate-850 text-slate-500 cursor-not-allowed"
+              }`}
+            >
+              <Save className="w-4 h-4" /> SAVE WORKOUT ROUTINE
+            </button>
+          </div>
         </motion.div>
       )}
 
