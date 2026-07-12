@@ -1951,6 +1951,11 @@ export function evaluateAthletePerformance(
           addedProgress *= 2.5;
         }
 
+        // Core progress builds 2.5x slower (scaled by 0.40) to prevent instant max-outs from indirect exercises
+        if (stat === "coreStrength") {
+          addedProgress *= 0.40;
+        }
+
         if (stat !== "armStrength" && stat !== "legStrength") {
           evaluation.weeklyVolume[stat] += addedProgress;
         } else {

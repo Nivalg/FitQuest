@@ -71,6 +71,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const [routineSearchQuery, setRoutineSearchQuery] = useState("");
   const [formBackTarget, setFormBackTarget] = useState<"categories" | "exercises">("exercises");
 
+
   // Dynamic Recents calculation
   const recents = React.useMemo(() => {
     const uniqueNames: string[] = [];
@@ -264,6 +265,44 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const [hours, setHours] = useState<number>(1);
   const [trailLevel, setTrailLevel] = useState<number>(10);
 
+  const [exerciseInputs, setExerciseInputs] = useState<Record<string, { weight?: number, reps?: number, minutes?: number, seconds?: number, distanceStr?: string, floors?: number, hours?: number, trailLevel?: number }>>({});
+
+  useEffect(() => {
+    if (!selectedExercise) return;
+    setExerciseInputs(prev => ({
+      ...prev,
+      [selectedExercise.name]: {
+        ...(prev[selectedExercise.name] || {}),
+        weight,
+        reps,
+        minutes,
+        seconds,
+        distanceStr,
+        floors,
+        hours,
+        trailLevel
+      }
+    }));
+  }, [selectedExercise, weight, reps, minutes, seconds, distanceStr, floors, hours, trailLevel]);
+
+  useEffect(() => {
+    const memory: typeof exerciseInputs = {};
+    const sortedLogs = [...logs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(a.timestamp).getTime());
+    sortedLogs.forEach(log => {
+      if (log.exerciseName) {
+        memory[log.exerciseName] = {
+          weight: log.weight !== undefined ? log.weight : memory[log.exerciseName]?.weight,
+          reps: log.reps !== undefined ? log.reps : memory[log.exerciseName]?.reps,
+          minutes: log.minutes !== undefined ? log.minutes : memory[log.exerciseName]?.minutes,
+          seconds: log.seconds !== undefined ? log.seconds : memory[log.exerciseName]?.seconds,
+          distanceStr: log.distance !== undefined ? log.distance.toString() : memory[log.exerciseName]?.distanceStr,
+          floors: log.floors !== undefined ? log.floors : memory[log.exerciseName]?.floors
+        };
+      }
+    });
+    setExerciseInputs(prev => ({ ...memory, ...prev }));
+  }, [logs]);
+
   const repsListRef = useRef<HTMLDivElement>(null);
   const lastLoggedTimeRef = useRef<number>(0);
 
@@ -349,40 +388,40 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     }
     
     // Set default reasonable states depending on form type to speed up logging
+    const saved = exerciseInputs[exercise.name] || {};
+
     if (exercise.formType === "A") {
-      if (exercise.name.toLowerCase().includes("press") && !exercise.name.toLowerCase().includes("leg")) {
-        setWeight(exercise.name.toLowerCase().includes("bench") ? 135 : 65);
-      } else if (exercise.name.toLowerCase().includes("squat") || exercise.name.toLowerCase().includes("deadlift") || exercise.name.toLowerCase().includes("leg press")) {
-        setWeight(185);
+      if (saved.weight !== undefined) {
+        setWeight(saved.weight);
       } else {
-        setWeight(45);
+        if (exercise.name.toLowerCase().includes("press") && !exercise.name.toLowerCase().includes("leg")) {
+          setWeight(exercise.name.toLowerCase().includes("bench") ? 135 : 65);
+        } else if (exercise.name.toLowerCase().includes("squat") || exercise.name.toLowerCase().includes("deadlift") || exercise.name.toLowerCase().includes("leg press")) {
+          setWeight(185);
+        } else {
+          setWeight(45);
+        }
       }
-      setReps(10);
+      setReps(saved.reps !== undefined ? saved.reps : 10);
     } else if (exercise.formType === "B") {
-      if (exercise.name.toLowerCase().includes("pullup")) {
-        setReps(6);
-      } else if (exercise.name.toLowerCase().includes("squat")) {
-        setReps(20);
-      } else {
-        setReps(12);
-      }
+      setReps(saved.reps !== undefined ? saved.reps : (exercise.name.toLowerCase().includes("pullup") ? 6 : (exercise.name.toLowerCase().includes("squat") ? 20 : 12)));
     } else if (exercise.formType === "C") {
-      setMinutes(1);
-      setSeconds(0);
+      setMinutes(saved.minutes !== undefined ? saved.minutes : 1);
+      setSeconds(saved.seconds !== undefined ? saved.seconds : 0);
     } else if (exercise.formType === "D") {
-      setDistanceStr("1.0");
-      setMinutes(8);
-      setSeconds(30);
+      setDistanceStr(saved.distanceStr !== undefined ? saved.distanceStr : "1.0");
+      setMinutes(saved.minutes !== undefined ? saved.minutes : 8);
+      setSeconds(saved.seconds !== undefined ? saved.seconds : 30);
     } else if (exercise.formType === "E") {
-      setFloors(30);
-      setMinutes(10);
-      setSeconds(0);
+      setFloors(saved.floors !== undefined ? saved.floors : 30);
+      setMinutes(saved.minutes !== undefined ? saved.minutes : 10);
+      setSeconds(saved.seconds !== undefined ? saved.seconds : 0);
     } else if (exercise.formType === "F") {
-      setHours(1);
-      setMinutes(30);
-      setSeconds(0);
-      setTrailLevel(10);
-      setDistanceStr("2.5");
+      setHours(saved.hours !== undefined ? saved.hours : 1);
+      setMinutes(saved.minutes !== undefined ? saved.minutes : 30);
+      setSeconds(saved.seconds !== undefined ? saved.seconds : 0);
+      setTrailLevel(saved.trailLevel !== undefined ? saved.trailLevel : 10);
+      setDistanceStr(saved.distanceStr !== undefined ? saved.distanceStr : "2.5");
     }
 
     setNotes("");
