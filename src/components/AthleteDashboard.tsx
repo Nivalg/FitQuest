@@ -1213,10 +1213,20 @@ export default function AthleteDashboard({
 
           {/* Centered Level Header - Moved on top of Physique HUD */}
           <div className="flex items-center justify-center py-4 border-b border-[#4FC3F7]/15 w-full gap-4 mb-4">
-            <span className="text-[28px] font-press-start holo-text font-black select-none tracking-widest">
+            <span 
+              className="text-[28px] font-press-start holo-text font-black select-none tracking-widest"
+              style={{
+                textShadow: "-1px -1px 0 #C8E6F5, 1px -1px 0 #C8E6F5, -1px 1px 0 #C8E6F5, 1px 1px 0 #C8E6F5, 0 0 8px rgba(79, 195, 247, 0.8)"
+              }}
+            >
               LEVEL
             </span>
-            <span className="text-[28px] font-press-start holo-text font-black select-none tracking-tighter">
+            <span 
+              className="text-[28px] font-press-start holo-text font-black select-none tracking-tighter"
+              style={{
+                textShadow: "-1px -1px 0 #C8E6F5, 1px -1px 0 #C8E6F5, -1px 1px 0 #C8E6F5, 1px 1px 0 #C8E6F5, 0 0 8px rgba(79, 195, 247, 0.8)"
+              }}
+            >
               {Math.ceil(displayedAverageLevel)}
             </span>
           </div>
