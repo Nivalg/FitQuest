@@ -11,6 +11,18 @@ interface WorkoutCalendarProps {
 export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs, onDeleteLog }) => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedDayLogs, setSelectedDayLogs] = useState<{ day: number; logs: FitnessLog[] } | null>(null);
+  const [expandedKeys, setExpandedKeys] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (key: string) => {
+    setExpandedKeys(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  React.useEffect(() => {
+    setExpandedKeys({});
+  }, [selectedDayLogs?.day]);
 
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();
@@ -252,41 +264,134 @@ export const WorkoutCalendar: React.FC<WorkoutCalendarProps> = ({ logs, onDelete
             </div>
 
             <div className="space-y-3">
-              {selectedDayLogs.logs.map((log) => (
-                <div
-                  key={log.id}
-                  className="bg-[#161B22] border border-slate-850 rounded-lg p-3 text-xs leading-relaxed relative"
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <span className="font-press-start text-[8px] text-cyan-400 flex items-center gap-1 uppercase">
-                      {getMetricLabel(log.metricType)} SET
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-slate-500 text-[9px]">
-                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      <button
-                        onClick={() => handleDelete(log.id)}
-                        style={{ minHeight: "24px", minWidth: "24px" }}
-                        className="text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded flex items-center justify-center cursor-pointer transition select-none border border-transparent hover:border-red-500/20"
-                        title="Delete workout entry"
+              {(() => {
+                const groups: {
+                  key: string;
+                  exerciseName?: string;
+                  logs: FitnessLog[];
+                }[] = [];
+
+                selectedDayLogs.logs.forEach(log => {
+                  if (log.exerciseName) {
+                    let existing = groups.find(g => g.exerciseName === log.exerciseName);
+                    if (!existing) {
+                      existing = { key: `ex-${log.exerciseName}`, exerciseName: log.exerciseName, logs: [] };
+                      groups.push(existing);
+                    }
+                    existing.logs.push(log);
+                  } else {
+                    groups.push({ key: `log-${log.id}`, logs: [log] });
+                  }
+                });
+
+                return groups.map((group) => {
+                  const isExercise = !!group.exerciseName;
+                  const isExpanded = expandedKeys[group.key];
+                  
+                  if (!isExercise) {
+                    const log = group.logs[0];
+                    return (
+                      <div
+                        key={log.id}
+                        className="bg-[#161B22] border border-slate-850 rounded-lg p-3 text-xs leading-relaxed relative"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="font-press-start text-[8px] text-cyan-400 flex items-center gap-1 uppercase">
+                            SYSTEM LOG
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-slate-500 text-[9px]">
+                              {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <button
+                              onClick={() => handleDelete(log.id)}
+                              style={{ minHeight: "24px", minWidth: "24px" }}
+                              className="text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded flex items-center justify-center cursor-pointer transition select-none border border-transparent hover:border-red-500/20"
+                              title="Delete entry"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <h4 className="font-semibold text-slate-200 mb-1">{log.title}</h4>
+                        {log.notes && <p className="text-slate-350 italic mt-1 text-[11px]">"{log.notes}"</p>}
+                      </div>
+                    );
+                  }
+
+                  // Grouped exercise card
+                  return (
+                    <div
+                      key={group.key}
+                      className="bg-[#161B22] border border-slate-850 hover:border-slate-800 rounded-lg overflow-hidden transition"
+                    >
+                      <div
+                        onClick={() => toggleExpand(group.key)}
+                        className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-[#1E2530]/40 select-none"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full shadow-[0_0_6px_#06b6d4]" />
+                          <div className="text-left">
+                            <span className="font-press-start text-[8.5px] text-white block uppercase tracking-wide">
+                              {group.exerciseName}
+                            </span>
+                            <span className="text-[8px] font-mono text-slate-500 uppercase mt-0.5 block">
+                              {group.logs.length} {group.logs.length === 1 ? "Set" : "Sets"} Logged
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? (
+                            <span className="text-[8px] font-mono text-cyan-400 font-bold uppercase">COLLAPSE ▲</span>
+                          ) : (
+                            <span className="text-[8px] font-mono text-slate-500 font-bold uppercase">EXPAND ▼</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-slate-850 bg-[#0D0D0E]/60 divide-y divide-slate-850/60 p-1">
+                          {group.logs.map((log, idx) => (
+                            <div key={log.id} className="p-3 flex items-center justify-between gap-4 text-xs">
+                              <div className="space-y-1 text-left">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-cyan-400/90 font-bold text-[10px]">
+                                    Set {idx + 1}:
+                                  </span>
+                                  <span className="font-mono text-slate-200 font-semibold">
+                                    {log.newValue}
+                                  </span>
+                                </div>
+                                {log.notes && (
+                                  <p className="text-slate-400 italic text-[10px] pl-2 border-l border-slate-800">
+                                    "{log.notes}"
+                                  </p>
+                                )}
+                                <p className="text-[8px] font-mono text-slate-550 pl-2 uppercase">
+                                  Logged: {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(log.id);
+                                }}
+                                style={{ minHeight: "24px", minWidth: "24px" }}
+                                className="text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded flex items-center justify-center cursor-pointer transition select-none border border-transparent hover:border-red-500/20 shrink-0"
+                                title="Delete this set"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  
-                  <h4 className="font-semibold text-slate-200 mb-1">{log.title}</h4>
-                  
-                  {log.previousValue && (
-                    <p className="text-[10px] font-mono text-slate-450">
-                      Gained: <span className="line-through">{log.previousValue}</span> → <span className="text-cyan-400 font-bold">{log.newValue}</span>
-                    </p>
-                  )}
-                  
-                  {log.notes && <p className="text-slate-300 italic mt-1 text-[11px]">"{log.notes}"</p>}
-                </div>
-              ))}
+                  );
+                });
+              })()}
             </div>
           </motion.div>
         )}
