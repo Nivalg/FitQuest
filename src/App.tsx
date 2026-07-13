@@ -277,84 +277,40 @@ export default function App() {
     statKeys.forEach(statKey => {
       const oldVal = prevStats[statKey] !== undefined ? prevStats[statKey] : 0;
       const newVal = postStats[statKey] !== undefined ? postStats[statKey] : 0;
-      if (newVal > oldVal) {
+      // Trigger whenever the integer portion increases (level up!)
+      if (Math.floor(newVal) > Math.floor(oldVal)) {
         const friendlyName = statKey
-          .replace("Strength", " Strength")
+          .replace("Strength", "")
           .replace("speed", "Speed")
           .replace("stamina", "Stamina")
+          .trim()
           .replace(/^\w/, c => c.toUpperCase());
-        levelUpsTriggered.push(`${friendlyName} calibrated up to Lvl ${newVal.toFixed(2)} (+${(newVal - oldVal).toFixed(2)})!`);
+        levelUpsTriggered.push(`Level Up! ${friendlyName} Level ${Math.floor(newVal)}`);
       }
     });
 
-    // Compute all-time PR details summary for the logged exercise
-    const matchedLogs = updatedLogs.filter(
-      l => l.exerciseName && l.exerciseName.toLowerCase() === params.exerciseName.toLowerCase()
-    );
-
-    let prText = "";
-    if (exercise.formType === "A") {
-      const maxWeight = Math.max(...matchedLogs.map(l => l.weight || 0));
-      const maxReps = Math.max(...matchedLogs.map(l => l.reps || 0));
-      let max1RM = 0;
-      matchedLogs.forEach(l => {
-        const w = l.weight || 0;
-        const r = l.reps || 0;
-        const oneRepMax = r <= 1 ? w : w * (1 + r / 30);
-        if (oneRepMax > max1RM) max1RM = oneRepMax;
-      });
-      prText = `Max Weight: ${maxWeight} lbs, Max Reps: ${maxReps}, Max Est. 1RM: ${Math.round(max1RM)} lbs`;
-    } else if (exercise.formType === "B") {
-      const maxReps = Math.max(...matchedLogs.map(l => l.reps || 0));
-      prText = `Max Reps: ${maxReps} reps`;
-    } else if (exercise.formType === "C") {
-      let maxSecs = 0;
-      matchedLogs.forEach(l => {
-        const total = (l.minutes || 0) * 60 + (l.seconds || 0);
-        if (total > maxSecs) maxSecs = total;
-      });
-      prText = `Max Hold: ${Math.floor(maxSecs / 60)}m ${maxSecs % 60}s`;
-    } else if (exercise.formType === "D") {
-      let fastestPace = Infinity;
-      let maxDist = 0;
-      matchedLogs.forEach(l => {
-        const totalSeconds = (l.minutes || 0) * 60 + (l.seconds || 0);
-        const dist = l.distance || 0;
-        if (dist > maxDist) maxDist = dist;
-        if (dist > 0 && totalSeconds > 0) {
-          const pace = totalSeconds / dist;
-          if (pace < fastestPace) fastestPace = pace;
-        }
-      });
-      const paceStr = fastestPace !== Infinity 
-        ? `${Math.floor(fastestPace / 60)}:${Math.round(fastestPace % 60).toString().padStart(2, "0")} / mile` 
-        : "N/A";
-      prText = `Fastest Pace: ${paceStr}, Longest: ${maxDist.toFixed(2)} miles`;
-    } else if (exercise.formType === "E") {
-      const maxFloors = Math.max(...matchedLogs.map(l => l.floors || 0));
-      prText = `Most Floors: ${maxFloors} floors`;
-    } else if (exercise.formType === "F") {
-      let maxMins = 0;
-      let maxDist = 0;
-      let maxLevel = 0;
-      matchedLogs.forEach(l => {
-        const mins = l.minutes || 0;
-        const dist = l.distance || 0;
-        const lvl = l.weight || 0;
-        if (mins > maxMins) maxMins = mins;
-        if (dist > maxDist) maxDist = dist;
-        if (lvl > maxLevel) maxLevel = lvl;
-      });
-      prText = `Max Duration: ${Math.floor(maxMins / 60)}h ${maxMins % 60}m, Longest: ${maxDist.toFixed(2)} miles, Max Trail Level: ${maxLevel}`;
+    // Calculate current set estimated 1RM for weight-and-rep exercises
+    let current1RMText = "";
+    if (exercise.formType === "A" && params.weight && params.reps) {
+      const w = params.weight;
+      const r = params.reps;
+      const current1RM = r <= 1 ? w : w * (1 + r / 30);
+      current1RMText = `Est. 1RM: ${Math.round(current1RM)} lbs`;
     }
 
-    const feedbackStr = prText ? ` (${prText})` : "";
-
-    // Show dynamic calibration surges
     if (levelUpsTriggered.length > 0) {
-      showToast(`⚡ PROFILE LEVEL SURGE! ${levelUpsTriggered.join(" | ")}${feedbackStr}`);
+      const levelUpMsg = levelUpsTriggered.join(" | ");
+      if (current1RMText) {
+        showToast(`⚡ ${levelUpMsg} (${current1RMText})`);
+      } else {
+        showToast(`⚡ ${levelUpMsg}`);
+      }
     } else {
-      showToast(`💪 Set Saved!${feedbackStr}`);
+      if (current1RMText) {
+        showToast(current1RMText);
+      } else {
+        showToast("Set Saved!");
+      }
     }
   };
 
