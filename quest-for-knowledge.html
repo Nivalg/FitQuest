@@ -214,6 +214,36 @@
     word-break: break-word;
   }
 
+  .boss-source-item {
+    background: var(--panel);
+    border: 2px solid #4a3a80;
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .boss-source-item.checked {
+    border-color: var(--gold);
+  }
+
+  .boss-source-item input[type=checkbox] {
+    width: 22px;
+    height: 22px;
+    accent-color: var(--gold);
+    flex-shrink: 0;
+  }
+
+  .boss-source-item .deck-emoji {
+    font-size: 28px;
+  }
+
+  .boss-source-item .deck-name {
+    font-size: 14px;
+    margin-bottom: 2px;
+  }
+
   .deck-meta {
     color: #b7aee0;
     font-size: 18px;
@@ -785,8 +815,31 @@
     </div>
 
     <div id="deck-list" class="card-list"></div>
-    <button class="btn-cyan" id="btn-new-deck">+ NEW DECK</button>
+    <div class="btn-row">
+      <button class="btn-cyan" id="btn-new-deck">+ NEW DECK</button>
+      <button class="btn-ghost" id="btn-new-boss">👑 BOSS DECK</button>
+    </div>
     <footer class="note">Tap a deck's ⚔ to battle its monster</footer>
+  </section>
+
+  <!-- BOSS DECK CREATOR SCREEN -->
+  <section id="screen-boss-editor" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title">Create Boss Deck</h2>
+      <button class="btn-ghost btn-small" id="btn-boss-editor-back">← BACK</button>
+    </div>
+
+    <div class="field">
+      <label>BOSS NAME</label>
+      <input type="text" id="input-boss-name" maxlength="60" placeholder="e.g. Final Exam">
+    </div>
+
+    <div class="field">
+      <label>SELECT DECKS TO COMBINE (2 or more)</label>
+      <div id="boss-source-list" class="card-list"></div>
+    </div>
+
+    <button class="btn-gold" id="btn-create-boss">👑 CREATE BOSS DECK</button>
   </section>
 
   <!-- DECK EDITOR SCREEN -->
@@ -857,7 +910,11 @@ question | option A | option B | option C | option D | 2"></textarea>
         Multiple choice: <code>question | option A | option B | option C | option D | correct#</code> (correct# is 1-4)<br>
         Don't use the "|" character inside your text.
       </p>
-      <button class="btn-cyan btn-small" id="btn-bulk-import">⬆ IMPORT CARDS</button>
+      <input type="file" id="input-bulk-file" accept=".txt,text/plain" class="hidden">
+      <div class="btn-row">
+        <button class="btn-ghost btn-small" id="btn-bulk-file">📁 LOAD .TXT FILE</button>
+        <button class="btn-cyan btn-small" id="btn-bulk-import">⬆ IMPORT CARDS</button>
+      </div>
     </div>
 
     <button class="btn-gold" id="btn-battle-deck">⚔ BATTLE THIS DECK</button>
@@ -1256,6 +1313,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     title: document.getElementById('screen-title'),
     decks: document.getElementById('screen-decks'),
     editor: document.getElementById('screen-editor'),
+    bossEditor: document.getElementById('screen-boss-editor'),
     battle: document.getElementById('screen-battle'),
     result: document.getElementById('screen-result')
   };
@@ -1323,6 +1381,7 @@ question | option A | option B | option C | option D | 2"></textarea>
           '</div>' +
           '<div class="deck-actions">' +
             (unlocked ? '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' : '<span class="lock-badge">🔒 LOCKED</span>') +
+            '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
           '</div>';
 
         list.appendChild(card);
@@ -1383,6 +1442,96 @@ question | option A | option B | option C | option D | 2"></textarea>
     state.decks.push(deck);
     persist();
     openEditor(deck.id);
+  });
+
+  function openBossEditor() {
+    document.getElementById('input-boss-name').value = '';
+    renderBossSourceList();
+    showScreen('bossEditor');
+  }
+
+  function renderBossSourceList() {
+    var list = document.getElementById('boss-source-list');
+    list.innerHTML = '';
+
+    var sourceDecks = state.decks.filter(function (d) { return !d.isBoss; });
+
+    if (!sourceDecks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'Create a couple of regular decks first, then come back to combine them into a boss.';
+      list.appendChild(empty);
+      return;
+    }
+
+    sourceDecks.forEach(function (deck) {
+      var item = document.createElement('label');
+      item.className = 'boss-source-item';
+      item.innerHTML =
+        '<input type="checkbox" value="' + deck.id + '">' +
+        '<div class="deck-emoji">' + deck.monster + '</div>' +
+        '<div class="deck-info">' +
+          '<div class="deck-name">' + escapeHtml(deck.name) + '</div>' +
+          '<div class="deck-meta">' + deck.cards.length + ' card' + (deck.cards.length === 1 ? '' : 's') + '</div>' +
+        '</div>';
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById('boss-source-list').addEventListener('change', function (e) {
+    if (e.target.type !== 'checkbox') return;
+    e.target.closest('.boss-source-item').classList.toggle('checked', e.target.checked);
+  });
+
+  document.getElementById('btn-new-boss').addEventListener('click', function () {
+    openBossEditor();
+  });
+
+  document.getElementById('btn-boss-editor-back').addEventListener('click', function () {
+    renderDeckList();
+    showScreen('decks');
+  });
+
+  document.getElementById('btn-create-boss').addEventListener('click', function () {
+    var nameEl = document.getElementById('input-boss-name');
+    var name = nameEl.value.trim() || 'Boss Deck';
+
+    var checked = document.querySelectorAll('#boss-source-list input[type=checkbox]:checked');
+    if (checked.length < 2) {
+      alert('Select at least 2 decks to combine into a boss.');
+      return;
+    }
+
+    var sourceIds = Array.prototype.map.call(checked, function (el) { return el.value; });
+    var combinedCards = [];
+    sourceIds.forEach(function (id) {
+      var deck = findDeck(id);
+      deck.cards.forEach(function (c) {
+        combinedCards.push({
+          id: uid(),
+          type: c.type,
+          q: c.q,
+          options: c.options ? c.options.slice() : undefined,
+          correctIndex: c.correctIndex,
+          a: c.a
+        });
+      });
+    });
+
+    var bossDeck = {
+      id: uid(),
+      name: name,
+      monster: '💀',
+      bestStars: 0,
+      isBoss: true,
+      unlockRequires: sourceIds,
+      cards: combinedCards
+    };
+
+    state.decks.push(bossDeck);
+    persist();
+    renderDeckList();
+    showScreen('decks');
   });
 
   document.getElementById('btn-start').addEventListener('click', function () {
@@ -1543,6 +1692,24 @@ question | option A | option B | option C | option D | 2"></textarea>
     errors.push('Line ' + lineNum + ': expected 2 fields (basic) or 6 fields (multiple choice), found ' + parts.length + '.');
     return null;
   }
+
+  document.getElementById('btn-bulk-file').addEventListener('click', function () {
+    document.getElementById('input-bulk-file').click();
+  });
+
+  document.getElementById('input-bulk-file').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      document.getElementById('input-bulk-import').value = String(reader.result);
+    };
+    reader.onerror = function () {
+      alert('Could not read that file. Try pasting the text instead.');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
 
   document.getElementById('btn-bulk-import').addEventListener('click', function () {
     var deck = findDeck(state.editingDeckId);
