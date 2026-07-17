@@ -840,9 +840,15 @@
   <!-- COLLECTION VIEW SCREEN -->
   <section id="screen-group" class="screen hidden">
     <div class="topbar">
-      <h2 class="section-title" id="group-view-title">Collection</h2>
+      <h2 class="section-title">Collection</h2>
       <button class="btn-ghost btn-small" id="btn-group-back">← BACK</button>
     </div>
+
+    <div class="field">
+      <label>COLLECTION NAME</label>
+      <input type="text" id="input-group-view-name" maxlength="60" placeholder="e.g. Manufacturing Basics">
+    </div>
+
     <div id="group-deck-list" class="card-list"></div>
   </section>
 
@@ -1825,7 +1831,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       return;
     }
 
-    document.getElementById('group-view-title').textContent = group.name;
+    document.getElementById('input-group-view-name').value = group.name;
 
     var list = document.getElementById('group-deck-list');
     list.innerHTML = '';
@@ -1844,7 +1850,17 @@ question | option A | option B | option C | option D | 2"></textarea>
     });
   }
 
+  document.getElementById('input-group-view-name').addEventListener('input', function (e) {
+    var group = state.groups.find(function (g) { return g.id === state.viewingGroupId; });
+    if (!group) return;
+    group.name = e.target.value;
+    saveGroups(state.groups);
+  });
+
   document.getElementById('btn-group-back').addEventListener('click', function () {
+    var group = state.groups.find(function (g) { return g.id === state.viewingGroupId; });
+    if (group && !group.name.trim()) group.name = 'Collection';
+    saveGroups(state.groups);
     state.viewingGroupId = null;
     renderDeckList();
     showScreen('decks');
