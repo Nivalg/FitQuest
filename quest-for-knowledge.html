@@ -874,8 +874,8 @@
     </div>
 
     <div class="field">
-      <label>TOPIC (optional)</label>
-      <input type="text" id="input-ai-topic" placeholder="e.g. World Capitals">
+      <label>CHAPTER / SECTION (optional)</label>
+      <input type="text" id="input-ai-topic" placeholder="e.g. Chapter 3: Thermodynamics">
     </div>
 
     <div class="field">
@@ -885,9 +885,13 @@
 
     <button class="btn-gold" id="btn-copy-ai-prompt">📋 COPY TO CLIPBOARD</button>
     <p class="bulk-help">
-      Paste this into ChatGPT, Claude, or any AI chat. Then bring its answer back here -
-      paste each deck's lines into that deck's Bulk Import box, or save as a .txt file
-      and use "Load .txt file".
+      Working from a whole book? Paste this prompt PLUS that chapter's text into your AI,
+      one chapter at a time - don't ask it to cover the whole book in one go, or it'll
+      start padding with fake duplicate questions once it runs out of real content.<br><br>
+      Bring each answer back here: paste it into a new deck's Bulk Import box (name the
+      deck after the chapter), or save as .txt and use "Load .txt file". Once you've
+      imported a few chapters, use 👑 BOSS DECK to add a boss over any subset, then
+      📚 COLLECTION to bundle a chapter-set + its boss under one entry on the main screen.
     </p>
   </section>
 
@@ -1701,13 +1705,13 @@ question | option A | option B | option C | option D | 2"></textarea>
   });
 
   var AI_PROMPT_TEMPLATE =
-    'Generate flashcard study questions about {{TOPIC}}.\n\n' +
+    'I am going to give you ONE chapter or section from a larger study book/guide.\n' +
+    'This request covers ONLY that section: {{TOPIC}}\n\n' +
     'Requirements:\n' +
-    '- Generate 100 TRUE, UNIQUE questions - do not repeat any question with\n' +
-    '  reworded/reordered variations just to pad the count. Every question\n' +
-    '  and every set of answer options must be genuinely different.\n' +
-    '- Group them into 5 decks of 20 questions each, organized by sub-topic.\n' +
-    '  Give each deck a short, clear name (e.g. "## Deck: Basics of X").\n' +
+    '- Generate 15-25 TRUE, UNIQUE questions covering just this section\'s content.\n' +
+    '  Fewer good questions is better than padding the count - if this section does\n' +
+    '  not have enough distinct material for that many, generate fewer instead of\n' +
+    '  repeating a question with reworded/reordered variations.\n' +
     '- Make every question multiple choice with exactly 4 answer options,\n' +
     '  only one of which is correct.\n' +
     '- Output each card as ONE line in this exact format:\n' +
@@ -1715,8 +1719,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     '  where correct# is a number 1-4 marking which option (in order) is right.\n' +
     '- Do not use the "|" character anywhere inside the question or option text.\n' +
     '- Output plain text only - no markdown tables, no numbering, no extra\n' +
-    '  commentary. Just the "## Deck: <name>" heading followed by its 20\n' +
-    '  card lines, then a blank line, then the next deck.';
+    '  commentary. Just the card lines, one per line, nothing else.\n\n' +
+    'If I am working through a whole book, I will paste this same prompt again for\n' +
+    'each new chapter along with that chapter\'s text - treat each request as fully\n' +
+    'independent and do not try to cover the whole book at once.';
 
   function renderAiPrompt() {
     var topic = document.getElementById('input-ai-topic').value.trim() || '[YOUR TOPIC HERE]';
