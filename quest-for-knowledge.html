@@ -293,6 +293,17 @@
     box-shadow: none;
   }
 
+  .deck-card-group {
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 16px rgba(255, 210, 63, 0.3);
+  }
+
+  .group-meta-line {
+    font-size: 15px;
+    color: #8a80bd;
+    margin-top: 2px;
+  }
+
   .boss-requirements {
     font-size: 15px;
     color: #8a80bd;
@@ -819,8 +830,40 @@
       <button class="btn-cyan" id="btn-new-deck">+ NEW DECK</button>
       <button class="btn-ghost" id="btn-new-boss">👑 BOSS DECK</button>
     </div>
-    <button class="btn-gold" id="btn-ai-prompt">🤖 GET AI PROMPT</button>
+    <div class="btn-row">
+      <button class="btn-ghost" id="btn-new-group">📚 COLLECTION</button>
+      <button class="btn-gold" id="btn-ai-prompt">🤖 AI PROMPT</button>
+    </div>
     <footer class="note">Tap a deck's ⚔ to battle its monster</footer>
+  </section>
+
+  <!-- COLLECTION VIEW SCREEN -->
+  <section id="screen-group" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title" id="group-view-title">Collection</h2>
+      <button class="btn-ghost btn-small" id="btn-group-back">← BACK</button>
+    </div>
+    <div id="group-deck-list" class="card-list"></div>
+  </section>
+
+  <!-- COLLECTION CREATOR SCREEN -->
+  <section id="screen-group-editor" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title">Create Collection</h2>
+      <button class="btn-ghost btn-small" id="btn-group-editor-back">← BACK</button>
+    </div>
+
+    <div class="field">
+      <label>COLLECTION NAME</label>
+      <input type="text" id="input-group-name" maxlength="60" placeholder="e.g. Manufacturing Basics">
+    </div>
+
+    <div class="field">
+      <label>SELECT DECKS TO BUNDLE TOGETHER</label>
+      <div id="group-source-list" class="card-list"></div>
+    </div>
+
+    <button class="btn-gold" id="btn-create-group">📚 CREATE COLLECTION</button>
   </section>
 
   <!-- AI PROMPT SCREEN -->
@@ -1015,6 +1058,8 @@ question | option A | option B | option C | option D | 2"></textarea>
   var STORAGE_KEY = 'questForKnowledge.decks.v1';
   var SEED_STORAGE_KEY = 'questForKnowledge.seededDeckIds.v1';
   var PLAYER_STORAGE_KEY = 'questForKnowledge.player.v1';
+  var GROUPS_STORAGE_KEY = 'questForKnowledge.groups.v1';
+  var SEEDED_GROUPS_STORAGE_KEY = 'questForKnowledge.seededGroupIds.v1';
   var MONSTER_EMOJIS = ['👾', '🐍', '🦇', '🐙', '👹', '🤖', '🦖', '🕷️', '👻', '🐺', '🐉'];
   var PLAYER_EMOJI = '🧙';
   var PLAYER_MAX_HP = 10;
@@ -1187,6 +1232,15 @@ question | option A | option B | option C | option D | 2"></textarea>
     })
   });
 
+  var STARTER_GROUPS = [
+    {
+      id: 'group-mfge-basics',
+      name: 'Manufacturing Basics',
+      monster: '📚',
+      deckIds: [MFGE_SYSTEMS_ID, MFGE_MATERIALS_ID, 'boss-mfge-fundamentals']
+    }
+  ];
+
   // ---------- Persistence ----------
 
   function loadSeededIds() {
@@ -1250,6 +1304,71 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
   }
 
+  function loadGroups(decks) {
+    var groups;
+    try {
+      var raw = localStorage.getItem(GROUPS_STORAGE_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      groups = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      groups = [];
+    }
+
+    var seeded = loadSeededGroupIds();
+    var changed = false;
+
+    STARTER_GROUPS.forEach(function (starter) {
+      var alreadySeeded = seeded.indexOf(starter.id) !== -1;
+      var existsInGroups = groups.some(function (g) { return g.id === starter.id; });
+      if (!alreadySeeded && !existsInGroups) {
+        var deckIds = starter.deckIds.filter(function (id) {
+          return decks.some(function (d) { return d.id === id; });
+        });
+        if (deckIds.length) {
+          groups.push({ id: starter.id, name: starter.name, monster: starter.monster, deckIds: deckIds });
+          changed = true;
+        }
+      }
+      if (!alreadySeeded) {
+        seeded.push(starter.id);
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      saveGroups(groups);
+      saveSeededGroupIds(seeded);
+    }
+
+    return groups;
+  }
+
+  function saveGroups(groups) {
+    try {
+      localStorage.setItem(GROUPS_STORAGE_KEY, JSON.stringify(groups));
+    } catch (e) {
+      // Storage unavailable - continue running without persistence rather than crashing.
+    }
+  }
+
+  function loadSeededGroupIds() {
+    try {
+      var raw = localStorage.getItem(SEEDED_GROUPS_STORAGE_KEY);
+      var parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveSeededGroupIds(ids) {
+    try {
+      localStorage.setItem(SEEDED_GROUPS_STORAGE_KEY, JSON.stringify(ids));
+    } catch (e) {
+      // Storage unavailable - continue without persisting the seed record.
+    }
+  }
+
   function loadPlayerProgress() {
     try {
       var raw = localStorage.getItem(PLAYER_STORAGE_KEY);
@@ -1288,8 +1407,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     decks: loadDecks(),
     player: loadPlayerProgress(),
     editingDeckId: null,
+    viewingGroupId: null,
     battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed, combo, bestCombo }
   };
+  state.groups = loadGroups(state.decks);
 
   function findDeck(id) {
     for (var i = 0; i < state.decks.length; i++) {
@@ -1340,6 +1461,8 @@ question | option A | option B | option C | option D | 2"></textarea>
     decks: document.getElementById('screen-decks'),
     editor: document.getElementById('screen-editor'),
     bossEditor: document.getElementById('screen-boss-editor'),
+    group: document.getElementById('screen-group'),
+    groupEditor: document.getElementById('screen-group-editor'),
     aiPrompt: document.getElementById('screen-ai-prompt'),
     battle: document.getElementById('screen-battle'),
     result: document.getElementById('screen-result')
@@ -1352,6 +1475,92 @@ question | option A | option B | option C | option D | 2"></textarea>
   }
 
   // ---------- Deck list rendering ----------
+
+  function buildDeckCardElement(deck) {
+    var card = document.createElement('div');
+    card.className = 'deck-card';
+
+    var starsHtml = '';
+    for (var s = 1; s <= 3; s++) {
+      starsHtml += '<span class="' + (s <= (deck.bestStars || 0) ? 'lit' : '') + '">★</span>';
+    }
+
+    var rank = getDeckRank(deck);
+    var badgesHtml = '';
+    if (rank) {
+      badgesHtml += '<span class="rank-badge rank-' + rank.tier + '">' + rank.emoji + ' ' + rank.label + '</span>';
+    }
+    if (deck.bestCombo && deck.bestCombo >= 2) {
+      badgesHtml += '<span class="combo-badge">🔥 Best Combo x' + deck.bestCombo + '</span>';
+    }
+
+    if (deck.isBoss) {
+      var unlocked = isBossUnlocked(deck);
+      card.classList.add('deck-card-boss');
+      if (!unlocked) card.classList.add('locked');
+
+      var reqHtml = deck.unlockRequires.map(function (reqId) {
+        var reqDeck = findDeck(reqId);
+        var met = reqDeck && (reqDeck.victories || 0) >= 1;
+        var label = reqDeck ? reqDeck.name : reqId;
+        return '<div class="' + (met ? 'req-met' : 'req-unmet') + '">' + (met ? '✓' : '○') + ' ' + escapeHtml(label) + '</div>';
+      }).join('');
+
+      card.innerHTML =
+        '<div class="deck-emoji">' + (unlocked ? deck.monster : '🔒') + '</div>' +
+        '<div class="deck-info">' +
+          '<div class="deck-name">👑 ' + escapeHtml(deck.name) + '</div>' +
+          '<div class="deck-meta">' + deck.cards.length + ' cards · BOSS</div>' +
+          (unlocked ?
+            ('<div class="deck-stars">' + starsHtml + '</div>' + (badgesHtml ? '<div class="deck-badges">' + badgesHtml + '</div>' : '')) :
+            ('<div class="boss-requirements">Defeat to unlock:' + reqHtml + '</div>')) +
+        '</div>' +
+        '<div class="deck-actions">' +
+          (unlocked ? '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' : '<span class="lock-badge">🔒 LOCKED</span>') +
+          '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
+        '</div>';
+
+      return card;
+    }
+
+    card.innerHTML =
+      '<div class="deck-emoji">' + deck.monster + '</div>' +
+      '<div class="deck-info">' +
+        '<div class="deck-name">' + escapeHtml(deck.name) + '</div>' +
+        '<div class="deck-meta">' + deck.cards.length + ' card' + (deck.cards.length === 1 ? '' : 's') + '</div>' +
+        '<div class="deck-stars">' + starsHtml + '</div>' +
+        (badgesHtml ? '<div class="deck-badges">' + badgesHtml + '</div>' : '') +
+      '</div>' +
+      '<div class="deck-actions">' +
+        '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' +
+        '<button class="btn-cyan btn-small" data-action="edit" data-id="' + deck.id + '">EDIT</button>' +
+        '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
+      '</div>';
+
+    return card;
+  }
+
+  function buildGroupCardElement(group) {
+    var card = document.createElement('div');
+    card.className = 'deck-card deck-card-group';
+
+    var memberDecks = group.deckIds.map(findDeck).filter(Boolean);
+    var totalCards = memberDecks.reduce(function (sum, d) { return sum + d.cards.length; }, 0);
+
+    card.innerHTML =
+      '<div class="deck-emoji">' + group.monster + '</div>' +
+      '<div class="deck-info">' +
+        '<div class="deck-name">' + escapeHtml(group.name) + '</div>' +
+        '<div class="deck-meta">' + memberDecks.length + ' decks · ' + totalCards + ' cards total</div>' +
+        '<div class="group-meta-line">Tap to open</div>' +
+      '</div>' +
+      '<div class="deck-actions">' +
+        '<button class="btn-gold btn-small" data-group-action="open" data-id="' + group.id + '">→ OPEN</button>' +
+        '<button class="btn-small" data-group-action="delete" data-id="' + group.id + '">UNGROUP</button>' +
+      '</div>';
+
+    return card;
+  }
 
   function renderDeckList() {
     updatePlayerBadge('decks');
@@ -1367,73 +1576,44 @@ question | option A | option B | option C | option D | 2"></textarea>
       return;
     }
 
+    var groupedDeckIds = {};
+    state.groups.forEach(function (group) {
+      group.deckIds.forEach(function (id) { groupedDeckIds[id] = true; });
+    });
+
+    state.groups.forEach(function (group) {
+      list.appendChild(buildGroupCardElement(group));
+    });
+
     state.decks.forEach(function (deck) {
-      var card = document.createElement('div');
-      card.className = 'deck-card';
-
-      var starsHtml = '';
-      for (var s = 1; s <= 3; s++) {
-        starsHtml += '<span class="' + (s <= (deck.bestStars || 0) ? 'lit' : '') + '">★</span>';
-      }
-
-      var rank = getDeckRank(deck);
-      var badgesHtml = '';
-      if (rank) {
-        badgesHtml += '<span class="rank-badge rank-' + rank.tier + '">' + rank.emoji + ' ' + rank.label + '</span>';
-      }
-      if (deck.bestCombo && deck.bestCombo >= 2) {
-        badgesHtml += '<span class="combo-badge">🔥 Best Combo x' + deck.bestCombo + '</span>';
-      }
-
-      if (deck.isBoss) {
-        var unlocked = isBossUnlocked(deck);
-        card.classList.add('deck-card-boss');
-        if (!unlocked) card.classList.add('locked');
-
-        var reqHtml = deck.unlockRequires.map(function (reqId) {
-          var reqDeck = findDeck(reqId);
-          var met = reqDeck && (reqDeck.victories || 0) >= 1;
-          var label = reqDeck ? reqDeck.name : reqId;
-          return '<div class="' + (met ? 'req-met' : 'req-unmet') + '">' + (met ? '✓' : '○') + ' ' + escapeHtml(label) + '</div>';
-        }).join('');
-
-        card.innerHTML =
-          '<div class="deck-emoji">' + (unlocked ? deck.monster : '🔒') + '</div>' +
-          '<div class="deck-info">' +
-            '<div class="deck-name">👑 ' + escapeHtml(deck.name) + '</div>' +
-            '<div class="deck-meta">' + deck.cards.length + ' cards · BOSS</div>' +
-            (unlocked ?
-              ('<div class="deck-stars">' + starsHtml + '</div>' + (badgesHtml ? '<div class="deck-badges">' + badgesHtml + '</div>' : '')) :
-              ('<div class="boss-requirements">Defeat to unlock:' + reqHtml + '</div>')) +
-          '</div>' +
-          '<div class="deck-actions">' +
-            (unlocked ? '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' : '<span class="lock-badge">🔒 LOCKED</span>') +
-            '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
-          '</div>';
-
-        list.appendChild(card);
-        return;
-      }
-
-      card.innerHTML =
-        '<div class="deck-emoji">' + deck.monster + '</div>' +
-        '<div class="deck-info">' +
-          '<div class="deck-name">' + escapeHtml(deck.name) + '</div>' +
-          '<div class="deck-meta">' + deck.cards.length + ' card' + (deck.cards.length === 1 ? '' : 's') + '</div>' +
-          '<div class="deck-stars">' + starsHtml + '</div>' +
-          (badgesHtml ? '<div class="deck-badges">' + badgesHtml + '</div>' : '') +
-        '</div>' +
-        '<div class="deck-actions">' +
-          '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' +
-          '<button class="btn-cyan btn-small" data-action="edit" data-id="' + deck.id + '">EDIT</button>' +
-          '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
-        '</div>';
-
-      list.appendChild(card);
+      if (groupedDeckIds[deck.id]) return;
+      list.appendChild(buildDeckCardElement(deck));
     });
   }
 
   document.getElementById('deck-list').addEventListener('click', function (e) {
+    var groupBtn = e.target.closest('button[data-group-action]');
+    if (groupBtn) {
+      var groupAction = groupBtn.getAttribute('data-group-action');
+      var groupId = groupBtn.getAttribute('data-id');
+      if (groupAction === 'open') {
+        openGroupView(groupId);
+      } else if (groupAction === 'delete') {
+        var group = state.groups.find(function (g) { return g.id === groupId; });
+        if (group && window.confirm('Remove the "' + group.name + '" collection? Its decks move back to the main list - nothing is deleted.')) {
+          state.groups = state.groups.filter(function (g) { return g.id !== groupId; });
+          saveGroups(state.groups);
+          renderDeckList();
+        }
+      }
+      return;
+    }
+    handleDeckCardClick(e);
+  });
+
+  document.getElementById('group-deck-list').addEventListener('click', handleDeckCardClick);
+
+  function handleDeckCardClick(e) {
     var btn = e.target.closest('button[data-action]');
     if (!btn) return;
     var action = btn.getAttribute('data-action');
@@ -1446,8 +1626,14 @@ question | option A | option B | option C | option D | 2"></textarea>
     } else if (action === 'delete') {
       if (window.confirm('Delete deck "' + deck.name + '"? This cannot be undone.')) {
         state.decks = state.decks.filter(function (d) { return d.id !== id; });
+        state.groups.forEach(function (g) { g.deckIds = g.deckIds.filter(function (did) { return did !== id; }); });
         persist();
-        renderDeckList();
+        saveGroups(state.groups);
+        if (state.viewingGroupId) {
+          renderGroupView(state.viewingGroupId);
+        } else {
+          renderDeckList();
+        }
       }
     } else if (action === 'battle') {
       if (deck.cards.length === 0) {
@@ -1456,7 +1642,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       }
       startBattle(id);
     }
-  });
+  }
 
   document.getElementById('btn-new-deck').addEventListener('click', function () {
     var deck = {
@@ -1615,6 +1801,122 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     state.decks.push(bossDeck);
     persist();
+    renderDeckList();
+    showScreen('decks');
+  });
+
+  function openGroupView(groupId) {
+    state.viewingGroupId = groupId;
+    renderGroupView(groupId);
+    showScreen('group');
+  }
+
+  function renderGroupView(groupId) {
+    var group = state.groups.find(function (g) { return g.id === groupId; });
+    if (!group) {
+      showScreen('decks');
+      renderDeckList();
+      return;
+    }
+
+    document.getElementById('group-view-title').textContent = group.name;
+
+    var list = document.getElementById('group-deck-list');
+    list.innerHTML = '';
+
+    var memberDecks = group.deckIds.map(findDeck).filter(Boolean);
+    if (!memberDecks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'This collection has no decks left in it.';
+      list.appendChild(empty);
+      return;
+    }
+
+    memberDecks.forEach(function (deck) {
+      list.appendChild(buildDeckCardElement(deck));
+    });
+  }
+
+  document.getElementById('btn-group-back').addEventListener('click', function () {
+    state.viewingGroupId = null;
+    renderDeckList();
+    showScreen('decks');
+  });
+
+  function openGroupEditor() {
+    document.getElementById('input-group-name').value = '';
+    renderGroupSourceList();
+    showScreen('groupEditor');
+  }
+
+  function renderGroupSourceList() {
+    var list = document.getElementById('group-source-list');
+    list.innerHTML = '';
+
+    var groupedDeckIds = {};
+    state.groups.forEach(function (group) {
+      group.deckIds.forEach(function (id) { groupedDeckIds[id] = true; });
+    });
+
+    var sourceDecks = state.decks.filter(function (d) { return !groupedDeckIds[d.id]; });
+
+    if (!sourceDecks.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'No ungrouped decks available. Create a deck first, or ungroup an existing collection.';
+      list.appendChild(empty);
+      return;
+    }
+
+    sourceDecks.forEach(function (deck) {
+      var item = document.createElement('label');
+      item.className = 'boss-source-item';
+      item.innerHTML =
+        '<input type="checkbox" value="' + deck.id + '">' +
+        '<div class="deck-emoji">' + (deck.isBoss ? '👑' : deck.monster) + '</div>' +
+        '<div class="deck-info">' +
+          '<div class="deck-name">' + escapeHtml(deck.name) + '</div>' +
+          '<div class="deck-meta">' + deck.cards.length + ' card' + (deck.cards.length === 1 ? '' : 's') + (deck.isBoss ? ' · BOSS' : '') + '</div>' +
+        '</div>';
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById('group-source-list').addEventListener('change', function (e) {
+    if (e.target.type !== 'checkbox') return;
+    e.target.closest('.boss-source-item').classList.toggle('checked', e.target.checked);
+  });
+
+  document.getElementById('btn-new-group').addEventListener('click', function () {
+    openGroupEditor();
+  });
+
+  document.getElementById('btn-group-editor-back').addEventListener('click', function () {
+    renderDeckList();
+    showScreen('decks');
+  });
+
+  document.getElementById('btn-create-group').addEventListener('click', function () {
+    var nameEl = document.getElementById('input-group-name');
+    var name = nameEl.value.trim() || 'Collection';
+
+    var checked = document.querySelectorAll('#group-source-list input[type=checkbox]:checked');
+    if (checked.length < 1) {
+      alert('Select at least 1 deck to add to this collection.');
+      return;
+    }
+
+    var deckIds = Array.prototype.map.call(checked, function (el) { return el.value; });
+
+    state.groups.push({
+      id: uid(),
+      name: name,
+      monster: '📚',
+      deckIds: deckIds
+    });
+
+    saveGroups(state.groups);
     renderDeckList();
     showScreen('decks');
   });
