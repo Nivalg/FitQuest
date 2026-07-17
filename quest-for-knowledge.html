@@ -296,6 +296,12 @@
     transition: width 0.3s ease;
   }
 
+  .record-combo-line {
+    margin-top: 8px;
+    font-size: 15px;
+    color: var(--magenta);
+  }
+
   .deck-actions {
     display: flex;
     flex-direction: column;
@@ -475,13 +481,14 @@
     background: var(--panel);
     border: 3px solid var(--cyan);
     border-radius: 8px;
-    padding: 20px 16px;
-    min-height: 100px;
+    padding: 24px 18px;
+    flex: 1;
+    min-height: 140px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    font-size: 22px;
+    font-size: 28px;
     box-shadow: 0 0 16px rgba(8, 217, 214, 0.5), inset 0 0 20px rgba(8,217,214,0.08);
   }
 
@@ -493,9 +500,9 @@
   .qa-label {
     display: block;
     font-family: 'Press Start 2P', monospace;
-    font-size: 9px;
+    font-size: 11px;
     color: var(--cyan);
-    margin-bottom: 10px;
+    margin-bottom: 14px;
     letter-spacing: 1px;
   }
 
@@ -506,67 +513,64 @@
     color: var(--gold);
     font-size: 18px;
     min-height: 24px;
+    flex-shrink: 0;
+  }
+
+  .battle-arena {
+    flex-shrink: 0;
   }
 
   .battle-footer {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: auto;
-    padding-top: 8px;
+    flex-shrink: 0;
   }
 
-  .combo-meter {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 10px;
-    border: 2px solid #4a3a80;
-    border-radius: 6px;
-    background: var(--panel);
-    color: #6a6094;
-    font-size: 14px;
-    transition: color 0.2s ease, border-color 0.2s ease;
-  }
-
-  .combo-meter.combo-hot {
+  /* Temporary combo popup - overlays the screen, doesn't take up layout space */
+  .combo-popup {
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    transform: translate(-50%, -50%) scale(0.6);
+    z-index: 50;
+    padding: 16px 22px;
+    border: 3px solid var(--gold);
+    border-radius: 10px;
+    background: rgba(13, 2, 33, 0.95);
     color: var(--gold);
-    border-color: var(--gold);
+    font-family: 'Press Start 2P', monospace;
+    font-size: 15px;
+    line-height: 1.8;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 0 24px rgba(255, 210, 63, 0.7);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
   }
 
-  .combo-flame {
-    font-size: 22px;
-    filter: grayscale(1);
-    opacity: 0.4;
-    transition: filter 0.2s ease, opacity 0.2s ease;
+  .combo-popup.record {
+    border-color: var(--magenta);
+    color: var(--magenta);
+    box-shadow: 0 0 24px rgba(255, 46, 99, 0.7);
   }
 
-  .combo-meter.combo-hot .combo-flame {
-    filter: grayscale(0);
+  .combo-popup.show {
     opacity: 1;
-  }
-
-  .combo-pulse {
-    animation: combo-pulse 0.4s ease;
-  }
-  @keyframes combo-pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.3); }
-    100% { transform: scale(1); }
+    transform: translate(-50%, -50%) scale(1);
   }
 
   .mc-options {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    flex-shrink: 0;
   }
 
   button.btn-mc {
     font-family: 'VT323', monospace;
-    font-size: 20px;
+    font-size: 24px;
     text-align: left;
     width: 100%;
+    padding: 18px 16px;
   }
 
   button.btn-mc.mc-correct {
@@ -632,6 +636,8 @@
 <body>
 <div id="app">
 
+  <div class="combo-popup" id="combo-popup"></div>
+
   <!-- TITLE SCREEN -->
   <section id="screen-title" class="screen">
     <div class="monster-parade">👾🐍🦇🐙👹🤖🦖🕷️👻🐺</div>
@@ -652,6 +658,7 @@
         <span class="player-badge-xp" id="decks-xptext">0 / 100 XP</span>
       </div>
       <div class="xp-bar-outer"><div class="xp-bar-inner" id="decks-xpbar"></div></div>
+      <div class="record-combo-line hidden" id="decks-recordcombo"></div>
     </div>
 
     <div id="deck-list" class="card-list"></div>
@@ -756,17 +763,13 @@
     <div class="mc-options hidden" id="mc-options"></div>
 
     <div class="battle-footer">
-      <div class="combo-meter" id="combo-meter">
-        <span class="combo-flame" id="combo-flame">🔥</span>
-        <span class="combo-text" id="combo-text">0x COMBO</span>
-      </div>
-
       <div class="player-badge">
         <div class="player-badge-row">
           <span class="player-badge-title">LV <span id="battle-level">1</span> · <span id="battle-title">Novice Wizard</span></span>
           <span class="player-badge-xp" id="battle-xptext">0 / 100 XP</span>
         </div>
         <div class="xp-bar-outer"><div class="xp-bar-inner" id="battle-xpbar"></div></div>
+        <div class="record-combo-line hidden" id="battle-recordcombo"></div>
       </div>
     </div>
   </section>
@@ -965,10 +968,13 @@
     try {
       var raw = localStorage.getItem(PLAYER_STORAGE_KEY);
       var parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && typeof parsed.xp === 'number' && parsed.xp >= 0) return parsed;
-      return { xp: 0 };
+      if (parsed && typeof parsed.xp === 'number' && parsed.xp >= 0) {
+        parsed.bestCombo = parsed.bestCombo || 0;
+        return parsed;
+      }
+      return { xp: 0, bestCombo: 0 };
     } catch (e) {
-      return { xp: 0 };
+      return { xp: 0, bestCombo: 0 };
     }
   }
 
@@ -1023,6 +1029,17 @@
     document.getElementById(prefix + '-title').textContent = info.title;
     document.getElementById(prefix + '-xptext').textContent = info.xpIntoLevel + ' / ' + info.xpForLevel + ' XP';
     document.getElementById(prefix + '-xpbar').style.width = Math.min(100, (info.xpIntoLevel / info.xpForLevel) * 100) + '%';
+
+    var recordEl = document.getElementById(prefix + '-recordcombo');
+    if (recordEl) {
+      var record = state.player.bestCombo || 0;
+      if (record >= 3) {
+        recordEl.textContent = '🔥 Record Combo: x' + record;
+        recordEl.classList.remove('hidden');
+      } else {
+        recordEl.classList.add('hidden');
+      }
+    }
   }
 
   function updateAllPlayerBadges() {
@@ -1308,17 +1325,36 @@
     document.getElementById('player-emoji').textContent = PLAYER_EMOJI;
     setBattleLog('A wild monster blocks your path!');
     renderBattleHp();
-    renderComboMeter();
+    hideComboPopup();
     updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
   }
 
-  function renderComboMeter() {
-    var b = state.battle;
-    var meter = document.getElementById('combo-meter');
-    document.getElementById('combo-text').textContent = b.combo + 'x COMBO';
-    meter.classList.toggle('combo-hot', b.combo >= 2);
+  function isComboMilestone(combo) {
+    return combo === 3 || (combo >= 10 && combo % 10 === 0);
+  }
+
+  function comboCritMultiplier(combo) {
+    if (combo === 3) return 2;
+    return Math.min(2 + Math.floor(combo / 10), 5);
+  }
+
+  function hideComboPopup() {
+    var popup = document.getElementById('combo-popup');
+    popup.classList.remove('show');
+    clearTimeout(hideComboPopup._t);
+  }
+
+  function showComboPopup(comboCount, isRecord) {
+    var popup = document.getElementById('combo-popup');
+    popup.innerHTML = '🔥 ' + comboCount + 'x COMBO!' + (isRecord ? '<br>NEW RECORD!' : '');
+    popup.classList.toggle('record', !!isRecord);
+    popup.classList.add('show');
+    clearTimeout(hideComboPopup._t);
+    hideComboPopup._t = setTimeout(function () {
+      popup.classList.remove('show');
+    }, 1500);
   }
 
   function renderBattleHp() {
@@ -1439,8 +1475,9 @@
       if (b.combo > b.bestCombo) b.bestCombo = b.combo;
       awardXp(XP_PER_CORRECT);
 
-      var crit = b.combo % 3 === 0;
-      if (crit) dmg *= 2;
+      var milestone = isComboMilestone(b.combo);
+      var crit = milestone;
+      if (crit) dmg *= comboCritMultiplier(b.combo);
 
       b.enemyHp -= dmg;
       damageFlash('enemy-emoji', 'shake');
@@ -1448,6 +1485,16 @@
       setBattleLog(crit ?
         ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
         ('Direct hit! -' + dmg + ' HP to the monster!'));
+
+      if (milestone) {
+        var previousRecord = state.player.bestCombo || 0;
+        var isNewRecord = b.combo > previousRecord;
+        if (isNewRecord) {
+          state.player.bestCombo = b.combo;
+          savePlayerProgress(state.player);
+        }
+        showComboPopup(b.combo, isNewRecord);
+      }
     } else {
       b.combo = 0;
       b.playerHp -= dmg;
@@ -1457,8 +1504,6 @@
     }
 
     renderBattleHp();
-    renderComboMeter();
-    damageFlash('combo-flame', 'combo-pulse');
     updatePlayerBadge('battle');
     b.index += 1;
 
