@@ -484,6 +484,56 @@
     font-family: 'VT323', monospace;
   }
 
+  .notes-companion {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 20px 0 10px;
+  }
+
+  .notes-companion-emoji {
+    font-size: 56px;
+    animation: notes-bob 3s ease-in-out infinite;
+  }
+
+  .notes-companion-book {
+    font-size: 40px;
+    transform-origin: bottom center;
+    animation: notes-book-sway 3s ease-in-out infinite;
+  }
+
+  @keyframes notes-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  @keyframes notes-book-sway {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+
+  .notes-reading-box {
+    background: var(--panel);
+    border: 3px solid var(--cyan);
+    border-radius: 8px;
+    padding: 20px 18px;
+    flex: 1;
+    font-size: 22px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    box-shadow: 0 0 16px rgba(8, 217, 214, 0.5), inset 0 0 20px rgba(8,217,214,0.08);
+  }
+
+  .notes-reading-box.empty {
+    color: #6a6094;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
   /* Battle */
   .battle-arena {
     display: flex;
@@ -997,7 +1047,53 @@ question | option A | option B | option C | option D | 2"></textarea>
       </div>
     </div>
 
+    <div class="card-item" style="border-color: var(--gold);">
+      <div class="field">
+        <label>STUDY NOTES</label>
+        <textarea id="input-deck-notes" rows="6" placeholder="Paste a study summary here, or generate one from this deck's cards below..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn-cyan btn-small" id="btn-notes-prompt">🤖 GENERATE NOTES PROMPT</button>
+        <button class="btn-gold btn-small" id="btn-read-notes">📖 READ NOTES</button>
+      </div>
+    </div>
+
     <button class="btn-gold" id="btn-battle-deck">⚔ BATTLE THIS DECK</button>
+  </section>
+
+  <!-- NOTES PROMPT SCREEN -->
+  <section id="screen-notes-prompt" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title">Notes Prompt</h2>
+      <button class="btn-ghost btn-small" id="btn-notes-prompt-back">← BACK</button>
+    </div>
+
+    <div class="field">
+      <label>COPY THIS INTO YOUR AI</label>
+      <textarea id="notes-prompt-text" rows="14" readonly></textarea>
+    </div>
+
+    <button class="btn-gold" id="btn-copy-notes-prompt">📋 COPY TO CLIPBOARD</button>
+    <p class="bulk-help">
+      This prompt already includes every question and correct answer from this deck.
+      Paste it into ChatGPT, Claude, Gemini, or any AI chat, then paste its summary
+      back into the Study Notes box.
+    </p>
+  </section>
+
+  <!-- NOTES READING SCREEN -->
+  <section id="screen-notes-read" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title" id="notes-read-title">Notes</h2>
+      <button class="btn-ghost btn-small" id="btn-notes-read-back">← BACK</button>
+    </div>
+
+    <div class="notes-companion">
+      <div class="notes-companion-emoji">🧙</div>
+      <div class="notes-companion-book">📖</div>
+    </div>
+
+    <div class="notes-reading-box" id="notes-reading-box"></div>
   </section>
 
   <!-- BATTLE SCREEN -->
@@ -1476,6 +1572,8 @@ question | option A | option B | option C | option D | 2"></textarea>
     group: document.getElementById('screen-group'),
     groupEditor: document.getElementById('screen-group-editor'),
     aiPrompt: document.getElementById('screen-ai-prompt'),
+    notesPrompt: document.getElementById('screen-notes-prompt'),
+    notesRead: document.getElementById('screen-notes-read'),
     battle: document.getElementById('screen-battle'),
     result: document.getElementById('screen-result')
   };
@@ -1749,8 +1847,8 @@ question | option A | option B | option C | option D | 2"></textarea>
     showScreen('decks');
   });
 
-  document.getElementById('btn-copy-ai-prompt').addEventListener('click', function () {
-    var textarea = document.getElementById('ai-prompt-text');
+  function copyTextareaContents(textareaId) {
+    var textarea = document.getElementById(textareaId);
 
     function fallbackCopy() {
       textarea.focus();
@@ -1770,6 +1868,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     } else {
       fallbackCopy();
     }
+  }
+
+  document.getElementById('btn-copy-ai-prompt').addEventListener('click', function () {
+    copyTextareaContents('ai-prompt-text');
   });
 
   document.getElementById('btn-boss-editor-back').addEventListener('click', function () {
@@ -2025,10 +2127,74 @@ question | option A | option B | option C | option D | 2"></textarea>
     state.editingDeckId = deckId;
     var deck = findDeck(deckId);
     document.getElementById('input-deck-name').value = deck.name;
+    document.getElementById('input-deck-notes').value = deck.notes || '';
     resetNewCardForm();
     renderCardList();
     showScreen('editor');
   }
+
+  document.getElementById('input-deck-notes').addEventListener('input', function (e) {
+    var deck = findDeck(state.editingDeckId);
+    if (!deck) return;
+    deck.notes = e.target.value;
+    persist();
+  });
+
+  function cardAnswerText(card) {
+    return card.type === 'mc' ? card.options[card.correctIndex] : card.a;
+  }
+
+  function buildNotesPrompt(deck) {
+    var lines = deck.cards.map(function (card, i) {
+      return (i + 1) + '. Q: ' + card.q + ' -- Correct answer: ' + cardAnswerText(card);
+    });
+
+    return 'Here are the flashcard questions and correct answers from a study deck called "' + deck.name + '".\n\n' +
+      'Write a clear, detailed study summary that explains and ties together everything\n' +
+      'covered by these questions, in simple language a learner can review before testing\n' +
+      'themselves. Organize it logically into sections by related concepts rather than\n' +
+      'going question-by-question, and make sure every concept below is explained.\n\n' +
+      'Output plain explanatory text only - no markdown headers or bullet lists needed,\n' +
+      'just clear, well-organized prose.\n\n' +
+      'Concepts to cover:\n' +
+      lines.join('\n');
+  }
+
+  document.getElementById('btn-notes-prompt').addEventListener('click', function () {
+    var deck = findDeck(state.editingDeckId);
+    if (!deck.cards.length) {
+      alert('Add some cards to this deck first.');
+      return;
+    }
+    document.getElementById('notes-prompt-text').value = buildNotesPrompt(deck);
+    showScreen('notesPrompt');
+  });
+
+  document.getElementById('btn-notes-prompt-back').addEventListener('click', function () {
+    showScreen('editor');
+  });
+
+  document.getElementById('btn-copy-notes-prompt').addEventListener('click', function () {
+    copyTextareaContents('notes-prompt-text');
+  });
+
+  document.getElementById('btn-read-notes').addEventListener('click', function () {
+    var deck = findDeck(state.editingDeckId);
+    document.getElementById('notes-read-title').textContent = deck.name;
+    var box = document.getElementById('notes-reading-box');
+    if (deck.notes && deck.notes.trim()) {
+      box.textContent = deck.notes;
+      box.classList.remove('empty');
+    } else {
+      box.textContent = 'No notes yet. Go back and add some, or generate a summary from this deck\'s cards.';
+      box.classList.add('empty');
+    }
+    showScreen('notesRead');
+  });
+
+  document.getElementById('btn-notes-read-back').addEventListener('click', function () {
+    showScreen('editor');
+  });
 
   function renderCardList() {
     var deck = findDeck(state.editingDeckId);
