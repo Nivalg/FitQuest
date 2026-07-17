@@ -226,6 +226,76 @@
   }
   .deck-stars .lit { color: var(--gold); }
 
+  .deck-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .rank-badge, .combo-badge {
+    font-size: 12px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: #1c0f3f;
+    border: 1px solid #4a3a80;
+    white-space: nowrap;
+  }
+
+  .rank-badge.rank-bronze { color: #cd7f32; border-color: #cd7f32; }
+  .rank-badge.rank-silver { color: #c0c0c0; border-color: #c0c0c0; }
+  .rank-badge.rank-gold { color: var(--gold); border-color: var(--gold); }
+  .rank-badge.rank-diamond { color: var(--cyan); border-color: var(--cyan); text-shadow: 0 0 6px var(--cyan); }
+
+  .combo-badge {
+    color: var(--magenta);
+    border-color: var(--magenta);
+  }
+
+  /* Player level / XP badge */
+  .player-badge {
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .player-badge-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .player-badge-title {
+    color: var(--gold);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .player-badge-xp {
+    color: #b7aee0;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .xp-bar-outer {
+    width: 100%;
+    height: 10px;
+    background: #1c0f3f;
+    border: 2px solid #4a3a80;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .xp-bar-inner {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--gold), #fff0b3);
+    transition: width 0.3s ease;
+  }
+
   .deck-actions {
     display: flex;
     flex-direction: column;
@@ -438,6 +508,54 @@
     min-height: 24px;
   }
 
+  .battle-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 8px;
+  }
+
+  .combo-meter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+    border: 2px solid #4a3a80;
+    border-radius: 6px;
+    background: var(--panel);
+    color: #6a6094;
+    font-size: 14px;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .combo-meter.combo-hot {
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+
+  .combo-flame {
+    font-size: 22px;
+    filter: grayscale(1);
+    opacity: 0.4;
+    transition: filter 0.2s ease, opacity 0.2s ease;
+  }
+
+  .combo-meter.combo-hot .combo-flame {
+    filter: grayscale(0);
+    opacity: 1;
+  }
+
+  .combo-pulse {
+    animation: combo-pulse 0.4s ease;
+  }
+  @keyframes combo-pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+  }
+
   .mc-options {
     display: flex;
     flex-direction: column;
@@ -527,6 +645,15 @@
     <div class="topbar">
       <h2 class="section-title">Your Decks</h2>
     </div>
+
+    <div class="player-badge">
+      <div class="player-badge-row">
+        <span class="player-badge-title">LV <span id="decks-level">1</span> · <span id="decks-title">Novice Wizard</span></span>
+        <span class="player-badge-xp" id="decks-xptext">0 / 100 XP</span>
+      </div>
+      <div class="xp-bar-outer"><div class="xp-bar-inner" id="decks-xpbar"></div></div>
+    </div>
+
     <div id="deck-list" class="card-list"></div>
     <button class="btn-cyan" id="btn-new-deck">+ NEW DECK</button>
     <footer class="note">Tap a deck's ⚔ to battle its monster</footer>
@@ -627,6 +754,21 @@
     </div>
 
     <div class="mc-options hidden" id="mc-options"></div>
+
+    <div class="battle-footer">
+      <div class="combo-meter" id="combo-meter">
+        <span class="combo-flame" id="combo-flame">🔥</span>
+        <span class="combo-text" id="combo-text">0x COMBO</span>
+      </div>
+
+      <div class="player-badge">
+        <div class="player-badge-row">
+          <span class="player-badge-title">LV <span id="battle-level">1</span> · <span id="battle-title">Novice Wizard</span></span>
+          <span class="player-badge-xp" id="battle-xptext">0 / 100 XP</span>
+        </div>
+        <div class="xp-bar-outer"><div class="xp-bar-inner" id="battle-xpbar"></div></div>
+      </div>
+    </div>
   </section>
 
   <!-- RESULT SCREEN -->
@@ -649,9 +791,38 @@
 
   var STORAGE_KEY = 'questForKnowledge.decks.v1';
   var SEED_STORAGE_KEY = 'questForKnowledge.seededDeckIds.v1';
+  var PLAYER_STORAGE_KEY = 'questForKnowledge.player.v1';
   var MONSTER_EMOJIS = ['👾', '🐍', '🦇', '🐙', '👹', '🤖', '🦖', '🕷️', '👻', '🐺', '🐉'];
   var PLAYER_EMOJI = '🧙';
   var PLAYER_MAX_HP = 10;
+
+  var XP_PER_LEVEL = 100;
+  var XP_PER_CORRECT = 5;
+  var XP_VICTORY_BONUS = 25;
+  var LEVEL_TITLES = [
+    { min: 1, title: 'Novice Wizard' },
+    { min: 3, title: 'Apprentice Wizard' },
+    { min: 6, title: 'Adept Wizard' },
+    { min: 10, title: 'Master Wizard' },
+    { min: 15, title: 'Archmage' }
+  ];
+
+  var DECK_RANKS = [
+    { tier: 'diamond', emoji: '💎', label: 'DIAMOND', minVictories: 10, minStars: 3 },
+    { tier: 'gold', emoji: '🥇', label: 'GOLD', minVictories: 5, minStars: 2 },
+    { tier: 'silver', emoji: '🥈', label: 'SILVER', minVictories: 3, minStars: 1 },
+    { tier: 'bronze', emoji: '🥉', label: 'BRONZE', minVictories: 1, minStars: 0 }
+  ];
+
+  function getDeckRank(deck) {
+    var wins = deck.victories || 0;
+    var stars = deck.bestStars || 0;
+    for (var i = 0; i < DECK_RANKS.length; i++) {
+      var r = DECK_RANKS[i];
+      if (wins >= r.minVictories && stars >= r.minStars) return r;
+    }
+    return null;
+  }
 
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, function (ch) {
@@ -790,12 +961,42 @@
     }
   }
 
+  function loadPlayerProgress() {
+    try {
+      var raw = localStorage.getItem(PLAYER_STORAGE_KEY);
+      var parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed.xp === 'number' && parsed.xp >= 0) return parsed;
+      return { xp: 0 };
+    } catch (e) {
+      return { xp: 0 };
+    }
+  }
+
+  function savePlayerProgress(progress) {
+    try {
+      localStorage.setItem(PLAYER_STORAGE_KEY, JSON.stringify(progress));
+    } catch (e) {
+      // Storage unavailable - continue without persisting XP.
+    }
+  }
+
+  function levelInfoForXp(xp) {
+    var level = Math.floor(xp / XP_PER_LEVEL) + 1;
+    var xpIntoLevel = xp % XP_PER_LEVEL;
+    var title = LEVEL_TITLES[0].title;
+    for (var i = 0; i < LEVEL_TITLES.length; i++) {
+      if (level >= LEVEL_TITLES[i].min) title = LEVEL_TITLES[i].title;
+    }
+    return { level: level, title: title, xpIntoLevel: xpIntoLevel, xpForLevel: XP_PER_LEVEL };
+  }
+
   // ---------- State ----------
 
   var state = {
     decks: loadDecks(),
+    player: loadPlayerProgress(),
     editingDeckId: null,
-    battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed }
+    battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed, combo, bestCombo }
   };
 
   function findDeck(id) {
@@ -807,6 +1008,26 @@
 
   function persist() {
     saveDecks(state.decks);
+  }
+
+  function awardXp(amount) {
+    state.player.xp += amount;
+    savePlayerProgress(state.player);
+  }
+
+  function updatePlayerBadge(prefix) {
+    var levelEl = document.getElementById(prefix + '-level');
+    if (!levelEl) return;
+    var info = levelInfoForXp(state.player.xp);
+    levelEl.textContent = info.level;
+    document.getElementById(prefix + '-title').textContent = info.title;
+    document.getElementById(prefix + '-xptext').textContent = info.xpIntoLevel + ' / ' + info.xpForLevel + ' XP';
+    document.getElementById(prefix + '-xpbar').style.width = Math.min(100, (info.xpIntoLevel / info.xpForLevel) * 100) + '%';
+  }
+
+  function updateAllPlayerBadges() {
+    updatePlayerBadge('decks');
+    updatePlayerBadge('battle');
   }
 
   // ---------- Navigation ----------
@@ -828,6 +1049,8 @@
   // ---------- Deck list rendering ----------
 
   function renderDeckList() {
+    updatePlayerBadge('decks');
+
     var list = document.getElementById('deck-list');
     list.innerHTML = '';
 
@@ -848,12 +1071,22 @@
         starsHtml += '<span class="' + (s <= (deck.bestStars || 0) ? 'lit' : '') + '">★</span>';
       }
 
+      var rank = getDeckRank(deck);
+      var badgesHtml = '';
+      if (rank) {
+        badgesHtml += '<span class="rank-badge rank-' + rank.tier + '">' + rank.emoji + ' ' + rank.label + '</span>';
+      }
+      if (deck.bestCombo && deck.bestCombo >= 2) {
+        badgesHtml += '<span class="combo-badge">🔥 Best Combo x' + deck.bestCombo + '</span>';
+      }
+
       card.innerHTML =
         '<div class="deck-emoji">' + deck.monster + '</div>' +
         '<div class="deck-info">' +
           '<div class="deck-name">' + escapeHtml(deck.name) + '</div>' +
           '<div class="deck-meta">' + deck.cards.length + ' card' + (deck.cards.length === 1 ? '' : 's') + '</div>' +
           '<div class="deck-stars">' + starsHtml + '</div>' +
+          (badgesHtml ? '<div class="deck-badges">' + badgesHtml + '</div>' : '') +
         '</div>' +
         '<div class="deck-actions">' +
           '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' +
@@ -1065,7 +1298,9 @@
       enemyHp: enemyMaxHp,
       maxEnemyHp: enemyMaxHp,
       revealed: false,
-      locked: false
+      locked: false,
+      combo: 0,
+      bestCombo: 0
     };
 
     document.getElementById('enemy-emoji').textContent = deck.monster;
@@ -1073,8 +1308,17 @@
     document.getElementById('player-emoji').textContent = PLAYER_EMOJI;
     setBattleLog('A wild monster blocks your path!');
     renderBattleHp();
+    renderComboMeter();
+    updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
+  }
+
+  function renderComboMeter() {
+    var b = state.battle;
+    var meter = document.getElementById('combo-meter');
+    document.getElementById('combo-text').textContent = b.combo + 'x COMBO';
+    meter.classList.toggle('combo-hot', b.combo >= 2);
   }
 
   function renderBattleHp() {
@@ -1191,11 +1435,21 @@
     var dmg = 1 + Math.floor(Math.random() * 2); // 1-2 dmg
 
     if (correct) {
+      b.combo += 1;
+      if (b.combo > b.bestCombo) b.bestCombo = b.combo;
+      awardXp(XP_PER_CORRECT);
+
+      var crit = b.combo % 3 === 0;
+      if (crit) dmg *= 2;
+
       b.enemyHp -= dmg;
       damageFlash('enemy-emoji', 'shake');
       damageFlash('enemy-hp-bar', 'pop');
-      setBattleLog('Direct hit! -' + dmg + ' HP to the monster!');
+      setBattleLog(crit ?
+        ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
+        ('Direct hit! -' + dmg + ' HP to the monster!'));
     } else {
+      b.combo = 0;
       b.playerHp -= dmg;
       damageFlash('player-emoji', 'shake');
       damageFlash('player-hp-bar', 'pop');
@@ -1203,6 +1457,9 @@
     }
 
     renderBattleHp();
+    renderComboMeter();
+    damageFlash('combo-flame', 'combo-pulse');
+    updatePlayerBadge('battle');
     b.index += 1;
 
     if (b.enemyHp <= 0) {
@@ -1241,10 +1498,18 @@
     if (victory) {
       var remaining = Math.max(0, b.playerHp);
       var stars = starsForHp(remaining, PLAYER_MAX_HP);
-      if (stars > (deck.bestStars || 0)) {
-        deck.bestStars = stars;
-        persist();
-      }
+      var previousRank = getDeckRank(deck);
+      var levelBefore = levelInfoForXp(state.player.xp).level;
+
+      awardXp(XP_VICTORY_BONUS);
+
+      if (stars > (deck.bestStars || 0)) deck.bestStars = stars;
+      deck.victories = (deck.victories || 0) + 1;
+      if (b.bestCombo > (deck.bestCombo || 0)) deck.bestCombo = b.bestCombo;
+      persist();
+
+      var newRank = getDeckRank(deck);
+      var levelAfter = levelInfoForXp(state.player.xp).level;
 
       emojiEl.textContent = '🏆';
       titleEl.textContent = 'VICTORY!';
@@ -1255,7 +1520,15 @@
         starsHtml += '<span class="' + (s <= stars ? 'lit' : 'dim') + '">★</span>';
       }
       starsEl.innerHTML = starsHtml;
-      msgEl.textContent = 'You defeated ' + deck.monster + ' with ' + remaining + '/' + PLAYER_MAX_HP + ' HP remaining!';
+
+      var message = 'You defeated ' + deck.monster + ' with ' + remaining + '/' + PLAYER_MAX_HP + ' HP remaining! (+' + XP_VICTORY_BONUS + ' XP)';
+      if (newRank && (!previousRank || newRank.tier !== previousRank.tier)) {
+        message += ' New rank: ' + newRank.emoji + ' ' + newRank.label + '!';
+      }
+      if (levelAfter > levelBefore) {
+        message += ' Level up! You are now Level ' + levelAfter + '!';
+      }
+      msgEl.textContent = message;
     } else {
       emojiEl.textContent = '💀';
       titleEl.textContent = 'DEFEAT...';
