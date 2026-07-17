@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Quest for Knowledge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0221;
+    --magenta: #ff2e63;
+    --cyan: #08d9d6;
+    --gold: #ffd23f;
+    --panel: #170a35;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: #eae6f5;
+    font-family: 'VT323', monospace;
+    font-size: 22px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1, h2, h3, .press, button {
+    font-family: 'Press Start 2P', monospace;
+  }
+
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+    padding: 16px;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* CRT scanlines + vignette */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1000;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0.15) 0px,
+      rgba(0,0,0,0.15) 1px,
+      transparent 2px,
+      transparent 3px
+    );
+    mix-blend-mode: multiply;
+  }
+
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1001;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.65) 100%);
+  }
+
+  .screen {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    animation: fadein 0.25s ease;
+  }
+
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hidden { display: none !important; }
+
+  h1.title {
+    color: var(--gold);
+    text-align: center;
+    font-size: 26px;
+    line-height: 1.6;
+    text-shadow: 3px 3px 0 var(--magenta);
+    margin: 24px 0 4px;
+  }
+
+  h2.section-title {
+    color: var(--cyan);
+    font-size: 16px;
+    text-shadow: 2px 2px 0 #000;
+    margin: 4px 0;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--cyan);
+    font-size: 20px;
+    margin-bottom: 24px;
+  }
+
+  /* Buttons */
+  button {
+    font-size: 13px;
+    color: #fff;
+    background: var(--magenta);
+    border: none;
+    border-radius: 4px;
+    padding: 14px 12px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #9c1339;
+    transition: transform 0.05s ease, box-shadow 0.05s ease;
+    line-height: 1.4;
+  }
+
+  button:active {
+    transform: translateY(6px);
+    box-shadow: 0 0 0 #9c1339;
+  }
+
+  button.btn-cyan {
+    background: var(--cyan);
+    box-shadow: 0 6px 0 #056966;
+    color: #0d0221;
+  }
+  button.btn-cyan:active { box-shadow: 0 0 0 #056966; }
+
+  button.btn-gold {
+    background: var(--gold);
+    box-shadow: 0 6px 0 #a8890c;
+    color: #0d0221;
+  }
+  button.btn-gold:active { box-shadow: 0 0 0 #a8890c; }
+
+  button.btn-ghost {
+    background: transparent;
+    border: 2px solid var(--cyan);
+    color: var(--cyan);
+    box-shadow: 0 6px 0 #056966;
+  }
+  button.btn-ghost:active { box-shadow: 0 0 0 #056966; }
+
+  button.btn-small {
+    padding: 8px 10px;
+    font-size: 10px;
+    box-shadow: 0 4px 0 #9c1339;
+  }
+  button.btn-small:active { transform: translateY(4px); box-shadow: 0 0 0 #9c1339; }
+
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 10px;
+  }
+  .btn-row button { flex: 1; }
+
+  /* Title screen */
+  #screen-title {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex: 1;
+  }
+
+  .monster-parade {
+    font-size: 34px;
+    letter-spacing: 8px;
+    margin-bottom: 8px;
+  }
+
+  /* Deck list */
+  .deck-card {
+    background: var(--panel);
+    border: 2px solid var(--cyan);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .deck-emoji {
+    font-size: 36px;
+    flex-shrink: 0;
+  }
+
+  .deck-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .deck-name {
+    color: var(--gold);
+    font-size: 15px;
+    margin-bottom: 4px;
+    word-break: break-word;
+  }
+
+  .deck-meta {
+    color: #b7aee0;
+    font-size: 18px;
+  }
+
+  .deck-stars {
+    font-size: 18px;
+    color: #4a447a;
+    letter-spacing: 2px;
+  }
+  .deck-stars .lit { color: var(--gold); }
+
+  .deck-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: #8a80bd;
+    padding: 30px 10px;
+    font-size: 20px;
+  }
+
+  /* Editor */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  label {
+    color: var(--cyan);
+    font-size: 12px;
+  }
+
+  input[type=text], textarea {
+    background: #1c0f3f;
+    border: 2px solid #4a3a80;
+    color: #eae6f5;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    padding: 10px;
+    border-radius: 4px;
+    resize: vertical;
+  }
+
+  input[type=text]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--cyan);
+  }
+
+  .card-item {
+    background: var(--panel);
+    border: 2px solid #4a3a80;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .card-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--gold);
+    font-size: 12px;
+  }
+
+  .card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Battle */
+  .battle-arena {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .combatant {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .combatant-emoji {
+    font-size: 48px;
+    transition: transform 0.15s ease;
+  }
+
+  .combatant-label {
+    font-size: 10px;
+    color: var(--cyan);
+  }
+
+  .hp-bar-outer {
+    width: 100%;
+    height: 16px;
+    background: #1c0f3f;
+    border: 2px solid #4a3a80;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .hp-bar-inner {
+    height: 100%;
+    background: linear-gradient(90deg, #ff2e63, #ff6b8a);
+    transition: width 0.3s ease;
+  }
+
+  .hp-bar-inner.enemy {
+    background: linear-gradient(90deg, #08d9d6, #6bf0ed);
+  }
+
+  .hp-text {
+    font-size: 12px;
+    color: #b7aee0;
+  }
+
+  .vs-mark {
+    font-size: 16px;
+    color: var(--gold);
+    padding-top: 20px;
+  }
+
+  .shake {
+    animation: shake 0.35s ease;
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0) scale(1); }
+    20% { transform: translateX(-8px) scale(0.95); }
+    40% { transform: translateX(8px) scale(0.95); }
+    60% { transform: translateX(-6px) scale(1.05); }
+    80% { transform: translateX(6px) scale(1.05); }
+  }
+
+  .pop {
+    animation: pop 0.35s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); filter: brightness(1.6); }
+    100% { transform: scale(1); }
+  }
+
+  .question-box {
+    background: var(--panel);
+    border: 3px solid var(--cyan);
+    border-radius: 8px;
+    padding: 20px 16px;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: 22px;
+    box-shadow: 0 0 16px rgba(8, 217, 214, 0.5), inset 0 0 20px rgba(8,217,214,0.08);
+  }
+
+  .question-box.answer-mode {
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(255, 210, 63, 0.5), inset 0 0 20px rgba(255,210,63,0.08);
+  }
+
+  .qa-label {
+    display: block;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--cyan);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+
+  .answer-mode .qa-label { color: var(--gold); }
+
+  .battle-log {
+    text-align: center;
+    color: var(--gold);
+    font-size: 18px;
+    min-height: 24px;
+  }
+
+  /* Result screen */
+  #screen-result {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex: 1;
+  }
+
+  .result-title {
+    font-size: 28px;
+    margin-bottom: 6px;
+    text-shadow: 3px 3px 0 #000;
+  }
+
+  .result-title.victory { color: var(--gold); }
+  .result-title.defeat { color: var(--magenta); }
+
+  .result-emoji {
+    font-size: 60px;
+    margin: 10px 0;
+  }
+
+  .stars-display {
+    font-size: 40px;
+    margin: 10px 0;
+    letter-spacing: 10px;
+  }
+  .stars-display .lit { color: var(--gold); text-shadow: 0 0 10px var(--gold); }
+  .stars-display .dim { color: #3a3260; }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .topbar h2 { margin: 0; }
+
+  footer.note {
+    text-align: center;
+    color: #5c5490;
+    font-size: 14px;
+    margin-top: auto;
+    padding-top: 20px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TITLE SCREEN -->
+  <section id="screen-title" class="screen">
+    <div class="monster-parade">👾🐍🦇🐙👹🤖🦖🕷️👻🐺</div>
+    <h1 class="title">Quest for<br>Knowledge</h1>
+    <p class="subtitle">Study. Battle. Level Up.</p>
+    <button class="btn-gold" id="btn-start" style="width:100%;">▶ START</button>
+  </section>
+
+  <!-- DECK LIST SCREEN -->
+  <section id="screen-decks" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title">Your Decks</h2>
+    </div>
+    <div id="deck-list" class="card-list"></div>
+    <button class="btn-cyan" id="btn-new-deck">+ NEW DECK</button>
+    <footer class="note">Tap a deck's ⚔ to battle its monster</footer>
+  </section>
+
+  <!-- DECK EDITOR SCREEN -->
+  <section id="screen-editor" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title">Edit Deck</h2>
+      <button class="btn-ghost btn-small" id="btn-editor-back">← BACK</button>
+    </div>
+
+    <div class="field">
+      <label>DECK NAME</label>
+      <input type="text" id="input-deck-name" maxlength="60" placeholder="e.g. Mold Design 101">
+    </div>
+
+    <h2 class="section-title" style="margin-top:8px;">Cards</h2>
+    <div id="card-list" class="card-list"></div>
+
+    <div class="card-item" style="border-color: var(--gold);">
+      <div class="field">
+        <label>NEW QUESTION</label>
+        <textarea id="input-new-question" rows="2" placeholder="Question text..."></textarea>
+      </div>
+      <div class="field">
+        <label>NEW ANSWER</label>
+        <textarea id="input-new-answer" rows="2" placeholder="Answer text..."></textarea>
+      </div>
+      <button class="btn-cyan btn-small" id="btn-add-card">+ ADD CARD</button>
+    </div>
+
+    <button class="btn-gold" id="btn-battle-deck">⚔ BATTLE THIS DECK</button>
+  </section>
+
+  <!-- BATTLE SCREEN -->
+  <section id="screen-battle" class="screen hidden">
+    <div class="battle-arena">
+      <div class="combatant">
+        <div class="combatant-label">YOU</div>
+        <div class="combatant-emoji" id="player-emoji">🧙</div>
+        <div class="hp-bar-outer"><div class="hp-bar-inner" id="player-hp-bar"></div></div>
+        <div class="hp-text" id="player-hp-text">10/10</div>
+      </div>
+      <div class="vs-mark">VS</div>
+      <div class="combatant">
+        <div class="combatant-label" id="enemy-label">MONSTER</div>
+        <div class="combatant-emoji" id="enemy-emoji">👾</div>
+        <div class="hp-bar-outer"><div class="hp-bar-inner enemy" id="enemy-hp-bar"></div></div>
+        <div class="hp-text" id="enemy-hp-text">10/10</div>
+      </div>
+    </div>
+
+    <div class="battle-log" id="battle-log">A wild monster blocks your path!</div>
+
+    <div class="question-box" id="question-box">
+      <div style="width:100%;">
+        <span class="qa-label" id="qa-label">QUESTION</span>
+        <span id="qa-text"></span>
+      </div>
+    </div>
+
+    <button class="btn-cyan" id="btn-reveal">REVEAL ANSWER</button>
+
+    <div class="btn-row hidden" id="judge-row">
+      <button class="btn-gold" id="btn-got-it">✓ GOT IT</button>
+      <button id="btn-missed-it">✗ MISSED IT</button>
+    </div>
+  </section>
+
+  <!-- RESULT SCREEN -->
+  <section id="screen-result" class="screen hidden">
+    <div class="result-emoji" id="result-emoji">🏆</div>
+    <h2 class="result-title" id="result-title">VICTORY!</h2>
+    <div class="stars-display" id="result-stars"></div>
+    <p id="result-message" style="color:#b7aee0;"></p>
+    <div class="btn-row" style="width:100%;">
+      <button class="btn-cyan" id="btn-retry">RETRY</button>
+      <button class="btn-ghost" id="btn-result-back">DECKS</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'questForKnowledge.decks.v1';
+  var MONSTER_EMOJIS = ['👾', '🐍', '🦇', '🐙', '👹', '🤖', '🦖', '🕷️', '👻', '🐺'];
+  var PLAYER_EMOJI = '🧙';
+  var PLAYER_MAX_HP = 10;
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+
+  function uid() {
+    return 'id-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  function randomMonster() {
+    return MONSTER_EMOJIS[Math.floor(Math.random() * MONSTER_EMOJIS.length)];
+  }
+
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  function starsForHp(remainingHp, maxHp) {
+    var pct = remainingHp / maxHp;
+    if (pct > 0.66) return 3;
+    if (pct > 0.33) return 2;
+    return 1;
+  }
+
+  var STARTER_DECK = {
+    id: 'starter-mold-design-101',
+    name: 'Mold Design 101',
+    monster: '🤖',
+    bestStars: 0,
+    cards: [
+      { id: uid(), q: 'What is "gating" in injection molding?', a: 'The entry point where molten plastic enters the mold cavity, controlling fill pattern and part quality.' },
+      { id: uid(), q: 'Why does a mold need venting?', a: 'To let trapped air and gas escape as plastic fills the cavity, preventing burn marks and short shots.' },
+      { id: uid(), q: 'What determines cooling time in a molding cycle?', a: 'Part wall thickness (squared), plastic thermal properties, and mold/melt temperature difference — thicker walls cool much slower.' },
+      { id: uid(), q: 'What does CAE stand for in mold design, and why use it?', a: 'Computer-Aided Engineering — simulating fill, pack, and cooling to predict defects before cutting steel.' },
+      { id: uid(), q: 'What commonly causes sink marks on a molded part?', a: 'Thick sections (like ribs or bosses) cooling and shrinking slower than the surrounding thin wall, pulling the surface inward.' }
+    ]
+  };
+
+  // ---------- Persistence ----------
+
+  function loadDecks() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        var initial = [STARTER_DECK];
+        saveDecks(initial);
+        return initial;
+      }
+      var parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        var fallback = [STARTER_DECK];
+        saveDecks(fallback);
+        return fallback;
+      }
+      return parsed;
+    } catch (e) {
+      var safe = [STARTER_DECK];
+      saveDecks(safe);
+      return safe;
+    }
+  }
+
+  function saveDecks(decks) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+  }
+
+  // ---------- State ----------
+
+  var state = {
+    decks: loadDecks(),
+    editingDeckId: null,
+    battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed }
+  };
+
+  function findDeck(id) {
+    for (var i = 0; i < state.decks.length; i++) {
+      if (state.decks[i].id === id) return state.decks[i];
+    }
+    return null;
+  }
+
+  function persist() {
+    saveDecks(state.decks);
+  }
+
+  // ---------- Navigation ----------
+
+  var screens = {
+    title: document.getElementById('screen-title'),
+    decks: document.getElementById('screen-decks'),
+    editor: document.getElementById('screen-editor'),
+    battle: document.getElementById('screen-battle'),
+    result: document.getElementById('screen-result')
+  };
+
+  function showScreen(name) {
+    Object.keys(screens).forEach(function (key) {
+      screens[key].classList.toggle('hidden', key !== name);
+    });
+  }
+
+  // ---------- Deck list rendering ----------
+
+  function renderDeckList() {
+    var list = document.getElementById('deck-list');
+    list.innerHTML = '';
+
+    if (state.decks.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'No decks yet. Create one to begin your quest!';
+      list.appendChild(empty);
+      return;
+    }
+
+    state.decks.forEach(function (deck) {
+      var card = document.createElement('div');
+      card.className = 'deck-card';
+
+      var starsHtml = '';
+      for (var s = 1; s <= 3; s++) {
+        starsHtml += '<span class="' + (s <= (deck.bestStars || 0) ? 'lit' : '') + '">★</span>';
+      }
+
+      card.innerHTML =
+        '<div class="deck-emoji">' + deck.monster + '</div>' +
+        '<div class="deck-info">' +
+          '<div class="deck-name">' + escapeHtml(deck.name) + '</div>' +
+          '<div class="deck-meta">' + deck.cards.length + ' card' + (deck.cards.length === 1 ? '' : 's') + '</div>' +
+          '<div class="deck-stars">' + starsHtml + '</div>' +
+        '</div>' +
+        '<div class="deck-actions">' +
+          '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' +
+          '<button class="btn-cyan btn-small" data-action="edit" data-id="' + deck.id + '">EDIT</button>' +
+          '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
+        '</div>';
+
+      list.appendChild(card);
+    });
+  }
+
+  document.getElementById('deck-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    var action = btn.getAttribute('data-action');
+    var id = btn.getAttribute('data-id');
+    var deck = findDeck(id);
+    if (!deck) return;
+
+    if (action === 'edit') {
+      openEditor(id);
+    } else if (action === 'delete') {
+      if (window.confirm('Delete deck "' + deck.name + '"? This cannot be undone.')) {
+        state.decks = state.decks.filter(function (d) { return d.id !== id; });
+        persist();
+        renderDeckList();
+      }
+    } else if (action === 'battle') {
+      if (deck.cards.length === 0) {
+        alert('Add at least one card before battling this deck!');
+        return;
+      }
+      startBattle(id);
+    }
+  });
+
+  document.getElementById('btn-new-deck').addEventListener('click', function () {
+    var deck = {
+      id: uid(),
+      name: 'New Deck',
+      monster: randomMonster(),
+      bestStars: 0,
+      cards: []
+    };
+    state.decks.push(deck);
+    persist();
+    openEditor(deck.id);
+  });
+
+  document.getElementById('btn-start').addEventListener('click', function () {
+    renderDeckList();
+    showScreen('decks');
+  });
+
+  // ---------- Editor ----------
+
+  function openEditor(deckId) {
+    state.editingDeckId = deckId;
+    var deck = findDeck(deckId);
+    document.getElementById('input-deck-name').value = deck.name;
+    document.getElementById('input-new-question').value = '';
+    document.getElementById('input-new-answer').value = '';
+    renderCardList();
+    showScreen('editor');
+  }
+
+  function renderCardList() {
+    var deck = findDeck(state.editingDeckId);
+    var list = document.getElementById('card-list');
+    list.innerHTML = '';
+
+    if (!deck.cards.length) {
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = 'No cards yet. Add your first one below!';
+      list.appendChild(empty);
+      return;
+    }
+
+    deck.cards.forEach(function (card, idx) {
+      var item = document.createElement('div');
+      item.className = 'card-item';
+      item.innerHTML =
+        '<div class="card-item-row"><span>CARD ' + (idx + 1) + '</span>' +
+        '<button class="btn-small" data-action="delete-card" data-id="' + card.id + '">DEL</button></div>' +
+        '<div><label>Q:</label> ' + escapeHtml(card.q) + '</div>' +
+        '<div><label>A:</label> ' + escapeHtml(card.a) + '</div>';
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById('card-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-action="delete-card"]');
+    if (!btn) return;
+    var deck = findDeck(state.editingDeckId);
+    var cardId = btn.getAttribute('data-id');
+    deck.cards = deck.cards.filter(function (c) { return c.id !== cardId; });
+    persist();
+    renderCardList();
+    renderDeckList();
+  });
+
+  document.getElementById('input-deck-name').addEventListener('input', function (e) {
+    var deck = findDeck(state.editingDeckId);
+    if (!deck) return;
+    deck.name = e.target.value;
+    persist();
+  });
+
+  document.getElementById('btn-add-card').addEventListener('click', function () {
+    var deck = findDeck(state.editingDeckId);
+    var qEl = document.getElementById('input-new-question');
+    var aEl = document.getElementById('input-new-answer');
+    var q = qEl.value.trim();
+    var a = aEl.value.trim();
+    if (!q || !a) {
+      alert('Please fill in both a question and an answer.');
+      return;
+    }
+    deck.cards.push({ id: uid(), q: q, a: a });
+    qEl.value = '';
+    aEl.value = '';
+    persist();
+    renderCardList();
+    renderDeckList();
+    qEl.focus();
+  });
+
+  document.getElementById('btn-editor-back').addEventListener('click', function () {
+    var deck = findDeck(state.editingDeckId);
+    if (deck && !deck.name.trim()) deck.name = 'Untitled Deck';
+    persist();
+    renderDeckList();
+    showScreen('decks');
+  });
+
+  document.getElementById('btn-battle-deck').addEventListener('click', function () {
+    var deck = findDeck(state.editingDeckId);
+    if (!deck.cards.length) {
+      alert('Add at least one card before battling this deck!');
+      return;
+    }
+    if (!deck.name.trim()) deck.name = 'Untitled Deck';
+    persist();
+    startBattle(deck.id);
+  });
+
+  // ---------- Battle ----------
+
+  function startBattle(deckId) {
+    var deck = findDeck(deckId);
+    var enemyMaxHp = Math.max(6, Math.min(20, deck.cards.length * 2));
+
+    state.battle = {
+      deckId: deckId,
+      queue: shuffle(deck.cards),
+      index: 0,
+      playerHp: PLAYER_MAX_HP,
+      enemyHp: enemyMaxHp,
+      maxEnemyHp: enemyMaxHp,
+      revealed: false
+    };
+
+    document.getElementById('enemy-emoji').textContent = deck.monster;
+    document.getElementById('enemy-label').textContent = escapeHtml(deck.name).toUpperCase();
+    document.getElementById('player-emoji').textContent = PLAYER_EMOJI;
+    setBattleLog('A wild monster blocks your path!');
+    renderBattleHp();
+    renderCurrentCard();
+    showScreen('battle');
+  }
+
+  function renderBattleHp() {
+    var b = state.battle;
+    var playerPct = Math.max(0, (b.playerHp / PLAYER_MAX_HP) * 100);
+    var enemyPct = Math.max(0, (b.enemyHp / b.maxEnemyHp) * 100);
+    document.getElementById('player-hp-bar').style.width = playerPct + '%';
+    document.getElementById('enemy-hp-bar').style.width = enemyPct + '%';
+    document.getElementById('player-hp-text').textContent = Math.max(0, b.playerHp) + '/' + PLAYER_MAX_HP;
+    document.getElementById('enemy-hp-text').textContent = Math.max(0, b.enemyHp) + '/' + b.maxEnemyHp;
+  }
+
+  function setBattleLog(msg) {
+    document.getElementById('battle-log').textContent = msg;
+  }
+
+  function renderCurrentCard() {
+    var b = state.battle;
+    if (b.index >= b.queue.length) {
+      var deck = findDeck(b.deckId);
+      b.queue = shuffle(deck.cards);
+      b.index = 0;
+      setBattleLog('The deck reshuffles! Keep fighting!');
+    }
+    var card = b.queue[b.index];
+    b.revealed = false;
+
+    var box = document.getElementById('question-box');
+    box.classList.remove('answer-mode');
+    document.getElementById('qa-label').textContent = 'QUESTION';
+    document.getElementById('qa-text').innerHTML = escapeHtml(card.q);
+
+    document.getElementById('btn-reveal').classList.remove('hidden');
+    document.getElementById('judge-row').classList.add('hidden');
+  }
+
+  document.getElementById('btn-reveal').addEventListener('click', function () {
+    var b = state.battle;
+    var card = b.queue[b.index];
+    b.revealed = true;
+
+    var box = document.getElementById('question-box');
+    box.classList.add('answer-mode');
+    document.getElementById('qa-label').textContent = 'ANSWER';
+    document.getElementById('qa-text').innerHTML = escapeHtml(card.a);
+
+    document.getElementById('btn-reveal').classList.add('hidden');
+    document.getElementById('judge-row').classList.remove('hidden');
+  });
+
+  function damageFlash(elId, cls) {
+    var el = document.getElementById(elId);
+    el.classList.remove(cls);
+    // force reflow to restart animation
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  function resolveTurn(correct) {
+    var b = state.battle;
+    if (!b.revealed) return;
+
+    var dmg = 1 + Math.floor(Math.random() * 2); // 1-2 dmg
+
+    if (correct) {
+      b.enemyHp -= dmg;
+      damageFlash('enemy-emoji', 'shake');
+      damageFlash('enemy-hp-bar', 'pop');
+      setBattleLog('Direct hit! -' + dmg + ' HP to the monster!');
+    } else {
+      b.playerHp -= dmg;
+      damageFlash('player-emoji', 'shake');
+      damageFlash('player-hp-bar', 'pop');
+      setBattleLog('Ouch! You take -' + dmg + ' HP!');
+    }
+
+    renderBattleHp();
+    b.index += 1;
+
+    if (b.enemyHp <= 0) {
+      setTimeout(function () { endBattle(true); }, 450);
+      return;
+    }
+    if (b.playerHp <= 0) {
+      setTimeout(function () { endBattle(false); }, 450);
+      return;
+    }
+
+    setTimeout(renderCurrentCard, 500);
+  }
+
+  document.getElementById('btn-got-it').addEventListener('click', function () { resolveTurn(true); });
+  document.getElementById('btn-missed-it').addEventListener('click', function () { resolveTurn(false); });
+
+  function endBattle(victory) {
+    var b = state.battle;
+    var deck = findDeck(b.deckId);
+    var emojiEl = document.getElementById('result-emoji');
+    var titleEl = document.getElementById('result-title');
+    var starsEl = document.getElementById('result-stars');
+    var msgEl = document.getElementById('result-message');
+
+    if (victory) {
+      var remaining = Math.max(0, b.playerHp);
+      var stars = starsForHp(remaining, PLAYER_MAX_HP);
+      if (stars > (deck.bestStars || 0)) {
+        deck.bestStars = stars;
+        persist();
+      }
+
+      emojiEl.textContent = '🏆';
+      titleEl.textContent = 'VICTORY!';
+      titleEl.className = 'result-title victory';
+
+      var starsHtml = '';
+      for (var s = 1; s <= 3; s++) {
+        starsHtml += '<span class="' + (s <= stars ? 'lit' : 'dim') + '">★</span>';
+      }
+      starsEl.innerHTML = starsHtml;
+      msgEl.textContent = 'You defeated ' + deck.monster + ' with ' + remaining + '/' + PLAYER_MAX_HP + ' HP remaining!';
+    } else {
+      emojiEl.textContent = '💀';
+      titleEl.textContent = 'DEFEAT...';
+      titleEl.className = 'result-title defeat';
+      starsEl.innerHTML = '<span class="dim">★</span><span class="dim">★</span><span class="dim">★</span>';
+      msgEl.textContent = 'The ' + deck.monster + ' proved too strong. Study up and try again!';
+    }
+
+    renderDeckList();
+    showScreen('result');
+  }
+
+  document.getElementById('btn-retry').addEventListener('click', function () {
+    startBattle(state.battle.deckId);
+  });
+
+  document.getElementById('btn-result-back').addEventListener('click', function () {
+    renderDeckList();
+    showScreen('decks');
+  });
+
+})();
+</script>
+</body>
+</html>
