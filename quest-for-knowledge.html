@@ -252,6 +252,36 @@
     border-color: var(--magenta);
   }
 
+  .deck-card-boss {
+    border: 2px solid var(--magenta);
+    box-shadow: 0 0 16px rgba(255, 46, 99, 0.35);
+  }
+
+  .deck-card-boss.locked {
+    opacity: 0.65;
+    border-color: #4a3a80;
+    box-shadow: none;
+  }
+
+  .boss-requirements {
+    font-size: 15px;
+    color: #8a80bd;
+    margin-top: 6px;
+  }
+
+  .boss-requirements .req-met { color: var(--cyan); }
+  .boss-requirements .req-unmet { color: #6a6094; }
+
+  .lock-badge {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: #1c0f3f;
+    border: 1px solid #4a3a80;
+    color: #6a6094;
+    white-space: nowrap;
+  }
+
   /* Player level / XP badge */
   .player-badge {
     background: var(--panel);
@@ -432,6 +462,17 @@
   .combatant-emoji {
     font-size: 48px;
     transition: transform 0.15s ease;
+  }
+
+  .combatant-emoji.boss-emoji {
+    font-size: 64px;
+    filter: drop-shadow(0 0 10px var(--magenta));
+    animation: boss-loom 2s ease-in-out infinite;
+  }
+
+  @keyframes boss-loom {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
   }
 
   .combatant-label {
@@ -853,6 +894,14 @@ question | option A | option B | option C | option D | 2"></textarea>
     return null;
   }
 
+  function isBossUnlocked(deck) {
+    if (!deck.unlockRequires) return true;
+    return deck.unlockRequires.every(function (reqId) {
+      var reqDeck = findDeck(reqId);
+      return reqDeck && (reqDeck.victories || 0) >= 1;
+    });
+  }
+
   function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, function (ch) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
@@ -962,6 +1011,28 @@ question | option A | option B | option C | option D | 2"></textarea>
       ]
     }
   ];
+
+  var MFGE_SYSTEMS_ID = 'starter-mfge-systems-quality';
+  var MFGE_MATERIALS_ID = 'starter-mfge-materials-processes';
+
+  function findStarterDeck(id) {
+    for (var i = 0; i < STARTER_DECKS.length; i++) {
+      if (STARTER_DECKS[i].id === id) return STARTER_DECKS[i];
+    }
+    return null;
+  }
+
+  STARTER_DECKS.push({
+    id: 'boss-mfge-fundamentals',
+    name: 'Fundamentals Exam',
+    monster: '💀',
+    bestStars: 0,
+    isBoss: true,
+    unlockRequires: [MFGE_SYSTEMS_ID, MFGE_MATERIALS_ID],
+    cards: findStarterDeck(MFGE_SYSTEMS_ID).cards.concat(findStarterDeck(MFGE_MATERIALS_ID).cards).map(function (c) {
+      return { id: uid(), type: c.type, q: c.q, options: c.options ? c.options.slice() : undefined, correctIndex: c.correctIndex, a: c.a };
+    })
+  });
 
   // ---------- Persistence ----------
 
@@ -1157,6 +1228,35 @@ question | option A | option B | option C | option D | 2"></textarea>
       }
       if (deck.bestCombo && deck.bestCombo >= 2) {
         badgesHtml += '<span class="combo-badge">🔥 Best Combo x' + deck.bestCombo + '</span>';
+      }
+
+      if (deck.isBoss) {
+        var unlocked = isBossUnlocked(deck);
+        card.classList.add('deck-card-boss');
+        if (!unlocked) card.classList.add('locked');
+
+        var reqHtml = deck.unlockRequires.map(function (reqId) {
+          var reqDeck = findDeck(reqId);
+          var met = reqDeck && (reqDeck.victories || 0) >= 1;
+          var label = reqDeck ? reqDeck.name : reqId;
+          return '<div class="' + (met ? 'req-met' : 'req-unmet') + '">' + (met ? '✓' : '○') + ' ' + escapeHtml(label) + '</div>';
+        }).join('');
+
+        card.innerHTML =
+          '<div class="deck-emoji">' + (unlocked ? deck.monster : '🔒') + '</div>' +
+          '<div class="deck-info">' +
+            '<div class="deck-name">👑 ' + escapeHtml(deck.name) + '</div>' +
+            '<div class="deck-meta">' + deck.cards.length + ' cards · BOSS</div>' +
+            (unlocked ?
+              ('<div class="deck-stars">' + starsHtml + '</div>' + (badgesHtml ? '<div class="deck-badges">' + badgesHtml + '</div>' : '')) :
+              ('<div class="boss-requirements">Defeat to unlock:' + reqHtml + '</div>')) +
+          '</div>' +
+          '<div class="deck-actions">' +
+            (unlocked ? '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' : '<span class="lock-badge">🔒 LOCKED</span>') +
+          '</div>';
+
+        list.appendChild(card);
+        return;
       }
 
       card.innerHTML =
@@ -1427,7 +1527,9 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   function startBattle(deckId) {
     var deck = findDeck(deckId);
-    var enemyMaxHp = Math.max(6, Math.min(20, deck.cards.length * 2));
+    var enemyMaxHp = deck.isBoss ?
+      deck.cards.length * 3 :
+      Math.max(6, Math.min(20, deck.cards.length * 2));
 
     state.battle = {
       deckId: deckId,
@@ -1443,9 +1545,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     };
 
     document.getElementById('enemy-emoji').textContent = deck.monster;
-    document.getElementById('enemy-label').textContent = escapeHtml(deck.name).toUpperCase();
+    document.getElementById('enemy-emoji').classList.toggle('boss-emoji', !!deck.isBoss);
+    document.getElementById('enemy-label').textContent = (deck.isBoss ? '👑 BOSS: ' : '') + escapeHtml(deck.name).toUpperCase();
     document.getElementById('player-emoji').textContent = PLAYER_EMOJI;
-    setBattleLog('A wild monster blocks your path!');
+    setBattleLog(deck.isBoss ? '⚠ The final trial begins! Prove your mastery of the fundamentals!' : 'A wild monster blocks your path!');
     renderBattleHp();
     hideComboPopup();
     updatePlayerBadge('battle');
@@ -1689,6 +1792,9 @@ question | option A | option B | option C | option D | 2"></textarea>
       starsEl.innerHTML = starsHtml;
 
       var message = 'You defeated ' + deck.monster + ' with ' + remaining + '/' + PLAYER_MAX_HP + ' HP remaining! (+' + XP_VICTORY_BONUS + ' XP)';
+      if (deck.isBoss) {
+        message += ' 🎉 You\'ve conquered the fundamentals - the basics are locked in!';
+      }
       if (newRank && (!previousRank || newRank.tier !== previousRank.tier)) {
         message += ' New rank: ' + newRank.emoji + ' ' + newRank.label + '!';
       }
