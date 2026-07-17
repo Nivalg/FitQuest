@@ -401,6 +401,18 @@
     color: var(--gold);
   }
 
+  .bulk-help {
+    font-size: 15px;
+    color: #8a80bd;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .bulk-help code {
+    color: var(--cyan);
+    font-family: 'VT323', monospace;
+  }
+
   /* Battle */
   .battle-arena {
     display: flex;
@@ -721,6 +733,20 @@
       </div>
 
       <button class="btn-cyan btn-small" id="btn-add-card">+ ADD CARD</button>
+    </div>
+
+    <div class="card-item" style="border-color: var(--cyan);">
+      <div class="field">
+        <label>BULK IMPORT (one card per line)</label>
+        <textarea id="input-bulk-import" rows="6" placeholder="question | answer
+question | option A | option B | option C | option D | 2"></textarea>
+      </div>
+      <p class="bulk-help">
+        Basic: <code>question | answer</code><br>
+        Multiple choice: <code>question | option A | option B | option C | option D | correct#</code> (correct# is 1-4)<br>
+        Don't use the "|" character inside your text.
+      </p>
+      <button class="btn-cyan btn-small" id="btn-bulk-import">⬆ IMPORT CARDS</button>
     </div>
 
     <button class="btn-gold" id="btn-battle-deck">⚔ BATTLE THIS DECK</button>
@@ -1280,6 +1306,66 @@
     renderCardList();
     renderDeckList();
     qEl.focus();
+  });
+
+  function parseBulkLine(line, lineNum, errors) {
+    var parts = line.split('|').map(function (s) { return s.trim(); });
+
+    if (parts.length === 2) {
+      if (!parts[0] || !parts[1]) {
+        errors.push('Line ' + lineNum + ': question and answer cannot be empty.');
+        return null;
+      }
+      return { id: uid(), type: 'basic', q: parts[0], a: parts[1] };
+    }
+
+    if (parts.length === 6) {
+      var q = parts[0];
+      var options = parts.slice(1, 5);
+      var correctNum = parseInt(parts[5], 10);
+      if (!q || options.some(function (o) { return !o; })) {
+        errors.push('Line ' + lineNum + ': question and all 4 options are required.');
+        return null;
+      }
+      if (isNaN(correctNum) || correctNum < 1 || correctNum > 4) {
+        errors.push('Line ' + lineNum + ': the last field must be a number 1-4 marking the correct option.');
+        return null;
+      }
+      return { id: uid(), type: 'mc', q: q, options: options, correctIndex: correctNum - 1 };
+    }
+
+    errors.push('Line ' + lineNum + ': expected 2 fields (basic) or 6 fields (multiple choice), found ' + parts.length + '.');
+    return null;
+  }
+
+  document.getElementById('btn-bulk-import').addEventListener('click', function () {
+    var deck = findDeck(state.editingDeckId);
+    var textarea = document.getElementById('input-bulk-import');
+    var lines = textarea.value.split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+
+    if (!lines.length) {
+      alert('Paste at least one card line first.');
+      return;
+    }
+
+    var errors = [];
+    var newCards = [];
+    lines.forEach(function (line, i) {
+      var card = parseBulkLine(line, i + 1, errors);
+      if (card) newCards.push(card);
+    });
+
+    if (errors.length) {
+      alert('Could not import - fix these lines and try again:\n\n' + errors.join('\n'));
+      return;
+    }
+
+    deck.cards = deck.cards.concat(newCards);
+    textarea.value = '';
+    persist();
+    renderCardList();
+    renderDeckList();
+    alert('Imported ' + newCards.length + ' card' + (newCards.length === 1 ? '' : 's') + '!');
   });
 
   document.getElementById('btn-editor-back').addEventListener('click', function () {
