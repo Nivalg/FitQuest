@@ -611,6 +611,31 @@
     transform: translate(-50%, -50%) scale(1);
   }
 
+  .crack-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .crack-overlay.show {
+    animation: crack-flash-anim 0.6s ease-out;
+  }
+
+  .crack-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  @keyframes crack-flash-anim {
+    0% { opacity: 0; }
+    8% { opacity: 1; }
+    70% { opacity: 0.85; }
+    100% { opacity: 0; }
+  }
+
   .mc-options {
     display: flex;
     flex-direction: column;
@@ -626,16 +651,36 @@
     padding: 18px 16px;
   }
 
+  button.btn-mc:disabled {
+    cursor: not-allowed;
+  }
+
+  button.btn-mc.mc-dim {
+    opacity: 0.35 !important;
+  }
+
   button.btn-mc.mc-correct {
-    background: var(--gold) !important;
-    color: #0d0221 !important;
-    box-shadow: 0 6px 0 #a8890c !important;
+    opacity: 1 !important;
+    background: #0f3d1e !important;
+    color: #4dff8a !important;
+    border: 2px solid #4dff8a;
+    box-shadow: 0 0 20px 4px rgba(77, 255, 138, 0.65), 0 6px 0 #0a2413 !important;
+    animation: mc-glow-pop 0.4s ease;
   }
 
   button.btn-mc.mc-wrong {
-    background: #3a1030 !important;
-    color: #ff6b8a !important;
-    box-shadow: 0 6px 0 #1c0818 !important;
+    opacity: 1 !important;
+    background: #3d0f14 !important;
+    color: #ff5c5c !important;
+    border: 2px solid #ff5c5c;
+    box-shadow: 0 0 20px 4px rgba(255, 92, 92, 0.65), 0 6px 0 #240a0c !important;
+    animation: mc-glow-pop 0.4s ease;
+  }
+
+  @keyframes mc-glow-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.05); }
+    100% { transform: scale(1); }
   }
 
   /* Result screen */
@@ -690,6 +735,31 @@
 <div id="app">
 
   <div class="combo-popup" id="combo-popup"></div>
+
+  <div class="crack-overlay" id="crack-overlay">
+    <svg class="crack-svg" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="crack-flash" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+          <stop offset="40%" stop-color="#ff2e63" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#ff2e63" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="50" cy="50" r="18" fill="url(#crack-flash)"/>
+      <g stroke="#ffffff" stroke-width="0.8" fill="none" opacity="0.9" stroke-linejoin="round">
+        <path d="M50,50 L45,30 L52,15 L40,0"/>
+        <path d="M50,50 L60,25 L55,10 L70,0"/>
+        <path d="M50,50 L30,45 L10,50 L0,40"/>
+        <path d="M50,50 L70,55 L90,50 L100,60"/>
+        <path d="M50,50 L40,70 L35,90 L25,100"/>
+        <path d="M50,50 L58,72 L65,88 L80,100"/>
+        <path d="M50,50 L48,60 L44,80 L38,100"/>
+        <path d="M50,50 L52,40 L48,25 L55,10"/>
+        <path d="M50,50 L20,55 L5,65 L0,75"/>
+        <path d="M50,50 L78,45 L95,35 L100,25"/>
+      </g>
+    </svg>
+  </div>
 
   <!-- TITLE SCREEN -->
   <section id="screen-title" class="screen">
@@ -1551,6 +1621,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     setBattleLog(deck.isBoss ? '⚠ The final trial begins! Prove your mastery of the fundamentals!' : 'A wild monster blocks your path!');
     renderBattleHp();
     hideComboPopup();
+    document.getElementById('crack-overlay').classList.remove('show');
     updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
@@ -1580,6 +1651,13 @@ question | option A | option B | option C | option D | 2"></textarea>
     hideComboPopup._t = setTimeout(function () {
       popup.classList.remove('show');
     }, 1500);
+  }
+
+  function showCrackOverlay() {
+    var el = document.getElementById('crack-overlay');
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
   }
 
   function renderBattleHp() {
@@ -1662,8 +1740,12 @@ question | option A | option B | option C | option D | 2"></textarea>
         otherBtn.classList.add('mc-correct');
       } else if (otherBtn === btn) {
         otherBtn.classList.add('mc-wrong');
+      } else {
+        otherBtn.classList.add('mc-dim');
       }
     });
+
+    if (!correct) showCrackOverlay();
 
     setTimeout(function () { applyAnswerResult(correct); }, 550);
   });
@@ -1754,6 +1836,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     var b = state.battle;
     if (!b.revealed || b.locked) return;
     b.locked = true;
+    showCrackOverlay();
     applyAnswerResult(false);
   });
 
