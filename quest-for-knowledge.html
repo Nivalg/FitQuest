@@ -24,6 +24,10 @@
 
   * { box-sizing: border-box; }
 
+  html {
+    overflow-x: hidden;
+  }
+
   html, body {
     margin: 0;
     padding: 0;
@@ -44,7 +48,6 @@
     min-height: 100vh;
     position: relative;
     padding: 16px;
-    overflow-x: hidden;
     display: flex;
     flex-direction: column;
   }
@@ -484,6 +487,17 @@
     font-family: 'VT323', monospace;
   }
 
+  .notes-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 8px;
+  }
+
   .notes-companion {
     display: flex;
     align-items: center;
@@ -518,11 +532,10 @@
     border: 3px solid var(--cyan);
     border-radius: 8px;
     padding: 20px 18px;
-    flex: 1;
+    min-height: 200px;
     font-size: 22px;
     line-height: 1.5;
     white-space: pre-wrap;
-    overflow-y: auto;
     box-shadow: 0 0 16px rgba(8, 217, 214, 0.5), inset 0 0 20px rgba(8,217,214,0.08);
   }
 
@@ -1083,14 +1096,16 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   <!-- NOTES READING SCREEN -->
   <section id="screen-notes-read" class="screen hidden">
-    <div class="topbar">
-      <h2 class="section-title" id="notes-read-title">Notes</h2>
-      <button class="btn-ghost btn-small" id="btn-notes-read-back">← BACK</button>
-    </div>
+    <div class="notes-sticky-header">
+      <div class="topbar">
+        <h2 class="section-title" id="notes-read-title">Notes</h2>
+        <button class="btn-ghost btn-small" id="btn-notes-read-back">← BACK</button>
+      </div>
 
-    <div class="notes-companion">
-      <div class="notes-companion-emoji">🧙</div>
-      <div class="notes-companion-book">📖</div>
+      <div class="notes-companion">
+        <div class="notes-companion-emoji">🧙</div>
+        <div class="notes-companion-book">📖</div>
+      </div>
     </div>
 
     <div class="notes-reading-box" id="notes-reading-box"></div>
@@ -1516,6 +1531,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     editingDeckId: null,
     viewingGroupId: null,
     editingGroupId: null,
+    notesReturnScreen: null,
     battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed, combo, bestCombo }
   };
   state.groups = loadGroups(state.decks);
@@ -1627,6 +1643,7 @@ question | option A | option B | option C | option D | 2"></textarea>
         '</div>' +
         '<div class="deck-actions">' +
           (unlocked ? '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' : '<span class="lock-badge">🔒 LOCKED</span>') +
+          '<button class="btn-small" data-action="read-notes" data-id="' + deck.id + '">📖 NOTES</button>' +
           '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
         '</div>';
 
@@ -1644,6 +1661,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       '<div class="deck-actions">' +
         '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' +
         '<button class="btn-cyan btn-small" data-action="edit" data-id="' + deck.id + '">EDIT</button>' +
+        '<button class="btn-small" data-action="read-notes" data-id="' + deck.id + '">📖 NOTES</button>' +
         '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
       '</div>';
 
@@ -1751,6 +1769,8 @@ question | option A | option B | option C | option D | 2"></textarea>
         return;
       }
       startBattle(id);
+    } else if (action === 'read-notes') {
+      openNotesRead(id, state.viewingGroupId ? 'group' : 'decks');
     }
   }
 
@@ -2178,22 +2198,37 @@ question | option A | option B | option C | option D | 2"></textarea>
     copyTextareaContents('notes-prompt-text');
   });
 
-  document.getElementById('btn-read-notes').addEventListener('click', function () {
-    var deck = findDeck(state.editingDeckId);
+  function openNotesRead(deckId, returnScreen) {
+    var deck = findDeck(deckId);
+    if (!deck) return;
+    state.notesReturnScreen = returnScreen;
+
     document.getElementById('notes-read-title').textContent = deck.name;
     var box = document.getElementById('notes-reading-box');
     if (deck.notes && deck.notes.trim()) {
       box.textContent = deck.notes;
       box.classList.remove('empty');
     } else {
-      box.textContent = 'No notes yet. Go back and add some, or generate a summary from this deck\'s cards.';
+      box.textContent = 'No notes yet for this deck.';
       box.classList.add('empty');
     }
     showScreen('notesRead');
+  }
+
+  document.getElementById('btn-read-notes').addEventListener('click', function () {
+    openNotesRead(state.editingDeckId, 'editor');
   });
 
   document.getElementById('btn-notes-read-back').addEventListener('click', function () {
-    showScreen('editor');
+    if (state.notesReturnScreen === 'group') {
+      renderGroupView(state.viewingGroupId);
+      showScreen('group');
+    } else if (state.notesReturnScreen === 'editor') {
+      showScreen('editor');
+    } else {
+      renderDeckList();
+      showScreen('decks');
+    }
   });
 
   function renderCardList() {
