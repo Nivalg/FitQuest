@@ -850,12 +850,13 @@
     </div>
 
     <div id="group-deck-list" class="card-list"></div>
+    <button class="btn-cyan" id="btn-group-add-decks">+ ADD DECKS</button>
   </section>
 
   <!-- COLLECTION CREATOR SCREEN -->
   <section id="screen-group-editor" class="screen hidden">
     <div class="topbar">
-      <h2 class="section-title">Create Collection</h2>
+      <h2 class="section-title" id="group-editor-title">Create Collection</h2>
       <button class="btn-ghost btn-small" id="btn-group-editor-back">← BACK</button>
     </div>
 
@@ -1418,6 +1419,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     player: loadPlayerProgress(),
     editingDeckId: null,
     viewingGroupId: null,
+    editingGroupId: null,
     battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed, combo, bestCombo }
   };
   state.groups = loadGroups(state.decks);
@@ -1867,7 +1869,21 @@ question | option A | option B | option C | option D | 2"></textarea>
   });
 
   function openGroupEditor() {
+    state.editingGroupId = null;
+    document.getElementById('group-editor-title').textContent = 'Create Collection';
+    document.getElementById('btn-create-group').textContent = '📚 CREATE COLLECTION';
     document.getElementById('input-group-name').value = '';
+    renderGroupSourceList();
+    showScreen('groupEditor');
+  }
+
+  function openGroupAddDecks(groupId) {
+    var group = state.groups.find(function (g) { return g.id === groupId; });
+    if (!group) return;
+    state.editingGroupId = groupId;
+    document.getElementById('group-editor-title').textContent = 'Add Decks';
+    document.getElementById('btn-create-group').textContent = '+ ADD TO COLLECTION';
+    document.getElementById('input-group-name').value = group.name;
     renderGroupSourceList();
     showScreen('groupEditor');
   }
@@ -1915,15 +1931,44 @@ question | option A | option B | option C | option D | 2"></textarea>
   });
 
   document.getElementById('btn-group-editor-back').addEventListener('click', function () {
-    renderDeckList();
-    showScreen('decks');
+    if (state.editingGroupId) {
+      var targetId = state.editingGroupId;
+      state.editingGroupId = null;
+      openGroupView(targetId);
+    } else {
+      renderDeckList();
+      showScreen('decks');
+    }
   });
 
   document.getElementById('btn-create-group').addEventListener('click', function () {
     var nameEl = document.getElementById('input-group-name');
     var name = nameEl.value.trim() || 'Collection';
-
     var checked = document.querySelectorAll('#group-source-list input[type=checkbox]:checked');
+
+    if (state.editingGroupId) {
+      var existingGroup = state.groups.find(function (g) { return g.id === state.editingGroupId; });
+      if (!existingGroup) {
+        state.editingGroupId = null;
+        renderDeckList();
+        showScreen('decks');
+        return;
+      }
+      if (checked.length < 1) {
+        alert('Select at least 1 deck to add.');
+        return;
+      }
+      Array.prototype.forEach.call(checked, function (el) {
+        if (existingGroup.deckIds.indexOf(el.value) === -1) existingGroup.deckIds.push(el.value);
+      });
+      existingGroup.name = name;
+      saveGroups(state.groups);
+      var targetId = state.editingGroupId;
+      state.editingGroupId = null;
+      openGroupView(targetId);
+      return;
+    }
+
     if (checked.length < 1) {
       alert('Select at least 1 deck to add to this collection.');
       return;
@@ -1941,6 +1986,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     saveGroups(state.groups);
     renderDeckList();
     showScreen('decks');
+  });
+
+  document.getElementById('btn-group-add-decks').addEventListener('click', function () {
+    openGroupAddDecks(state.viewingGroupId);
   });
 
   document.getElementById('btn-start').addEventListener('click', function () {
