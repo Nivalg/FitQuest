@@ -819,7 +819,33 @@
       <button class="btn-cyan" id="btn-new-deck">+ NEW DECK</button>
       <button class="btn-ghost" id="btn-new-boss">👑 BOSS DECK</button>
     </div>
+    <button class="btn-gold" id="btn-ai-prompt">🤖 GET AI PROMPT</button>
     <footer class="note">Tap a deck's ⚔ to battle its monster</footer>
+  </section>
+
+  <!-- AI PROMPT SCREEN -->
+  <section id="screen-ai-prompt" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title">AI Prompt</h2>
+      <button class="btn-ghost btn-small" id="btn-ai-prompt-back">← BACK</button>
+    </div>
+
+    <div class="field">
+      <label>TOPIC (optional)</label>
+      <input type="text" id="input-ai-topic" placeholder="e.g. World Capitals">
+    </div>
+
+    <div class="field">
+      <label>COPY THIS INTO YOUR AI</label>
+      <textarea id="ai-prompt-text" rows="14" readonly></textarea>
+    </div>
+
+    <button class="btn-gold" id="btn-copy-ai-prompt">📋 COPY TO CLIPBOARD</button>
+    <p class="bulk-help">
+      Paste this into ChatGPT, Claude, or any AI chat. Then bring its answer back here -
+      paste each deck's lines into that deck's Bulk Import box, or save as a .txt file
+      and use "Load .txt file".
+    </p>
   </section>
 
   <!-- BOSS DECK CREATOR SCREEN -->
@@ -1314,6 +1340,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     decks: document.getElementById('screen-decks'),
     editor: document.getElementById('screen-editor'),
     bossEditor: document.getElementById('screen-boss-editor'),
+    aiPrompt: document.getElementById('screen-ai-prompt'),
     battle: document.getElementById('screen-battle'),
     result: document.getElementById('screen-result')
   };
@@ -1485,6 +1512,64 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   document.getElementById('btn-new-boss').addEventListener('click', function () {
     openBossEditor();
+  });
+
+  var AI_PROMPT_TEMPLATE =
+    'Generate flashcard study questions about {{TOPIC}}.\n\n' +
+    'Requirements:\n' +
+    '- Generate 100 TRUE, UNIQUE questions - do not repeat any question with\n' +
+    '  reworded/reordered variations just to pad the count. Every question\n' +
+    '  and every set of answer options must be genuinely different.\n' +
+    '- Group them into 5 decks of 20 questions each, organized by sub-topic.\n' +
+    '  Give each deck a short, clear name (e.g. "## Deck: Basics of X").\n' +
+    '- Make every question multiple choice with exactly 4 answer options,\n' +
+    '  only one of which is correct.\n' +
+    '- Output each card as ONE line in this exact format:\n' +
+    '  question text | option A | option B | option C | option D | correct#\n' +
+    '  where correct# is a number 1-4 marking which option (in order) is right.\n' +
+    '- Do not use the "|" character anywhere inside the question or option text.\n' +
+    '- Output plain text only - no markdown tables, no numbering, no extra\n' +
+    '  commentary. Just the "## Deck: <name>" heading followed by its 20\n' +
+    '  card lines, then a blank line, then the next deck.';
+
+  function renderAiPrompt() {
+    var topic = document.getElementById('input-ai-topic').value.trim() || '[YOUR TOPIC HERE]';
+    document.getElementById('ai-prompt-text').value = AI_PROMPT_TEMPLATE.replace('{{TOPIC}}', topic);
+  }
+
+  document.getElementById('input-ai-topic').addEventListener('input', renderAiPrompt);
+
+  document.getElementById('btn-ai-prompt').addEventListener('click', function () {
+    document.getElementById('input-ai-topic').value = '';
+    renderAiPrompt();
+    showScreen('aiPrompt');
+  });
+
+  document.getElementById('btn-ai-prompt-back').addEventListener('click', function () {
+    showScreen('decks');
+  });
+
+  document.getElementById('btn-copy-ai-prompt').addEventListener('click', function () {
+    var textarea = document.getElementById('ai-prompt-text');
+
+    function fallbackCopy() {
+      textarea.focus();
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        alert('Copied! Paste it into your AI.');
+      } catch (e) {
+        alert('Could not copy automatically - please select the text above and copy it manually.');
+      }
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textarea.value).then(function () {
+        alert('Copied! Paste it into your AI.');
+      }, fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
   });
 
   document.getElementById('btn-boss-editor-back').addEventListener('click', function () {
