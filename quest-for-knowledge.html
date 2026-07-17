@@ -618,14 +618,18 @@
       }
       return parsed;
     } catch (e) {
-      var safe = [STARTER_DECK];
-      saveDecks(safe);
-      return safe;
+      // localStorage may be unavailable (sandboxed preview, private browsing, etc).
+      // saveDecks() below already swallows its own errors, so this can't throw again.
+      return [STARTER_DECK];
     }
   }
 
   function saveDecks(decks) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+    } catch (e) {
+      // Storage unavailable - continue running without persistence rather than crashing.
+    }
   }
 
   // ---------- State ----------
