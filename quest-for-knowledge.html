@@ -2094,16 +2094,53 @@ question | option A | option B | option C | option D | 2"></textarea>
     'each new chapter along with that chapter\'s text - treat each request as fully\n' +
     'independent and do not try to cover the whole book at once.';
 
+  function findGroupForDeck(deckId) {
+    return state.groups.find(function (g) { return g.deckIds.indexOf(deckId) !== -1; }) || null;
+  }
+
   function renderAiPrompt() {
     var topic = document.getElementById('input-ai-topic').value.trim() || '[YOUR TOPIC HERE]';
-    var text = AI_PROMPT_TEMPLATE.replace('{{TOPIC}}', topic);
-
     var deck = state.aiPromptDeckId ? findDeck(state.aiPromptDeckId) : null;
-    if (deck && deck.cards.length) {
-      var existingLines = deck.cards.map(function (c) { return '- ' + c.q; }).join('\n');
-      text += '\n\nThe "' + deck.name + '" deck already has these questions - do NOT repeat\n' +
-        'them or make trivial rewordings of them. Generate NEW, DIFFERENT questions that\n' +
-        'cover related material instead:\n' + existingLines;
+    var group = deck ? findGroupForDeck(deck.id) : null;
+
+    var text;
+
+    if (group) {
+      var memberDecks = group.deckIds.map(findDeck).filter(Boolean).filter(function (d) { return !d.isBoss; });
+      var existingBlock = memberDecks.map(function (d) {
+        return '[' + d.name + ']\n' + d.cards.map(function (c) { return '- ' + c.q; }).join('\n');
+      }).join('\n\n');
+
+      text =
+        'I am adding to an existing study collection called "' + group.name + '" (topic: ' + topic + ').\n\n' +
+        'This collection already has these questions across its existing decks - do NOT\n' +
+        'repeat any of them or make trivial rewordings. Generate NEW, DIFFERENT questions\n' +
+        'that fit the same overall subject:\n\n' + existingBlock + '\n\n' +
+        'Requirements:\n' +
+        '- Generate enough NEW questions for 1-2 additional decks, each with 15-25 TRUE,\n' +
+        '  UNIQUE questions grouped by sub-topic. Fewer good questions is better than\n' +
+        '  padding the count with reworded duplicates.\n' +
+        '- Give each deck a short, clear name as a heading, like "## Deck: <name>".\n' +
+        '- Make every question multiple choice with exactly 4 answer options, only one\n' +
+        '  of which is correct.\n' +
+        '- Output each card as ONE line in this exact format:\n' +
+        '  question text | option A | option B | option C | option D | correct#\n' +
+        '  where correct# is a number 1-4 marking which option (in order) is right.\n' +
+        '- Do not use the "|" character anywhere inside the question or option text.\n' +
+        '- Output plain text only - just "## Deck: <name>" headers followed by that\n' +
+        '  deck\'s card lines, then a blank line before the next deck. No commentary.\n\n' +
+        'Once I import these as new decks, I\'ll use this app\'s own "Add Decks" and\n' +
+        '"Boss Deck" tools to fold them into this same collection - you do not need to\n' +
+        'generate anything for a boss.';
+    } else {
+      text = AI_PROMPT_TEMPLATE.replace('{{TOPIC}}', topic);
+
+      if (deck && deck.cards.length) {
+        var existingLines = deck.cards.map(function (c) { return '- ' + c.q; }).join('\n');
+        text += '\n\nThe "' + deck.name + '" deck already has these questions - do NOT repeat\n' +
+          'them or make trivial rewordings of them. Generate NEW, DIFFERENT questions that\n' +
+          'cover related material instead:\n' + existingLines;
+      }
     }
 
     document.getElementById('ai-prompt-text').value = text;
