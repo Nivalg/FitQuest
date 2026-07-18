@@ -1252,6 +1252,94 @@ export default function AthleteDashboard({
             </span>
           </div>
 
+          {/* THE CORE GAME STATS HUD LIST - SOLO LEVELING STATUS STYLE */}
+          <div className="space-y-5 p-6 rounded-2xl bg-[#0A1220]">
+            {(() => {
+              const armStat = fitnessStatsList.find(s => s.key === "armStrength")!;
+              const legStat = fitnessStatsList.find(s => s.key === "legStrength")!;
+              const chestStat = fitnessStatsList.find(s => s.key === "chestStrength")!;
+              const backStat = fitnessStatsList.find(s => s.key === "backStrength")!;
+              const coreStat = fitnessStatsList.find(s => s.key === "coreStrength")!;
+              const speedStat = fitnessStatsList.find(s => s.key === "speed")!;
+              const staminaStat = fitnessStatsList.find(s => s.key === "stamina")!;
+
+              const chestVal = getDisplayedStatLevel("chestStrength");
+              const backVal = getDisplayedStatLevel("backStrength");
+              const legVal = getDisplayedStatLevel("legStrength");
+              const armVal = getDisplayedStatLevel("armStrength");
+              const coreVal = getDisplayedStatLevel("coreStrength");
+              const speedVal = getDisplayedStatLevel("speed");
+              const staminaVal = getDisplayedStatLevel("stamina");
+
+              const renderHoloRow = (icon: React.ReactNode, label: string, val: number, isSub: boolean = false) => {
+                return (
+                  <div className={`flex items-center justify-between py-1 ${isSub ? "pl-2 opacity-85" : ""}`}>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                        {icon}
+                      </div>
+                      <span className="text-[8px] font-press-start tracking-wider holo-text uppercase font-bold">
+                        {label}:
+                      </span>
+                    </div>
+                    <span className="text-[11.5px] font-press-start holo-text font-black">
+                      {Math.ceil(val)}
+                    </span>
+                  </div>
+                );
+              };
+
+              return (
+                <div className="flex flex-col space-y-4">
+                  {/* 2-Column Symmetrical Stats Grid */}
+                  <div className="flex flex-col space-y-2.5">
+                    {/* Row 1: CHEST vs BACK */}
+                    <div className="grid grid-cols-2 gap-x-8">
+                      {renderHoloRow(chestStat.icon, "CHEST", chestVal)}
+                      {renderHoloRow(backStat.icon, "BACK", backVal)}
+                    </div>
+
+                    {/* Row 2: LEG vs ARM */}
+                    <div className="grid grid-cols-2 gap-x-8 border-t border-[#4FC3F7]/10 pt-2.5">
+                      {renderHoloRow(legStat.icon, "LEG", legVal)}
+                      {renderHoloRow(armStat.icon, "ARM", armVal)}
+                    </div>
+
+                    {/* Row 3: Quads vs Biceps */}
+                    <div className="grid grid-cols-2 gap-x-8">
+                      {renderHoloRow(null, "QUADS", subCategoryLevels.quads, true)}
+                      {renderHoloRow(null, "BICEPS", subCategoryLevels.biceps, true)}
+                    </div>
+
+                    {/* Row 4: Hamstrings vs Triceps */}
+                    <div className="grid grid-cols-2 gap-x-8">
+                      {renderHoloRow(null, "HAMSTRINGS", subCategoryLevels.hamstrings, true)}
+                      {renderHoloRow(null, "TRICEPS", subCategoryLevels.triceps, true)}
+                    </div>
+
+                    {/* Row 5: Glutes vs Shoulders */}
+                    <div className="grid grid-cols-2 gap-x-8">
+                      {renderHoloRow(null, "GLUTES", subCategoryLevels.glutes, true)}
+                      {renderHoloRow(null, "SHOULDERS", subCategoryLevels.shoulders, true)}
+                    </div>
+
+                    {/* Row 6: Calves vs Traps */}
+                    <div className="grid grid-cols-2 gap-x-8">
+                      {renderHoloRow(null, "CALVES", subCategoryLevels.calves, true)}
+                      {renderHoloRow(null, "TRAPS", subCategoryLevels.traps, true)}
+                    </div>
+
+                    {/* Row 7: CORE vs SPEED */}
+                    <div className="grid grid-cols-2 gap-x-8 border-t border-[#4FC3F7]/10 pt-2.5">
+                      {renderHoloRow(coreStat.icon, "CORE", coreVal)}
+                      {renderHoloRow(speedStat.icon, "SPEED", speedVal)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
           {/* Stats Page Muscle Map HUD */}
           <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
             <div className="text-center">
@@ -1400,106 +1488,6 @@ export default function AthleteDashboard({
             </div>
           </div>
 
-          {/* THE CORE GAME STATS HUD LIST - SOLO LEVELING STATUS STYLE */}
-          <div className="space-y-5 p-6 rounded-2xl bg-[#0A1220]">
-            {(() => {
-              const armStat = fitnessStatsList.find(s => s.key === "armStrength")!;
-              const legStat = fitnessStatsList.find(s => s.key === "legStrength")!;
-              const chestStat = fitnessStatsList.find(s => s.key === "chestStrength")!;
-              const backStat = fitnessStatsList.find(s => s.key === "backStrength")!;
-              const coreStat = fitnessStatsList.find(s => s.key === "coreStrength")!;
-              const speedStat = fitnessStatsList.find(s => s.key === "speed")!;
-              const staminaStat = fitnessStatsList.find(s => s.key === "stamina")!;
-
-              const chestVal = getDisplayedStatLevel("chestStrength");
-              const backVal = getDisplayedStatLevel("backStrength");
-              const legVal = getDisplayedStatLevel("legStrength");
-              const armVal = getDisplayedStatLevel("armStrength");
-              const coreVal = getDisplayedStatLevel("coreStrength");
-              const speedVal = getDisplayedStatLevel("speed");
-              const staminaVal = getDisplayedStatLevel("stamina");
-
-              const renderHoloRow = (icon: React.ReactNode, label: string, val: number, isSub = false) => {
-                if (isSub) {
-                  return (
-                    <div className="flex justify-between items-center pl-6 border-l-2 border-[#4FC3F7]/15 ml-2 py-0.5">
-                      <span className="text-[7.5px] font-press-start holo-text opacity-85">
-                        {label}:
-                      </span>
-                      <span className="text-[8.5px] font-press-start holo-text font-black">
-                        {Math.ceil(val)}
-                      </span>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="flex items-center justify-between py-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="shrink-0 text-[#C8E6F5] w-4 h-4 flex items-center justify-center">
-                        {icon}
-                      </div>
-                      <span className="text-[8px] font-press-start tracking-wider holo-text uppercase font-bold">
-                        {label}:
-                      </span>
-                    </div>
-                    <span className="text-[11.5px] font-press-start holo-text font-black">
-                      {Math.ceil(val)}
-                    </span>
-                  </div>
-                );
-              };
-
-              return (
-                <div className="flex flex-col space-y-4">
-                  {/* 2-Column Symmetrical Stats Grid */}
-                  <div className="flex flex-col space-y-2.5">
-                    {/* Row 1: CHEST vs BACK */}
-                    <div className="grid grid-cols-2 gap-x-8">
-                      {renderHoloRow(chestStat.icon, "CHEST", chestVal)}
-                      {renderHoloRow(backStat.icon, "BACK", backVal)}
-                    </div>
-
-                    {/* Row 2: LEG vs ARM */}
-                    <div className="grid grid-cols-2 gap-x-8 border-t border-[#4FC3F7]/10 pt-2.5">
-                      {renderHoloRow(legStat.icon, "LEG", legVal)}
-                      {renderHoloRow(armStat.icon, "ARM", armVal)}
-                    </div>
-
-                    {/* Row 3: Quads vs Biceps */}
-                    <div className="grid grid-cols-2 gap-x-8">
-                      {renderHoloRow(null, "QUADS", subCategoryLevels.quads, true)}
-                      {renderHoloRow(null, "BICEPS", subCategoryLevels.biceps, true)}
-                    </div>
-
-                    {/* Row 4: Hamstrings vs Triceps */}
-                    <div className="grid grid-cols-2 gap-x-8">
-                      {renderHoloRow(null, "HAMSTRINGS", subCategoryLevels.hamstrings, true)}
-                      {renderHoloRow(null, "TRICEPS", subCategoryLevels.triceps, true)}
-                    </div>
-
-                    {/* Row 5: Glutes vs Shoulders */}
-                    <div className="grid grid-cols-2 gap-x-8">
-                      {renderHoloRow(null, "GLUTES", subCategoryLevels.glutes, true)}
-                      {renderHoloRow(null, "SHOULDERS", subCategoryLevels.shoulders, true)}
-                    </div>
-
-                    {/* Row 6: Calves vs Traps */}
-                    <div className="grid grid-cols-2 gap-x-8">
-                      {renderHoloRow(null, "CALVES", subCategoryLevels.calves, true)}
-                      {renderHoloRow(null, "TRAPS", subCategoryLevels.traps, true)}
-                    </div>
-
-                    {/* Row 7: CORE vs SPEED */}
-                    <div className="grid grid-cols-2 gap-x-8 border-t border-[#4FC3F7]/10 pt-2.5">
-                      {renderHoloRow(coreStat.icon, "CORE", coreVal)}
-                      {renderHoloRow(speedStat.icon, "SPEED", speedVal)}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
 
           {/* PERSONAL RECORD DYNAMIC CAROUSEL TICKER - PLACED JUST BELOW IT */}
           {records.length > 0 ? (
