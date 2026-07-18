@@ -547,6 +547,133 @@
     text-align: center;
   }
 
+  .run-hp-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--panel);
+    border: 2px solid var(--magenta);
+    border-radius: 6px;
+    padding: 10px 14px;
+  }
+
+  .run-hp-emoji {
+    font-size: 32px;
+    flex-shrink: 0;
+  }
+
+  .run-hp-bar-wrap {
+    flex: 1;
+  }
+
+  .run-map-path {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0 30px;
+  }
+
+  .run-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .run-node-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+    background: var(--panel);
+    border: 3px solid var(--cyan);
+    box-shadow: 0 0 12px rgba(8, 217, 214, 0.4);
+    position: relative;
+  }
+
+  .run-node-label {
+    margin-top: 8px;
+    font-size: 11px;
+    font-family: 'Press Start 2P', monospace;
+    color: var(--cyan);
+    text-align: center;
+    max-width: 100px;
+  }
+
+  .run-node:not(.locked) { cursor: pointer; }
+
+  .run-node.locked .run-node-circle {
+    border-color: #4a3a80;
+    background: #1c0f3f;
+    box-shadow: none;
+    filter: grayscale(1);
+    opacity: 0.6;
+  }
+
+  .run-node.locked .run-node-label {
+    color: #4a3a80;
+  }
+
+  .run-node.locked { cursor: not-allowed; }
+
+  .run-node.cleared .run-node-circle {
+    border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(255, 210, 63, 0.5);
+  }
+
+  .run-node.current .run-node-circle {
+    animation: run-node-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes run-node-pulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(8, 217, 214, 0.4); }
+    50% { box-shadow: 0 0 22px rgba(8, 217, 214, 0.9); }
+  }
+
+  .run-node-boss .run-node-circle {
+    width: 84px;
+    height: 84px;
+    font-size: 40px;
+    border-color: var(--magenta);
+    box-shadow: 0 0 16px rgba(255, 46, 99, 0.5);
+  }
+
+  .run-node-boss.locked .run-node-circle {
+    border-color: #4a3a80;
+    box-shadow: none;
+  }
+
+  .run-node-boss.current .run-node-circle {
+    animation-name: run-node-pulse-boss;
+  }
+
+  @keyframes run-node-pulse-boss {
+    0%, 100% { box-shadow: 0 0 16px rgba(255, 46, 99, 0.5); }
+    50% { box-shadow: 0 0 28px rgba(255, 46, 99, 0.95); }
+  }
+
+  .run-node-cleared-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    font-size: 20px;
+  }
+
+  .run-node-connector {
+    width: 4px;
+    height: 26px;
+    background: var(--cyan);
+    opacity: 0.5;
+  }
+
+  .run-node-connector.locked-connector {
+    background: #4a3a80;
+    opacity: 1;
+  }
+
   /* Battle */
   .battle-arena {
     display: flex;
@@ -913,7 +1040,29 @@
     </div>
 
     <div id="group-deck-list" class="card-list"></div>
-    <button class="btn-cyan" id="btn-group-add-decks">+ ADD DECKS</button>
+    <div class="btn-row">
+      <button class="btn-cyan" id="btn-group-add-decks">+ ADD DECKS</button>
+      <button class="btn-gold" id="btn-start-run">🏃 START RUN</button>
+    </div>
+  </section>
+
+  <!-- RUN MAP SCREEN -->
+  <section id="screen-run-map" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title" id="run-map-title">Run</h2>
+      <button class="btn-ghost btn-small" id="btn-run-map-exit">✕ EXIT</button>
+    </div>
+
+    <div class="run-hp-display">
+      <span class="run-hp-emoji">🧙</span>
+      <div class="run-hp-bar-wrap">
+        <div class="hp-bar-outer"><div class="hp-bar-inner" id="run-hp-bar"></div></div>
+        <div class="hp-text" id="run-hp-text">10/10</div>
+      </div>
+    </div>
+    <p class="bulk-help" style="text-align:center;">No healing between levels - make every answer count!</p>
+
+    <div id="run-map-path" class="run-map-path"></div>
   </section>
 
   <!-- COLLECTION CREATOR SCREEN -->
@@ -1182,6 +1331,7 @@ question | option A | option B | option C | option D | 2"></textarea>
   var PLAYER_STORAGE_KEY = 'questForKnowledge.player.v1';
   var GROUPS_STORAGE_KEY = 'questForKnowledge.groups.v1';
   var SEEDED_GROUPS_STORAGE_KEY = 'questForKnowledge.seededGroupIds.v1';
+  var RUNS_STORAGE_KEY = 'questForKnowledge.runs.v1';
   var MONSTER_EMOJIS = ['👾', '🐍', '🦇', '🐙', '👹', '🤖', '🦖', '🕷️', '👻', '🐺', '🐉'];
   var PLAYER_EMOJI = '🧙';
   var PLAYER_MAX_HP = 10;
@@ -1473,6 +1623,24 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
   }
 
+  function loadRuns() {
+    try {
+      var raw = localStorage.getItem(RUNS_STORAGE_KEY);
+      var parsed = raw ? JSON.parse(raw) : {};
+      return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveRuns(runs) {
+    try {
+      localStorage.setItem(RUNS_STORAGE_KEY, JSON.stringify(runs));
+    } catch (e) {
+      // Storage unavailable - continue running without persistence rather than crashing.
+    }
+  }
+
   function loadSeededGroupIds() {
     try {
       var raw = localStorage.getItem(SEEDED_GROUPS_STORAGE_KEY);
@@ -1532,9 +1700,12 @@ question | option A | option B | option C | option D | 2"></textarea>
     viewingGroupId: null,
     editingGroupId: null,
     notesReturnScreen: null,
-    battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed, combo, bestCombo }
+    activeRunGroupId: null,
+    resultContext: null,
+    battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed, combo, bestCombo, runGroupId }
   };
   state.groups = loadGroups(state.decks);
+  state.runs = loadRuns();
 
   function findDeck(id) {
     for (var i = 0; i < state.decks.length; i++) {
@@ -1587,6 +1758,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     bossEditor: document.getElementById('screen-boss-editor'),
     group: document.getElementById('screen-group'),
     groupEditor: document.getElementById('screen-group-editor'),
+    runMap: document.getElementById('screen-run-map'),
     aiPrompt: document.getElementById('screen-ai-prompt'),
     notesPrompt: document.getElementById('screen-notes-prompt'),
     notesRead: document.getElementById('screen-notes-read'),
@@ -1972,7 +2144,146 @@ question | option A | option B | option C | option D | 2"></textarea>
     memberDecks.forEach(function (deck) {
       list.appendChild(buildDeckCardElement(deck));
     });
+
+    var runState = getRunState(groupId);
+    var runInProgress = runState && runState.clearedDeckIds.length > 0;
+    document.getElementById('btn-start-run').textContent = runInProgress ? '🏃 CONTINUE RUN' : '🏃 START RUN';
   }
+
+  function getRunState(groupId) {
+    return state.runs[groupId] || null;
+  }
+
+  function startNewRun(groupId) {
+    state.runs[groupId] = { hp: PLAYER_MAX_HP, clearedDeckIds: [] };
+    saveRuns(state.runs);
+  }
+
+  function getRunTiers(group) {
+    var decks = group.deckIds.map(findDeck).filter(Boolean);
+    var tiers = [];
+    var currentLevels = [];
+    decks.forEach(function (deck) {
+      if (deck.isBoss) {
+        tiers.push({ levels: currentLevels, boss: deck });
+        currentLevels = [];
+      } else {
+        currentLevels.push(deck);
+      }
+    });
+    if (currentLevels.length) {
+      tiers.push({ levels: currentLevels, boss: null });
+    }
+    return tiers;
+  }
+
+  function isTierComplete(tier, runState) {
+    var levelsCleared = tier.levels.every(function (d) { return runState.clearedDeckIds.indexOf(d.id) !== -1; });
+    if (!levelsCleared) return false;
+    return tier.boss ? runState.clearedDeckIds.indexOf(tier.boss.id) !== -1 : true;
+  }
+
+  function getRunActiveTierIndex(tiers, runState) {
+    for (var i = 0; i < tiers.length; i++) {
+      if (!isTierComplete(tiers[i], runState)) return i;
+    }
+    return tiers.length;
+  }
+
+  function buildRunNode(deck, opts) {
+    var node = document.createElement('div');
+    node.className = 'run-node' + (opts.isBoss ? ' run-node-boss' : ' run-node-level') +
+      (opts.locked ? ' locked' : '') + (opts.cleared ? ' cleared' : '') + (opts.current ? ' current' : '');
+    if (!opts.locked) node.setAttribute('data-deck-id', deck.id);
+
+    var badge = opts.cleared ? '<span class="run-node-cleared-badge">⭐</span>' : '';
+    node.innerHTML =
+      '<div class="run-node-circle">' + (opts.locked ? '🔒' : deck.monster) + badge + '</div>' +
+      '<div class="run-node-label">' + (opts.isBoss ? '👑 ' : '') + escapeHtml(deck.name) + '</div>';
+    return node;
+  }
+
+  function buildRunConnector(locked) {
+    var c = document.createElement('div');
+    c.className = 'run-node-connector' + (locked ? ' locked-connector' : '');
+    return c;
+  }
+
+  function renderRunMap(groupId) {
+    var group = state.groups.find(function (g) { return g.id === groupId; });
+    if (!group) {
+      renderDeckList();
+      showScreen('decks');
+      return;
+    }
+
+    if (!getRunState(groupId)) startNewRun(groupId);
+    var runState = getRunState(groupId);
+
+    document.getElementById('run-map-title').textContent = group.name;
+    var hpPct = Math.max(0, (runState.hp / PLAYER_MAX_HP) * 100);
+    document.getElementById('run-hp-bar').style.width = hpPct + '%';
+    document.getElementById('run-hp-text').textContent = Math.max(0, runState.hp) + '/' + PLAYER_MAX_HP;
+
+    var tiers = getRunTiers(group);
+    var activeTierIndex = getRunActiveTierIndex(tiers, runState);
+
+    var path = document.getElementById('run-map-path');
+    path.innerHTML = '';
+
+    tiers.forEach(function (tier, tierIndex) {
+      tier.levels.forEach(function (deck) {
+        var cleared = runState.clearedDeckIds.indexOf(deck.id) !== -1;
+        var locked = tierIndex > activeTierIndex;
+        var current = tierIndex === activeTierIndex && !cleared;
+        path.appendChild(buildRunNode(deck, { locked: locked, cleared: cleared, current: current, isBoss: false }));
+        path.appendChild(buildRunConnector(locked));
+      });
+
+      if (tier.boss) {
+        var levelsCleared = tier.levels.every(function (d) { return runState.clearedDeckIds.indexOf(d.id) !== -1; });
+        var bossCleared = runState.clearedDeckIds.indexOf(tier.boss.id) !== -1;
+        var bossLocked = tierIndex > activeTierIndex || (tierIndex === activeTierIndex && !levelsCleared);
+        var bossCurrent = tierIndex === activeTierIndex && levelsCleared && !bossCleared;
+        path.appendChild(buildRunNode(tier.boss, { locked: bossLocked, cleared: bossCleared, current: bossCurrent, isBoss: true }));
+        if (tierIndex < tiers.length - 1) {
+          path.appendChild(buildRunConnector(tierIndex >= activeTierIndex));
+        }
+      }
+    });
+
+    if (activeTierIndex >= tiers.length) {
+      var complete = document.createElement('div');
+      complete.className = 'empty-state';
+      complete.textContent = '🎉 Run Complete! You cleared the whole collection.';
+      path.appendChild(complete);
+    }
+
+    showScreen('runMap');
+  }
+
+  document.getElementById('run-map-path').addEventListener('click', function (e) {
+    var node = e.target.closest('.run-node');
+    if (!node || node.classList.contains('locked')) return;
+    var deckId = node.getAttribute('data-deck-id');
+    var deck = findDeck(deckId);
+    if (!deck) return;
+    if (!deck.cards.length) {
+      alert('This deck has no cards to battle.');
+      return;
+    }
+    startBattle(deckId, { groupId: state.activeRunGroupId });
+  });
+
+  document.getElementById('btn-run-map-exit').addEventListener('click', function () {
+    renderGroupView(state.activeRunGroupId);
+    showScreen('group');
+  });
+
+  document.getElementById('btn-start-run').addEventListener('click', function () {
+    state.activeRunGroupId = state.viewingGroupId;
+    renderRunMap(state.viewingGroupId);
+  });
 
   document.getElementById('input-group-view-name').addEventListener('input', function (e) {
     var group = state.groups.find(function (g) { return g.id === state.viewingGroupId; });
@@ -2421,23 +2732,31 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   // ---------- Battle ----------
 
-  function startBattle(deckId) {
+  function startBattle(deckId, runOptions) {
     var deck = findDeck(deckId);
     var enemyMaxHp = deck.isBoss ?
       deck.cards.length * 3 :
       Math.max(6, Math.min(20, deck.cards.length * 2));
 
+    var runGroupId = runOptions ? runOptions.groupId : null;
+    var startingHp = PLAYER_MAX_HP;
+    if (runGroupId) {
+      var runState = getRunState(runGroupId);
+      startingHp = runState ? Math.max(0, runState.hp) : PLAYER_MAX_HP;
+    }
+
     state.battle = {
       deckId: deckId,
       queue: shuffle(deck.cards),
       index: 0,
-      playerHp: PLAYER_MAX_HP,
+      playerHp: startingHp,
       enemyHp: enemyMaxHp,
       maxEnemyHp: enemyMaxHp,
       revealed: false,
       locked: false,
       combo: 0,
-      bestCombo: 0
+      bestCombo: 0,
+      runGroupId: runGroupId
     };
 
     document.getElementById('enemy-emoji').textContent = deck.monster;
@@ -2673,6 +2992,11 @@ question | option A | option B | option C | option D | 2"></textarea>
     var titleEl = document.getElementById('result-title');
     var starsEl = document.getElementById('result-stars');
     var msgEl = document.getElementById('result-message');
+    var retryBtn = document.getElementById('btn-retry');
+    var backBtn = document.getElementById('btn-result-back');
+
+    var runGameOver = false;
+    var runComplete = false;
 
     if (victory) {
       var remaining = Math.max(0, b.playerHp);
@@ -2710,6 +3034,26 @@ question | option A | option B | option C | option D | 2"></textarea>
       if (levelAfter > levelBefore) {
         message += ' Level up! You are now Level ' + levelAfter + '!';
       }
+
+      if (b.runGroupId) {
+        var runState = getRunState(b.runGroupId);
+        if (runState) {
+          runState.hp = remaining;
+          if (runState.clearedDeckIds.indexOf(deck.id) === -1) runState.clearedDeckIds.push(deck.id);
+          saveRuns(state.runs);
+
+          var runGroup = state.groups.find(function (g) { return g.id === b.runGroupId; });
+          if (runGroup) {
+            var tiers = getRunTiers(runGroup);
+            var activeIndex = getRunActiveTierIndex(tiers, runState);
+            if (activeIndex >= tiers.length) {
+              runComplete = true;
+              message += ' 🎉🎉 RUN COMPLETE! You cleared the whole collection!';
+            }
+          }
+        }
+      }
+
       msgEl.textContent = message;
     } else {
       emojiEl.textContent = '💀';
@@ -2717,6 +3061,28 @@ question | option A | option B | option C | option D | 2"></textarea>
       titleEl.className = 'result-title defeat';
       starsEl.innerHTML = '<span class="dim">★</span><span class="dim">★</span><span class="dim">★</span>';
       msgEl.textContent = 'The ' + deck.monster + ' proved too strong. Study up and try again!';
+
+      if (b.runGroupId) {
+        runGameOver = true;
+        titleEl.textContent = 'GAME OVER';
+        msgEl.textContent = 'Your HP ran out! The run resets - back to the beginning.';
+        startNewRun(b.runGroupId);
+      }
+    }
+
+    state.resultContext = {
+      isRun: !!b.runGroupId,
+      runGroupId: b.runGroupId,
+      gameOver: runGameOver,
+      complete: runComplete
+    };
+
+    if (b.runGroupId) {
+      retryBtn.textContent = runGameOver ? '🔄 RESTART RUN' : (runComplete ? '🗺 BACK TO MAP' : '🗺 CONTINUE');
+      backBtn.textContent = 'EXIT RUN';
+    } else {
+      retryBtn.textContent = 'RETRY';
+      backBtn.textContent = 'DECKS';
     }
 
     renderDeckList();
@@ -2724,12 +3090,23 @@ question | option A | option B | option C | option D | 2"></textarea>
   }
 
   document.getElementById('btn-retry').addEventListener('click', function () {
-    startBattle(state.battle.deckId);
+    var ctx = state.resultContext;
+    if (ctx && ctx.isRun) {
+      renderRunMap(ctx.runGroupId);
+    } else {
+      startBattle(state.battle.deckId);
+    }
   });
 
   document.getElementById('btn-result-back').addEventListener('click', function () {
-    renderDeckList();
-    showScreen('decks');
+    var ctx = state.resultContext;
+    if (ctx && ctx.isRun) {
+      renderGroupView(ctx.runGroupId);
+      showScreen('group');
+    } else {
+      renderDeckList();
+      showScreen('decks');
+    }
   });
 
 })();
