@@ -943,7 +943,7 @@ export default function AthleteDashboard({
         </div>
       </div>
 
-      {activeSubTab === "character" ? (
+      {activeSubTab === "character" && (
         <motion.div 
           key="character-view"
           initial={{ opacity: 0, y: 10 }}
@@ -1121,7 +1121,9 @@ export default function AthleteDashboard({
             </button>
           </div>
         </motion.div>
-      ) : (
+      )}
+
+      {activeSubTab === "stats" && (
         <motion.div 
           key="stats-view"
           initial={{ opacity: 0, y: 10 }}
