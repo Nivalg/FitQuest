@@ -855,54 +855,36 @@ export default function AthleteDashboard({
       
       {/* Centered Capsule Sub-Navigation */}
       <div className="flex justify-center pb-2">
-        <div className="bg-[#161B22] border border-slate-800 p-1 rounded-full flex items-center relative overflow-hidden shadow-lg shadow-cyan-950/10">
-          {/* Sliding active glow pill indicator */}
-          <div 
-            className="absolute top-1 bottom-1 bg-gradient-to-r from-cyan-950 to-slate-900 border border-cyan-500/30 rounded-full transition-all duration-300 ease-out shadow-[0_0_10px_rgba(6,182,212,0.15)] pointer-events-none"
-            style={{
-              left: activeSubTab === "character" ? "4px" : activeSubTab === "stats" ? "calc(33.33% + 2px)" : "calc(66.66% + 0px)",
-              width: "calc(33.33% - 4px)",
-            }}
-          />
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("character")}
-            style={{ minHeight: "36px", minWidth: "85px" }}
-            className={`px-3 py-1.5 rounded-full text-[9px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
-              activeSubTab === "character"
-                ? "text-cyan-400 font-extrabold"
-                : "text-slate-500 hover:text-slate-350"
-            }`}
-          >
-            CHARACTER
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("stats")}
-            style={{ minHeight: "36px", minWidth: "85px" }}
-            className={`px-3 py-1.5 rounded-full text-[9px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
-              activeSubTab === "stats"
-                ? "text-cyan-400 font-extrabold"
-                : "text-slate-500 hover:text-slate-350"
-            }`}
-          >
-            STATS
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("quests")}
-            style={{ minHeight: "36px", minWidth: "85px" }}
-            className={`px-3 py-1.5 rounded-full text-[9px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
-              activeSubTab === "quests"
-                ? "text-cyan-400 font-extrabold"
-                : "text-slate-500 hover:text-slate-350"
-            }`}
-          >
-            QUESTS
-          </button>
+        <div className="bg-[#161B22] border border-slate-800 p-1 rounded-full flex items-center relative shadow-lg shadow-cyan-950/10">
+          {[
+            { id: "character", label: "CHARACTER" },
+            { id: "stats", label: "STATS" },
+            { id: "quests", label: "QUESTS" }
+          ].map((tab) => {
+            const isActive = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSubTab(tab.id as any)}
+                style={{ minHeight: "36px" }}
+                className={`px-4 py-1.5 rounded-full text-[9px] font-press-start tracking-wider transition-colors duration-200 relative cursor-pointer ${
+                  isActive
+                    ? "text-cyan-300 font-extrabold"
+                    : "text-slate-500 hover:text-slate-350"
+                }`}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="activeSubTabIndicator"
+                    className="absolute inset-0 bg-gradient-to-r from-cyan-950/90 via-cyan-900/40 to-slate-900 border border-cyan-400/50 rounded-full shadow-[0_0_12px_rgba(6,182,212,0.25)] z-0"
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
