@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { EXERCISE_DATABASE, CATEGORIES } from "../exercises";
+import { EXERCISE_DATABASE, CATEGORIES, getAllExercises, saveCustomExercise, deleteCustomExercise, getCustomExercises } from "../exercises";
 import { ExerciseInfo, ExercisePillar, AthleteProfile, FitnessLog } from "../types";
 import { evaluateAthletePerformance } from "../utils/fitnessMath";
 import { motion, AnimatePresence } from "motion/react";
@@ -20,7 +20,10 @@ import {
   Trash2,
   Play,
   Square,
-  Save
+  Save,
+  Sparkles,
+  Upload,
+  Image as ImageIcon
 } from "lucide-react";
 
 interface WorkoutLoggerProps {
@@ -41,8 +44,8 @@ interface WorkoutLoggerProps {
 }
 
 export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: WorkoutLoggerProps) {
-  // Current view states: "categories" | "exercises" | "form" | "create-routine"
-  const [currentView, setCurrentView] = useState<"categories" | "exercises" | "form" | "create-routine">("categories");
+  // Current view states: "categories" | "exercises" | "form" | "create-routine" | "create-exercise"
+  const [currentView, setCurrentView] = useState<"categories" | "exercises" | "form" | "create-routine" | "create-exercise">("categories");
   const [selectedCategory, setSelectedCategory] = useState<{ id: string; name: string } | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseInfo | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>("all");
@@ -72,6 +75,14 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const [routineSearchQuery, setRoutineSearchQuery] = useState("");
   const [formBackTarget, setFormBackTarget] = useState<"categories" | "exercises">("exercises");
 
+  // Custom Exercise Creator Form states
+  const [customExName, setCustomExName] = useState("");
+  const [customExPillar, setCustomExPillar] = useState<ExercisePillar>("weights");
+  const [customExMuscle, setCustomExMuscle] = useState<string>("chest");
+  const [customExFormType, setCustomExFormType] = useState<"A" | "B" | "C" | "D">("A");
+  const [customExImageUrl, setCustomExImageUrl] = useState("");
+  const [customExImagePreview, setCustomExImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Dynamic Recents calculation
   const recents = React.useMemo(() => {
@@ -79,20 +90,20 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     const sortedLogs = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     for (const log of sortedLogs) {
       if (log.exerciseName) {
-        const match = EXERCISE_DATABASE.find(e => e.name.toLowerCase() === log.exerciseName!.toLowerCase());
+        const match = getAllExercises().find(e => e.name.toLowerCase() === log.exerciseName!.toLowerCase());
         if (match && !uniqueNames.includes(match.name)) {
           uniqueNames.push(match.name);
           if (uniqueNames.length >= 6) break;
         }
       }
     }
-    return uniqueNames.map(name => EXERCISE_DATABASE.find(e => e.name === name)!).filter(Boolean);
+    return uniqueNames.map(name => getAllExercises().find(e => e.name === name)!).filter(Boolean);
   }, [logs]);
 
   const switcherExercises = React.useMemo(() => {
     if (activeRoutine) {
       return activeRoutine.exercises
-        .map(name => EXERCISE_DATABASE.find(e => e.name === name)!)
+        .map(name => getAllExercises().find(e => e.name === name)!)
         .filter(Boolean);
     }
     if (recents.length > 0) {
@@ -104,7 +115,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       "Barbell Squat",
       "Deadlift",
       "Barbell Bicep Curl"
-    ].map(name => EXERCISE_DATABASE.find(e => e.name === name)!).filter(Boolean);
+    ].map(name => getAllExercises().find(e => e.name === name)!).filter(Boolean);
   }, [activeRoutine, recents]);
 
   useEffect(() => {
@@ -553,6 +564,121 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     }
   };
 
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === "string") {
+          setCustomExImagePreview(reader.result);
+          setCustomExImageUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveCustomExerciseSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customExName.trim()) {
+      alert("Please enter an exercise name!");
+      return;
+    }
+
+    let buildsDict: Record<string, number> = {};
+    let subCats: string[] | undefined = undefined;
+
+    switch (customExMuscle) {
+      case "chest":
+        buildsDict = { chestStrength: 80, armStrength: 20 };
+        subCats = ["chest"];
+        break;
+      case "back":
+        buildsDict = { backStrength: 80, armStrength: 20 };
+        subCats = ["back"];
+        break;
+      case "biceps":
+        buildsDict = { armStrength: 100 };
+        subCats = ["biceps"];
+        break;
+      case "triceps":
+        buildsDict = { armStrength: 100 };
+        subCats = ["triceps"];
+        break;
+      case "shoulders":
+        buildsDict = { armStrength: 100 };
+        subCats = ["shoulders"];
+        break;
+      case "traps":
+        buildsDict = { armStrength: 100 };
+        subCats = ["traps"];
+        break;
+      case "quads":
+        buildsDict = { legStrength: 80, speed: 20 };
+        subCats = ["quads"];
+        break;
+      case "hamstrings":
+        buildsDict = { legStrength: 80, backStrength: 20 };
+        subCats = ["hamstrings"];
+        break;
+      case "glutes":
+        buildsDict = { legStrength: 80, backStrength: 20 };
+        subCats = ["glutes"];
+        break;
+      case "calves":
+        buildsDict = { legStrength: 100 };
+        subCats = ["calves"];
+        break;
+      case "core":
+        buildsDict = { coreStrength: 90, stamina: 10 };
+        subCats = ["core"];
+        break;
+      case "speed":
+        buildsDict = { speed: 70, legStrength: 30 };
+        break;
+      case "stamina":
+        buildsDict = { stamina: 80, legStrength: 20 };
+        break;
+      default:
+        buildsDict = { chestStrength: 80, armStrength: 20 };
+    }
+
+    const newExercise: ExerciseInfo = {
+      name: customExName.trim(),
+      pillar: customExPillar,
+      formType: customExFormType,
+      description: `Custom ${customExPillar} exercise targeting ${customExMuscle}.`,
+      builds: buildsDict,
+      subCategories: subCats,
+      image: customExImageUrl.trim() || undefined
+    };
+
+    saveCustomExercise(newExercise);
+
+    // Reset form
+    setCustomExName("");
+    setCustomExImageUrl("");
+    setCustomExImagePreview(null);
+    
+    // Select category matching custom exercise
+    const catName = customExPillar === "weights" ? "Free Weights" : customExPillar === "machines" ? "Machines" : customExPillar === "bodyweight" ? "Bodyweight" : "Cardio";
+    setSelectedCategory({ id: customExPillar, name: catName });
+    setSelectedSubCategory("all");
+    
+    // Open logging form
+    handleSelectExercise(newExercise, "categories");
+  };
+
+  const handleDeleteCustomEx = (name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm(`Delete custom exercise "${name}"?`)) {
+      deleteCustomExercise(name);
+      // force re-render by toggling selectedSubCategory
+      setSelectedSubCategory(prev => prev === "all" ? null : "all");
+      setTimeout(() => setSelectedSubCategory("all"), 50);
+    }
+  };
+
   const handleBackToCategories = () => {
     setSelectedSubCategory("all");
     setCurrentView("categories");
@@ -563,7 +689,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const activeExercises = selectedCategory
     ? isFocusCategory
       ? getExercisesForFocusGroup(selectedCategory.id.replace("focus_", ""))
-      : EXERCISE_DATABASE.filter(ex => ex.pillar === selectedCategory.id)
+      : getAllExercises().filter(ex => ex.pillar === selectedCategory.id)
     : [];
 
   const filteredExercises = activeExercises.filter(ex => {
@@ -739,9 +865,23 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
           {/* D. TARGET TRAINING ZONES */}
           <div className="space-y-2">
-            <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
-              🎯 TARGET ZONES
-            </span>
+            <div className="flex items-center justify-between border-b border-slate-850/80 pb-2">
+              <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
+                🎯 TARGET ZONES
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomExName("");
+                  setCustomExImageUrl("");
+                  setCustomExImagePreview(null);
+                  setCurrentView("create-exercise");
+                }}
+                className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-400/40 hover:border-cyan-400 text-cyan-300 rounded-lg text-[8px] font-press-start flex items-center gap-1 cursor-pointer transition active:scale-95"
+              >
+                <Plus className="w-2.5 h-2.5 text-cyan-400" /> ADD CUSTOM EXERCISE
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               {focusGroups.map((group, index) => {
                 const isTop = index === 0; // Stamina
@@ -947,22 +1087,44 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                {filteredExercises.map((ex) => (
-                  <button
-                    key={ex.name}
-                    id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
-                    onClick={() => handleSelectExercise(ex, "exercises")}
-                    style={{ minHeight: "56px" }}
-                    className="w-full p-3 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer"
-                  >
-                    <span className="text-[10.5px] font-press-start text-white block text-center leading-snug">
-                      {ex.name}
-                    </span>
-                    <span className="text-[9px] font-mono text-emerald-400 font-bold transition block text-center">
-                      {getBuildsDescription(ex)}
-                    </span>
-                  </button>
-                ))}
+                {filteredExercises.map((ex) => {
+                  const isCustom = getCustomExercises().some(c => c.name.toLowerCase() === ex.name.toLowerCase());
+                  return (
+                    <div key={ex.name} className="relative group">
+                      <button
+                        id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
+                        onClick={() => handleSelectExercise(ex, "exercises")}
+                        style={{ minHeight: "56px" }}
+                        className="w-full p-3 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <span className="text-[10.5px] font-press-start text-white block text-center leading-snug">
+                            {ex.name}
+                          </span>
+                          {isCustom && (
+                            <span className="text-[7px] font-press-start text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded">
+                              CUSTOM
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-mono text-emerald-400 font-bold transition block text-center">
+                          {getBuildsDescription(ex)}
+                        </span>
+                      </button>
+
+                      {isCustom && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteCustomEx(ex.name, e)}
+                          className="absolute top-2 right-2 p-1 bg-[#0D0D0E]/80 hover:bg-red-950/80 border border-slate-800 hover:border-red-500 text-slate-400 hover:text-red-300 rounded-md transition cursor-pointer"
+                          title="Delete Custom Exercise"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
                 {filteredExercises.length === 0 && (
                   <div className="col-span-2 text-center py-10 text-slate-500 font-mono text-xs">
                     No exercises registered under this sub-category.
@@ -1682,6 +1844,242 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               <Save className="w-4 h-4" /> SAVE WORKOUT ROUTINE
             </button>
           </div>
+        </motion.div>
+      )}
+
+      {/* 5. CREATE CUSTOM EXERCISE VIEW */}
+      {currentView === "create-exercise" && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-6"
+        >
+          <div className="flex items-center justify-between border-b border-slate-850 pb-4">
+            <button
+              type="button"
+              onClick={() => setCurrentView("categories")}
+              style={{ minHeight: "44px" }}
+              className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
+            >
+              <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
+            </button>
+            <div className="text-right">
+              <span className="text-[10px] font-press-start text-slate-500 block uppercase">UTILITY</span>
+              <span className="text-xs font-press-start text-cyan-300 mt-0.5 block uppercase tracking-wider">
+                CREATE CUSTOM EXERCISE
+              </span>
+            </div>
+          </div>
+
+          <form onSubmit={handleSaveCustomExerciseSubmit} className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 space-y-6 shadow-2xl">
+            <div>
+              <h3 className="text-xs font-press-start text-cyan-300 uppercase tracking-wider flex items-center gap-2">
+                ✨ DESIGN CUSTOM EXERCISE
+              </h3>
+              <p className="text-[9px] font-mono text-slate-400 mt-1 leading-relaxed">
+                Add your custom exercise. Its performance stats will automatically feed your Stat Levels, Weekly Volume, and Daily Quests!
+              </p>
+            </div>
+
+            {/* 1. EXERCISE NAME */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-press-start text-slate-400 uppercase block">
+                EXERCISE NAME *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Incline Cable Fly, Nordic Curl, Landmine Press..."
+                value={customExName}
+                onChange={(e) => setCustomExName(e.target.value)}
+                className="w-full bg-[#0D0D0E] border-2 border-slate-800 focus:border-cyan-400 rounded-xl px-4 py-3 text-xs font-mono text-white placeholder-slate-600 focus:outline-none transition"
+              />
+            </div>
+
+            {/* 2. PILLAR CATEGORY */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-press-start text-slate-400 uppercase block">
+                EQUIPMENT / PILLAR CATEGORY *
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { id: "weights", label: "FREE WEIGHTS" },
+                  { id: "machines", label: "MACHINES" },
+                  { id: "bodyweight", label: "BODYWEIGHT" },
+                  { id: "cardio", label: "CARDIO" }
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setCustomExPillar(p.id as ExercisePillar)}
+                    className={`p-2.5 rounded-xl border text-[8.5px] font-press-start cursor-pointer transition uppercase ${
+                      customExPillar === p.id
+                        ? "bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)]"
+                        : "bg-[#0D0D0E] border-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. TARGET MUSCLE FOCUS */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-press-start text-slate-400 uppercase block">
+                PRIMARY TARGET MUSCLE *
+              </label>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {[
+                  { id: "chest", label: "CHEST" },
+                  { id: "back", label: "BACK" },
+                  { id: "biceps", label: "BICEPS" },
+                  { id: "triceps", label: "TRICEPS" },
+                  { id: "shoulders", label: "SHOULDERS" },
+                  { id: "traps", label: "TRAPS" },
+                  { id: "quads", label: "QUADS" },
+                  { id: "hamstrings", label: "HAMSTRINGS" },
+                  { id: "glutes", label: "GLUTES" },
+                  { id: "calves", label: "CALVES" },
+                  { id: "core", label: "CORE" },
+                  { id: "speed", label: "SPEED" },
+                  { id: "stamina", label: "STAMINA" }
+                ].map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setCustomExMuscle(m.id)}
+                    className={`p-2 rounded-xl border text-[8px] font-press-start cursor-pointer transition uppercase ${
+                      customExMuscle === m.id
+                        ? "bg-cyan-500/15 border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(6,182,212,0.25)]"
+                        : "bg-[#0D0D0E] border-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 4. SET LOGGING TYPE */}
+            <div className="space-y-2">
+              <label className="text-[9px] font-press-start text-slate-400 uppercase block">
+                LOGGING METRIC FORMAT *
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "A", label: "WEIGHT + REPS", desc: "e.g. 150 lbs x 10 reps" },
+                  { id: "B", label: "REPS ONLY", desc: "e.g. 25 pushups/pullups" },
+                  { id: "C", label: "TIME DURATION", desc: "e.g. 2 mins 30 secs plank" },
+                  { id: "D", label: "DISTANCE + TIME", desc: "e.g. 3.0 miles in 24 mins" }
+                ].map((ft) => (
+                  <button
+                    key={ft.id}
+                    type="button"
+                    onClick={() => setCustomExFormType(ft.id as any)}
+                    className={`p-3 rounded-xl border text-left cursor-pointer transition ${
+                      customExFormType === ft.id
+                        ? "bg-cyan-500/10 border-cyan-400"
+                        : "bg-[#0D0D0E] border-slate-800 hover:border-slate-700"
+                    }`}
+                  >
+                    <span className={`text-[8.5px] font-press-start block uppercase ${customExFormType === ft.id ? "text-cyan-300" : "text-white"}`}>
+                      {ft.label}
+                    </span>
+                    <span className="text-[8px] font-mono text-slate-500 block mt-0.5">
+                      {ft.desc}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 5. IMAGE / GIF UPLOAD OR URL */}
+            <div className="space-y-3 pt-2 border-t border-slate-800">
+              <label className="text-[9px] font-press-start text-cyan-300 uppercase block">
+                📸 EXERCISE DEMO IMAGE OR GIF (OPTIONAL)
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* File Upload Button */}
+                <div className="space-y-1.5">
+                  <span className="text-[8px] font-mono text-slate-400 uppercase block font-bold">
+                    1. UPLOAD IMAGE FROM DEVICE
+                  </span>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleImageFileUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-2.5 px-3 bg-[#0D0D0E] border border-slate-700 hover:border-cyan-400 rounded-xl text-[8.5px] font-press-start text-slate-300 hover:text-white flex items-center justify-center gap-2 cursor-pointer transition"
+                  >
+                    <Upload className="w-3 h-3 text-cyan-400" /> CHOOSE FILE...
+                  </button>
+                </div>
+
+                {/* Web URL Input */}
+                <div className="space-y-1.5">
+                  <span className="text-[8px] font-mono text-slate-400 uppercase block font-bold">
+                    2. OR PASTE IMAGE/GIF WEB LINK
+                  </span>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/demo.gif"
+                    value={customExImageUrl}
+                    onChange={(e) => {
+                      setCustomExImageUrl(e.target.value);
+                      setCustomExImagePreview(e.target.value);
+                    }}
+                    className="w-full bg-[#0D0D0E] border border-slate-800 focus:border-cyan-400 rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-slate-600 focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              {/* Preview Box */}
+              {customExImagePreview && (
+                <div className="pt-2 flex flex-col items-center space-y-2">
+                  <span className="text-[7.5px] font-press-start text-cyan-400 uppercase">PREVIEW DEMO:</span>
+                  <div className="relative w-32 h-32 bg-[#0D0D0E] border-2 border-cyan-400/60 rounded-xl overflow-hidden shadow-lg flex items-center justify-center">
+                    <img
+                      src={customExImagePreview}
+                      alt="Exercise Preview"
+                      className="w-full h-full object-contain"
+                      onError={() => {
+                        setCustomExImagePreview(null);
+                        alert("Could not load image from that URL link.");
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomExImagePreview(null);
+                        setCustomExImageUrl("");
+                      }}
+                      className="absolute top-1 right-1 bg-red-950/80 border border-red-500 text-red-300 text-[8px] px-1.5 py-0.5 rounded cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SAVE BUTTON */}
+            <div className="pt-4 flex justify-end">
+              <button
+                type="submit"
+                style={{ minHeight: "44px" }}
+                className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-press-start text-xs rounded-xl transition shadow-[0_0_15px_rgba(6,182,212,0.3)] cursor-pointer active:scale-95 font-bold uppercase tracking-wider"
+              >
+                ✨ SAVE CUSTOM EXERCISE & START LOGGING
+              </button>
+            </div>
+          </form>
         </motion.div>
       )}
 

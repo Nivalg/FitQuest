@@ -1,5 +1,5 @@
 import { FitnessLog } from "../types";
-import { EXERCISE_DATABASE } from "../exercises";
+import { getAllExercises } from "../exercises";
 
 export interface StatLevels {
   chestStrength: number;
@@ -1724,7 +1724,7 @@ export function evaluateAthletePerformance(
           if (contrib > 0) {
             contributions.push(contrib);
             hasAnyLog = true;
-            const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+            const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
             if (dbEx?.pillar !== "machines") {
               hasNonMachineLog = true;
             }
@@ -1843,7 +1843,7 @@ export function evaluateAthletePerformance(
         const builds = config.builds as any;
         if (builds[stat] > 0) {
           const matchedLogs = exerciseLogs[config.name] || [];
-          const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+          const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
           if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
             hasNonMachineLog = true;
           }
@@ -1946,7 +1946,7 @@ export function evaluateAthletePerformance(
         let addedProgress = progress * (pct / 100);
 
         // Speed progress is easier to build via free weights
-        const dbEx = EXERCISE_DATABASE.find(e => e.name === conf.name);
+        const dbEx = getAllExercises().find(e => e.name.toLowerCase() === conf.name.toLowerCase());
         if (stat === "speed" && dbEx?.pillar === "weights") {
           addedProgress *= 2.5;
         }
@@ -1980,7 +1980,7 @@ export function evaluateAthletePerformance(
     });
 
     // If this is a run exercise of >= 5.0 miles or >= 60 minutes, fill speed and stamina all the way
-    const dbEx = EXERCISE_DATABASE.find(e => e.name === conf.name);
+    const dbEx = getAllExercises().find(e => e.name.toLowerCase() === conf.name.toLowerCase());
     const isRun = conf.name === "Treadmill Run / Jog" || conf.name === "Sprint Intervals" || (dbEx?.pillar === "cardio" && (conf.name.toLowerCase().includes("run") || conf.name.toLowerCase().includes("sprint") || conf.name.toLowerCase().includes("jog")));
     if (isRun && ((log.distance && log.distance >= 5.0) || (log.minutes && log.minutes >= 60))) {
       evaluation.weeklyVolume.speed = 100.0;
@@ -2205,7 +2205,7 @@ export function getUndecayedStats(
           if (contrib > 0) {
             contributions.push(contrib);
             hasAnyLog = true;
-            const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+            const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
             if (dbEx?.pillar !== "machines") {
               hasNonMachineLog = true;
             }
@@ -2295,7 +2295,7 @@ export function getUndecayedStats(
         const builds = config.builds as any;
         if (builds[stat] > 0) {
           const matchedLogs = exerciseLogs[config.name] || [];
-          const dbEx = EXERCISE_DATABASE.find(e => e.name === config.name);
+          const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
           if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
             hasNonMachineLog = true;
           }
@@ -2447,7 +2447,7 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
       const conf = getExerciseConfig(l.exerciseName);
       if (!conf) return;
       const builds = conf.builds as any;
-      const dbEx = EXERCISE_DATABASE.find(e => e.name === conf.name);
+      const dbEx = getAllExercises().find(e => e.name.toLowerCase() === conf.name.toLowerCase());
       if (builds[stat] && builds[stat] > 0 && dbEx?.pillar !== "machines") {
         hasNonMachineLog = true;
       }

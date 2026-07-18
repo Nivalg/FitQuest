@@ -1309,3 +1309,48 @@ export const CATEGORIES = [
   { id: "bodyweight", name: "Bodyweight" },
   { id: "cardio", name: "Cardio" }
 ];
+
+export function getCustomExercises(): ExerciseInfo[] {
+  try {
+    const saved = localStorage.getItem("fitquest_custom_exercises");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error("Error reading fitquest_custom_exercises from localStorage", e);
+  }
+  return [];
+}
+
+export function getAllExercises(): ExerciseInfo[] {
+  const custom = getCustomExercises();
+  if (custom.length === 0) return EXERCISE_DATABASE;
+  
+  // Filter out any duplicate names prioritizing custom ones
+  const customNames = new Set(custom.map(c => c.name.toLowerCase()));
+  const defaultFiltered = EXERCISE_DATABASE.filter(e => !customNames.has(e.name.toLowerCase()));
+  return [...defaultFiltered, ...custom];
+}
+
+export function saveCustomExercise(newEx: ExerciseInfo): ExerciseInfo[] {
+  const current = getCustomExercises();
+  const updated = [newEx, ...current.filter(e => e.name.toLowerCase() !== newEx.name.toLowerCase())];
+  try {
+    localStorage.setItem("fitquest_custom_exercises", JSON.stringify(updated));
+  } catch (e) {
+    console.error("Error saving fitquest_custom_exercises to localStorage", e);
+  }
+  return updated;
+}
+
+export function deleteCustomExercise(name: string): ExerciseInfo[] {
+  const current = getCustomExercises();
+  const updated = current.filter(e => e.name.toLowerCase() !== name.toLowerCase());
+  try {
+    localStorage.setItem("fitquest_custom_exercises", JSON.stringify(updated));
+  } catch (e) {
+    console.error("Error deleting fitquest_custom_exercises from localStorage", e);
+  }
+  return updated;
+}

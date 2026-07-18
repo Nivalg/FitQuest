@@ -4,7 +4,7 @@ import FitnessProfileSetup from "./components/FitnessProfileSetup";
 import AthleteDashboard from "./components/AthleteDashboard";
 import { WorkoutCalendar } from "./components/WorkoutCalendar";
 import { WorkoutLogger } from "./components/WorkoutLogger";
-import { EXERCISE_DATABASE } from "./exercises";
+import { getAllExercises } from "./exercises";
 import { 
   evaluateAthletePerformance, 
   runStateDecayEngine 
@@ -212,7 +212,7 @@ export default function App() {
     if (!profile) return;
 
     // Find exercise details inside our simplified dictionary
-    const exercise = EXERCISE_DATABASE.find(
+    const exercise = getAllExercises().find(
       ex => ex.name.toLowerCase() === params.exerciseName.toLowerCase()
     );
     if (!exercise) return;
