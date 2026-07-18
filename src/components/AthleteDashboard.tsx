@@ -31,6 +31,7 @@ import {
 import { motion } from "motion/react";
 import MuscleVolumeVisualizer from "./MuscleVolumeVisualizer";
 import BodyStatusMap from "./BodyStatusMap";
+import { getDailyQuests, getAchievements } from "../utils/quests";
 
 const YOUTUBE_CHANNEL_LINK = "https://youtube.com/channel/UCwr35GfgTWfafg9qt6RQkMQ";
 
@@ -306,7 +307,10 @@ export default function AthleteDashboard({
   onNavigateToExercises
 }: AthleteDashboardProps) {
 
-  const [activeSubTab, setActiveSubTab] = React.useState<"character" | "stats">("character");
+  const [activeSubTab, setActiveSubTab] = React.useState<"character" | "stats" | "quests">("character");
+
+  const dailyQuests = React.useMemo(() => getDailyQuests(logs), [logs]);
+  const achievements = React.useMemo(() => getAchievements(logs, profile), [logs, profile]);
   const [selectedStatDetail, setSelectedStatDetail] = React.useState<{
     key: string;
     label: string;
@@ -893,15 +897,16 @@ export default function AthleteDashboard({
           <div 
             className="absolute top-1 bottom-1 bg-gradient-to-r from-cyan-950 to-slate-900 border border-cyan-500/30 rounded-full transition-all duration-300 ease-out shadow-[0_0_10px_rgba(6,182,212,0.15)] pointer-events-none"
             style={{
-              left: activeSubTab === "character" ? "4px" : "calc(50% + 2px)",
-              width: "calc(50% - 6px)",
+              left: activeSubTab === "character" ? "4px" : activeSubTab === "stats" ? "calc(33.33% + 2px)" : "calc(66.66% + 0px)",
+              width: "calc(33.33% - 4px)",
             }}
           />
 
           <button
+            type="button"
             onClick={() => setActiveSubTab("character")}
-            style={{ minHeight: "36px", minWidth: "120px" }}
-            className={`px-4 py-1.5 rounded-full text-[10px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
+            style={{ minHeight: "36px", minWidth: "85px" }}
+            className={`px-3 py-1.5 rounded-full text-[9px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
               activeSubTab === "character"
                 ? "text-cyan-400 font-extrabold"
                 : "text-slate-500 hover:text-slate-350"
@@ -911,15 +916,29 @@ export default function AthleteDashboard({
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveSubTab("stats")}
-            style={{ minHeight: "36px", minWidth: "120px" }}
-            className={`px-4 py-1.5 rounded-full text-[10px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
+            style={{ minHeight: "36px", minWidth: "85px" }}
+            className={`px-3 py-1.5 rounded-full text-[9px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
               activeSubTab === "stats"
                 ? "text-cyan-400 font-extrabold"
                 : "text-slate-500 hover:text-slate-350"
             }`}
           >
             STATS
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("quests")}
+            style={{ minHeight: "36px", minWidth: "85px" }}
+            className={`px-3 py-1.5 rounded-full text-[9px] font-press-start tracking-wider transition-all duration-300 relative z-10 cursor-pointer ${
+              activeSubTab === "quests"
+                ? "text-cyan-400 font-extrabold"
+                : "text-slate-500 hover:text-slate-350"
+            }`}
+          >
+            QUESTS
           </button>
         </div>
       </div>
@@ -1541,6 +1560,147 @@ export default function AthleteDashboard({
               </p>
             </div>
           )}
+        </motion.div>
+      )}
+
+      {/* 3. QUESTS & ACHIEVEMENTS VIEW */}
+      {activeSubTab === "quests" && (
+        <motion.div
+          key="quests-view"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-6"
+        >
+          {/* 1. SOLO LEVELING SYSTEM DAILY QUEST HEADER */}
+          <div className="bg-[#161B22] border-2 border-cyan-500/40 rounded-2xl p-5 shadow-2xl space-y-4 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
+                <span className="text-[10px] font-press-start text-cyan-300 uppercase tracking-widest">
+                  DAILY SYSTEM QUESTS
+                </span>
+              </div>
+              <span className="text-[8px] font-mono text-slate-400 uppercase">
+                RESETS IN 24H
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {dailyQuests.map((quest) => {
+                const pct = Math.min(100, Math.round((quest.current / quest.target) * 100));
+                return (
+                  <div
+                    key={quest.id}
+                    className={`p-3.5 border-2 rounded-xl space-y-2 transition ${
+                      quest.completed
+                        ? "bg-cyan-950/20 border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+                        : "bg-[#0D0D0E] border-slate-850"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-press-start text-white tracking-wide block">
+                        {quest.title}
+                      </span>
+                      {quest.completed ? (
+                        <span className="px-2 py-0.5 bg-cyan-400 text-slate-950 text-[8px] font-press-start rounded font-black tracking-wider">
+                          CLEARED
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono text-cyan-400 font-bold">
+                          +{quest.rewardXP} XP
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[9px] font-mono text-slate-400">
+                      {quest.description}
+                    </p>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[8px] font-mono text-slate-400">
+                        <span>PROGRESS</span>
+                        <span>{quest.current} / {quest.target} {quest.unit} ({pct}%)</span>
+                      </div>
+                      <div className="w-full bg-[#12161A] h-2 rounded-full overflow-hidden border border-slate-800">
+                        <div
+                          className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. CUMULATIVE LIFETIME ACHIEVEMENTS DOSSIER */}
+          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+              <span className="text-[10px] font-press-start text-cyan-400 tracking-wider block uppercase">
+                🏆 LIFETIME ACHIEVEMENTS
+              </span>
+              <span className="text-[8px] font-mono text-slate-400 uppercase">
+                {achievements.filter(a => a.unlocked).length} / {achievements.length} UNLOCKED
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              {achievements.map((ach) => {
+                const pct = Math.min(100, Math.round((ach.current / ach.target) * 100));
+                return (
+                  <div
+                    key={ach.id}
+                    className={`p-3.5 border-2 rounded-xl flex items-start gap-3 transition ${
+                      ach.unlocked
+                        ? "bg-cyan-950/15 border-cyan-400/50 shadow-[0_0_15px_rgba(6,182,212,0.12)]"
+                        : "bg-[#0D0D0E] border-slate-850 opacity-80"
+                    }`}
+                  >
+                    <div className="p-2.5 bg-[#12161A] border border-slate-800 rounded-xl text-xl shrink-0">
+                      {ach.icon}
+                    </div>
+
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[9px] font-press-start text-white tracking-wide truncate">
+                          {ach.title}
+                        </span>
+                        {ach.unlocked && (
+                          <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[7.5px] font-press-start rounded shrink-0">
+                            UNLOCKED
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[8.5px] font-mono text-slate-400 leading-normal">
+                        {ach.description}
+                      </p>
+
+                      <div className="space-y-1 pt-1">
+                        <div className="flex justify-between text-[8px] font-mono text-slate-400">
+                          <span>MILESTONE</span>
+                          <span>{ach.current} / {ach.target} {ach.unit}</span>
+                        </div>
+                        <div className="w-full bg-[#12161A] h-1.5 rounded-full overflow-hidden border border-slate-800">
+                          <div
+                            className={`h-full transition-all duration-500 ${
+                              ach.unlocked ? "bg-cyan-400" : "bg-slate-600"
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </motion.div>
       )}
 
