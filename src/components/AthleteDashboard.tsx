@@ -1571,53 +1571,53 @@ export default function AthleteDashboard({
               const currentLevel = Math.ceil(currentDetail.level);
               
               const getAthleticAssessment = (lvl: number) => {
-                if (lvl <= 0) {
+                if (lvl <= 10) {
                   return {
-                    rank: "UNRANKED (BELOW AVERAGE)",
-                    percentile: "Bottom 20th Percentile",
-                    summary: "Currently unranked in this category. Begin logging exercises to build baseline strength.",
+                    rank: "UNRANKED / NOVICE",
+                    percentile: "15th Percentile (Below Average)",
+                    summary: "Beginning conditioning. Focus on establishing form consistency and baseline strength.",
                     badgeColor: "bg-slate-900 border-slate-700 text-slate-400"
                   };
-                } else if (lvl <= 4) {
+                } else if (lvl <= 30) {
                   return {
-                    rank: "NOVICE ATHLETE",
-                    percentile: "35th Percentile",
-                    summary: "Below average conditioning. Establishing form consistency and early muscle adaptation.",
+                    rank: "BEGINNER ATHLETE",
+                    percentile: "35th Percentile (Developing)",
+                    summary: "Developing foundational strength and muscle adaptation.",
                     badgeColor: "bg-amber-950/40 border-amber-500/50 text-amber-400"
                   };
-                } else if (lvl <= 14) {
+                } else if (lvl <= 50) {
                   return {
                     rank: "INTERMEDIATE ATHLETE",
-                    percentile: "55th Percentile (Average)",
-                    summary: "Average athletic level! Solid physical foundation and consistent workload capacity.",
+                    percentile: "50th Percentile (Average)",
+                    summary: "Solid average athletic level! Healthy physical foundation and consistent capacity.",
                     badgeColor: "bg-blue-950/40 border-blue-400/50 text-blue-300"
                   };
-                } else if (lvl <= 29) {
+                } else if (lvl <= 70) {
                   return {
                     rank: "ADVANCED ATHLETE",
-                    percentile: "78th Percentile (Above Average)",
-                    summary: "Above average performance! Superior muscle conditioning exceeding standard population norms.",
+                    percentile: "70th Percentile (Above Average)",
+                    summary: "Above average performance! Impressive strength and muscle development.",
                     badgeColor: "bg-purple-950/40 border-purple-400/60 text-purple-300"
                   };
-                } else if (lvl <= 49) {
+                } else if (lvl <= 89) {
                   return {
                     rank: "ELITE ATHLETE",
-                    percentile: "92nd Percentile (Elite Tier)",
-                    summary: "You are ELITE! Top-tier physical strength, high power output, and exceptional athletic rank.",
+                    percentile: "88th Percentile (Elite Tier)",
+                    summary: "You are ELITE! Top-tier physical strength, high power output, and exceptional rank.",
                     badgeColor: "bg-amber-950/50 border-amber-400/70 text-amber-300"
                   };
                 } else if (lvl <= 99) {
                   return {
                     rank: "MASTER TIER",
-                    percentile: "98th Percentile (Near Pinnacle)",
-                    summary: "Near pinnacle physical status! Top 2% in overall muscle development and volume tolerance.",
+                    percentile: "96th Percentile (Near Pinnacle)",
+                    summary: "Near pinnacle physical status! Superior muscle development and volume tolerance.",
                     badgeColor: "bg-cyan-950/50 border-cyan-400/80 text-cyan-300"
                   };
                 } else {
                   return {
                     rank: "S-RANK LEGEND",
                     percentile: "99th Percentile (World Class)",
-                    summary: "S-Rank Pinnacle! You are in the top 1% (99th Percentile) with legendary steel conditioning.",
+                    summary: "S-Rank Pinnacle! Top 1% (99th Percentile) with legendary steel conditioning.",
                     badgeColor: "bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.3)]"
                   };
                 }
