@@ -46,6 +46,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const [selectedCategory, setSelectedCategory] = useState<{ id: string; name: string } | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<ExerciseInfo | null>(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>("all");
+  const [expandedGroup, setExpandedGroup] = useState<"arms" | "legs" | null>(null);
   const [restSeconds, setRestSeconds] = useState<number>(0);
   const [frameIndex, setFrameIndex] = useState<number>(0);
 
@@ -204,6 +205,13 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
   const focusGroups = [
     {
+      id: "stamina",
+      name: "Stamina",
+      icon: <Timer className="w-8 h-8 text-purple-400" />,
+      style: "border-purple-500/30 hover:border-purple-450 focus:border-purple-400 bg-purple-950/10 hover:bg-purple-950/20",
+      desc: "Conditioning pushups, burpees, & rowing"
+    },
+    {
       id: "chest",
       name: "Chest",
       icon: <Dumbbell className="w-8 h-8 text-cyan-400" />,
@@ -216,20 +224,6 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       icon: <Shield className="w-8 h-8 text-orange-400" />,
       style: "border-orange-500/30 hover:border-orange-450 focus:border-orange-400 bg-orange-950/10 hover:bg-orange-950/20",
       desc: "Deadlifts, pulldowns, & spinal pulling"
-    },
-    {
-      id: "legs",
-      name: "Legs",
-      icon: <Activity className="w-8 h-8 text-emerald-400" />,
-      style: "border-emerald-500/30 hover:border-emerald-450 focus:border-emerald-400 bg-emerald-950/10 hover:bg-emerald-950/20",
-      desc: "Heavy squats, leg presses, & calf raises"
-    },
-    {
-      id: "arms",
-      name: "Arms",
-      icon: <Zap className="w-8 h-8 text-pink-400" />,
-      style: "border-pink-500/30 hover:border-pink-450 focus:border-pink-400 bg-pink-950/10 hover:bg-pink-950/20",
-      desc: "Vertical press, curls, dips & extension work"
     },
     {
       id: "core",
@@ -246,11 +240,18 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       desc: "Treadmill runs, bike cycles, & explosive squat jumps"
     },
     {
-      id: "stamina",
-      name: "Stamina",
-      icon: <Timer className="w-8 h-8 text-purple-400" />,
-      style: "border-purple-500/30 hover:border-purple-450 focus:border-purple-400 bg-purple-950/10 hover:bg-purple-950/20",
-      desc: "Conditioning pushups, burpees, & rowing"
+      id: "arms",
+      name: "Arms",
+      icon: <Zap className="w-8 h-8 text-pink-400" />,
+      style: "border-pink-500/30 hover:border-pink-450 focus:border-pink-400 bg-pink-950/10 hover:bg-pink-950/20",
+      desc: "Vertical press, curls, dips & extension work"
+    },
+    {
+      id: "legs",
+      name: "Legs",
+      icon: <Activity className="w-8 h-8 text-emerald-400" />,
+      style: "border-emerald-500/30 hover:border-emerald-450 focus:border-emerald-400 bg-emerald-950/10 hover:bg-emerald-950/20",
+      desc: "Heavy squats, leg presses, & calf raises"
     }
   ];
 
@@ -741,34 +742,133 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
             <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
               🎯 TARGET ZONES
             </span>
-            <div className="flex flex-col gap-4">
-              {focusGroups.map((group) => (
-                <button
-                  key={group.id}
-                  id={`focus-${group.id}`}
-                  style={{ minHeight: "84px" }}
-                  onClick={() => {
-                    const isSub = group.id === "legs" || group.id === "arms";
-                    setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
-                    setSelectedSubCategory(isSub ? null : "all");
-                    setActiveFilter("weights");
-                    setCurrentView("exercises");
-                  }}
-                  className={`p-4 border-2 rounded-2xl flex items-center gap-4 text-left transition duration-150 cursor-pointer ${group.style}`}
-                >
-                  <div className="p-3.5 bg-[#0D0D0E] border border-slate-800 rounded-xl shrink-0">
-                    {group.icon}
-                  </div>
-                  <div>
-                    <span className="text-xs font-press-start text-white tracking-wider block">
-                      {group.name.toUpperCase()}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-450 mt-1 block">
-                      {group.desc}
-                    </span>
-                  </div>
-                </button>
-              ))}
+            <div className="grid grid-cols-2 gap-3">
+              {focusGroups.map((group, index) => {
+                const isTop = index === 0; // Stamina
+                const isSubGroup = group.id === "arms" || group.id === "legs";
+                const isExpanded = expandedGroup === group.id;
+
+                return (
+                  <button
+                    key={group.id}
+                    id={`focus-${group.id}`}
+                    style={{ minHeight: "72px" }}
+                    onClick={() => {
+                      if (isSubGroup) {
+                        setExpandedGroup(prev => (prev === group.id ? null : (group.id as "arms" | "legs")));
+                      } else {
+                        setExpandedGroup(null);
+                        setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
+                        setSelectedSubCategory("all");
+                        setActiveFilter("weights");
+                        setCurrentView("exercises");
+                      }
+                    }}
+                    className={`p-3.5 border-2 rounded-2xl flex items-center gap-3 text-left transition duration-150 cursor-pointer ${group.style} ${
+                      isTop ? "col-span-2 shadow-lg shadow-purple-950/20" : ""
+                    } ${isExpanded ? "border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.3)]" : ""}`}
+                  >
+                    <div className="p-2.5 bg-[#0D0D0E] border border-slate-800 rounded-xl shrink-0">
+                      {group.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10.5px] font-press-start text-white tracking-wider block truncate">
+                          {group.name.toUpperCase()}
+                        </span>
+                        {isTop && (
+                          <span className="text-[7.5px] font-press-start text-purple-400 border border-purple-500/40 px-2 py-0.5 rounded-md uppercase shrink-0">
+                            FULL CONDITIONING
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[8.5px] font-mono text-slate-450 mt-0.5 block leading-tight">
+                        {group.desc}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+
+              {/* POP-OUT SUB-MUSCLE DRAWER FOR ARMS & LEGS */}
+              <AnimatePresence>
+                {expandedGroup && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="col-span-2 bg-[#12161A] border-2 border-cyan-500/50 p-4 rounded-2xl space-y-3 shadow-xl overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                      <span className="text-[9px] font-press-start text-cyan-300 uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
+                        SELECT {expandedGroup.toUpperCase()} ISOLATION ZONE
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedGroup(null)}
+                        className="text-[8px] font-press-start text-slate-500 hover:text-slate-300 uppercase cursor-pointer"
+                      >
+                        CLOSE ✕
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {(expandedGroup === "arms"
+                        ? [
+                            { id: "biceps", label: "BICEPS", desc: "Front arms" },
+                            { id: "triceps", label: "TRICEPS", desc: "Back arms" },
+                            { id: "shoulders", label: "SHOULDERS", desc: "Deltoids" },
+                            { id: "traps", label: "TRAPS", desc: "Upper back" }
+                          ]
+                        : [
+                            { id: "quads", label: "QUADS", desc: "Front thighs" },
+                            { id: "hamstrings", label: "HAMSTRINGS", desc: "Back thighs" },
+                            { id: "glutes", label: "GLUTES", desc: "Hip power" },
+                            { id: "calves", label: "CALVES", desc: "Lower legs" }
+                          ]
+                      ).map((sub) => (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory({ id: `focus_${expandedGroup}`, name: expandedGroup === "arms" ? "Arms" : "Legs" });
+                            setSelectedSubCategory(sub.id);
+                            setActiveFilter("weights");
+                            setCurrentView("exercises");
+                            setExpandedGroup(null);
+                          }}
+                          className="p-3 bg-[#0D0D0E] border border-slate-800 hover:border-cyan-400 rounded-xl text-left transition group cursor-pointer"
+                        >
+                          <span className="text-[9px] font-press-start text-white group-hover:text-cyan-300 block uppercase">
+                            {sub.label}
+                          </span>
+                          <span className="text-[8px] font-mono text-slate-500 block mt-0.5">
+                            {sub.desc}
+                          </span>
+                        </button>
+                      ))}
+
+                      {/* ALL EXERCISES BUTTON */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory({ id: `focus_${expandedGroup}`, name: expandedGroup === "arms" ? "Arms" : "Legs" });
+                          setSelectedSubCategory("all");
+                          setActiveFilter("weights");
+                          setCurrentView("exercises");
+                          setExpandedGroup(null);
+                        }}
+                        className="col-span-2 p-2.5 bg-cyan-950/20 border border-cyan-500/40 hover:border-cyan-400 text-center rounded-xl transition cursor-pointer"
+                      >
+                        <span className="text-[8.5px] font-press-start text-cyan-300 uppercase">
+                          VIEW ALL {expandedGroup.toUpperCase()} EXERCISES →
+                        </span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </motion.div>
@@ -965,25 +1065,25 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                 })}
               </div>
 
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {filteredExercises.map((ex) => (
                   <button
                     key={ex.name}
                     id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
                     onClick={() => handleSelectExercise(ex, "exercises")}
                     style={{ minHeight: "56px" }}
-                    className="w-full p-4 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1.5 cursor-pointer"
+                    className="w-full p-3 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer"
                   >
-                    <span className="text-xs font-press-start text-white block text-center">
+                    <span className="text-[10.5px] font-press-start text-white block text-center leading-snug">
                       {ex.name}
                     </span>
-                    <span className="text-[9.5px] font-mono text-emerald-400 font-bold transition block text-center">
+                    <span className="text-[9px] font-mono text-emerald-400 font-bold transition block text-center">
                       {getBuildsDescription(ex)}
                     </span>
                   </button>
                 ))}
                 {filteredExercises.length === 0 && (
-                  <div className="text-center py-10 text-slate-500 font-mono text-xs">
+                  <div className="col-span-2 text-center py-10 text-slate-500 font-mono text-xs">
                     No exercises registered under this sub-category.
                   </div>
                 )}

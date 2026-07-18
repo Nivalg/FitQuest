@@ -203,29 +203,56 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
                   </div>
                 </div>
 
-                {/* Progress Metric details */}
-                <div className="space-y-1.5 pt-0.5">
-                  {statusText !== "Latent Progress" && (
-                    <div className="flex justify-between items-center text-[9px] font-mono mb-1">
-                      <div className="flex items-center gap-1">
-                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 ${statusColorBg}`}>
-                          {trendIcon} {statusText}
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                {/* Progress Metric Details & Growth Target Status Badge */}
+                <div className="space-y-2 pt-1">
+                  {/* Status Badge & Target Checkpoint Goal */}
+                  <div className="flex justify-between items-center text-[8px] font-mono">
+                    <span className={`px-2 py-0.5 rounded-md border font-extrabold uppercase flex items-center gap-1 ${
+                      val >= 100
+                        ? "bg-emerald-950/40 border-emerald-400/60 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.3)]"
+                        : val >= 50
+                        ? "bg-cyan-950/40 border-cyan-400/60 text-cyan-300"
+                        : val >= 20
+                        ? "bg-amber-950/40 border-amber-500/50 text-amber-400"
+                        : "bg-slate-900 border-slate-800 text-slate-400"
+                    }`}>
+                      {val >= 100 ? "🏆 PEAK HYPERTROPHY" : val >= 50 ? "⚡ OPTIMAL GROWTH" : val >= 20 ? "⚓ MAINTENANCE MET" : "🌱 LATENT STIMULUS"}
+                    </span>
 
-                  {/* Enhanced high-tech bar */}
-                  <div className="relative w-full h-2 bg-[#12161A] border border-slate-800 rounded-full overflow-hidden">
+                    <span className="text-slate-400 font-bold uppercase">
+                      {val >= 100 ? "100%+ MAXED" : val >= 50 ? `Need ${(100 - val).toFixed(1)}% for Peak` : val >= 20 ? `Need ${(50 - val).toFixed(1)}% for Growth` : `Need ${(20 - val).toFixed(1)}% for Maint.`}
+                    </span>
+                  </div>
+
+                  {/* Thick 9px Glowing Bar with Checkpoint Notches */}
+                  <div className="relative w-full h-3 bg-[#090D12] border border-slate-800 rounded-full overflow-hidden p-0.5">
                     {/* Fill Bar */}
                     <div
-                      className="h-full rounded-full transition-all duration-500 ease-out"
+                      className="h-full rounded-full transition-all duration-500 ease-out shadow-[0_0_8px_rgba(34,211,238,0.4)]"
                       style={{
-                        width: `${visualPct}%`,
-                        backgroundColor: config.colorHex,
-                        backgroundImage: `linear-gradient(to right, ${config.colorHex}, #3b82f6)`
+                        width: `${Math.max(2, Math.min(100, val))}%`,
+                        backgroundImage: `linear-gradient(to right, ${
+                          val >= 100 ? "#34d399, #10b981, #059669" : val >= 50 ? "#22d3ee, #0284c7, #3b82f6" : "#fbbf24, #f59e0b"
+                        })`
                       }}
                     />
+
+                    {/* 20% Maintenance Checkpoint Line */}
+                    <div className="absolute top-0 bottom-0 left-[20%] w-[1.5px] bg-amber-400/40 pointer-events-none" title="20% Maintenance" />
+
+                    {/* 50% Optimal Growth Checkpoint Line */}
+                    <div className="absolute top-0 bottom-0 left-[50%] w-[1.5px] bg-cyan-400/50 pointer-events-none" title="50% Optimal Growth" />
+
+                    {/* 80% Peak Volume Checkpoint Line */}
+                    <div className="absolute top-0 bottom-0 left-[80%] w-[1.5px] bg-emerald-400/40 pointer-events-none" title="80% Heavy Volume" />
+                  </div>
+
+                  {/* Checkpoint Label Indicators below the bar */}
+                  <div className="flex justify-between items-center text-[7px] font-mono text-slate-500 pt-0.5 px-0.5">
+                    <span>0%</span>
+                    <span className="text-amber-500/80 font-bold">| 20% MAINT</span>
+                    <span className="text-cyan-400/90 font-bold">| 50% GROWTH</span>
+                    <span className="text-emerald-400/80 font-bold">| 100% PEAK</span>
                   </div>
                 </div>
 
@@ -245,11 +272,11 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
                               {subVal.toFixed(1)}%
                             </span>
                           </div>
-                          <div className="relative w-full h-1 bg-[#12161A] border border-slate-900 rounded-full overflow-hidden">
+                          <div className="relative w-full h-2 bg-[#090D12] border border-slate-850 rounded-full overflow-hidden p-0.5">
                             <div
                               className="h-full rounded-full transition-all duration-300"
                               style={{
-                                width: `${Math.max(0, Math.min(100, subVal))}%`,
+                                width: `${Math.max(2, Math.min(100, subVal))}%`,
                                 backgroundColor: subConfig.colorHex
                               }}
                             />
