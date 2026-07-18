@@ -963,19 +963,6 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                     {selectedCategory.name} PROGRESS
                   </h4>
                   
-                  {/* Parent progress bar */}
-                  {(() => {
-                    const focusId = selectedCategory.id.replace("focus_", "");
-                    const statKeyMap: Record<string, string> = {
-                      legs: "legStrength",
-                      arms: "armStrength"
-                    };
-                    const statKey = statKeyMap[focusId];
-                    return statKey ? renderProgressBar(statKey, false) : null;
-                  })()}
-
-                  <div className="border-t border-slate-850/80 my-2 pt-2" />
-
                   {/* Subcategories progress bars */}
                   <div className="space-y-3">
                     {(selectedCategory.id === "focus_legs"
@@ -1007,8 +994,6 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   const statKeyMap: Record<string, string> = {
                     chest: "chestStrength",
                     back: "backStrength",
-                    legs: "legStrength",
-                    arms: "armStrength",
                     core: "coreStrength",
                     speed: "speed",
                     stamina: "stamina"
@@ -1164,9 +1149,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               });
             }
 
-            // 2. Gather all builds keys that are main muscles (excluding speed and stamina)
+            // 2. Gather all builds keys that are main muscles (excluding generic arms/legs parents, speed, stamina)
             const buildsKeys = Object.keys(selectedExercise.builds || {});
-            const muscleKeys = ["chestStrength", "backStrength", "legStrength", "armStrength", "coreStrength"];
+            const muscleKeys = ["chestStrength", "backStrength", "coreStrength"];
             
             buildsKeys.forEach((key) => {
               const value = (selectedExercise.builds as any)[key] || 0;
