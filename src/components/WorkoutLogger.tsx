@@ -876,141 +876,37 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
       {/* 2. QUICK GRID EXERCISES VIEW */}
       {currentView === "exercises" && selectedCategory && (
-        (() => {
-          const hasSubCategories = selectedCategory.id === "focus_legs" || selectedCategory.id === "focus_arms";
-          
-          if (hasSubCategories && selectedSubCategory === null) {
-            return (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
-                <div className="flex items-center justify-between border-b border-slate-850 pb-4">
-                  <button
-                    onClick={handleBackToCategories}
-                    style={{ minHeight: "44px" }}
-                    className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
-                  >
-                    <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
-                  </button>
-                  
-                  <div className="text-right">
-                    <span className="text-[10px] font-press-start text-slate-500 block">CATEGORY</span>
-                    <span className="text-xs font-press-start text-cyan-300 mt-0.5 block uppercase tracking-wider">
-                      {selectedCategory.name}
-                    </span>
-                  </div>
-                </div>
+        <motion.div
+          initial={{ opacity: 0, x: -15 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="space-y-6"
+        >
+          {/* Progress bar above the back button / header */}
+          {(() => {
+            const focusId = selectedCategory.id.replace("focus_", "");
+            if (selectedSubCategory && selectedSubCategory !== "all") {
+              return renderProgressBar(selectedSubCategory, true);
+            } else {
+              const statKeyMap: Record<string, string> = {
+                chest: "chestStrength",
+                back: "backStrength",
+                core: "coreStrength",
+                speed: "speed",
+                stamina: "stamina"
+              };
+              const statKey = statKeyMap[focusId];
+              return statKey ? renderProgressBar(statKey, false) : null;
+            }
+          })()}
 
-                <div className="text-center py-2">
-                  <h2 className="text-xs font-press-start text-slate-350 tracking-wider">
-                    SELECT MUSCLE ZONE
-                  </h2>
-                  <p className="text-[9px] font-mono text-slate-500 mt-1 uppercase">
-                    Choose isolation focus group
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {(selectedCategory.id === "focus_legs"
-                    ? ["quads", "hamstrings", "glutes", "calves"]
-                    : ["biceps", "triceps", "shoulders", "traps"]
-                  ).map((subCat) => {
-                    const isLegs = selectedCategory.id === "focus_legs";
-                    const themeStyle = isLegs
-                      ? "border-emerald-500/20 hover:border-emerald-450 focus:border-emerald-400 bg-emerald-950/5 hover:bg-emerald-950/15 text-emerald-400 shadow-lg shadow-emerald-950/5"
-                      : "border-pink-500/20 hover:border-pink-450 focus:border-pink-400 bg-pink-950/5 hover:bg-pink-950/15 text-pink-400 shadow-lg shadow-pink-950/5";
-
-                    const getSubCatDesc = (s: string) => {
-                      switch (s) {
-                        case "quads": return "Front thighs";
-                        case "hamstrings": return "Back thighs";
-                        case "glutes": return "Hip power";
-                        case "calves": return "Lower legs";
-                        case "biceps": return "Front arms";
-                        case "triceps": return "Back arms";
-                        case "shoulders": return "Deltoids";
-                        case "traps": return "Upper back";
-                        default: return "";
-                      }
-                    };
-
-                    return (
-                      <button
-                        key={subCat}
-                        style={{ minHeight: "84px" }}
-                        onClick={() => {
-                          setSelectedSubCategory(subCat);
-                          setActiveFilter("weights");
-                        }}
-                        className={`p-4 border-2 rounded-2xl flex flex-col items-center justify-center text-center transition duration-150 cursor-pointer ${themeStyle}`}
-                      >
-                        <span className="text-[10px] font-press-start block uppercase tracking-wider">
-                          {subCat}
-                        </span>
-                        <span className="text-[8px] font-mono text-slate-500 mt-1 block uppercase">
-                          {getSubCatDesc(subCat)}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Subcategory Progress Overview below the buttons */}
-                <div className="bg-[#12161A] border-2 border-slate-855 p-4.5 rounded-2xl space-y-4 shadow-xl">
-                  <h4 className="text-[10px] font-press-start text-cyan-300 uppercase tracking-wider text-center">
-                    {selectedCategory.name} PROGRESS
-                  </h4>
-                  
-                  {/* Subcategories progress bars */}
-                  <div className="space-y-3">
-                    {(selectedCategory.id === "focus_legs"
-                      ? ["quads", "hamstrings", "glutes", "calves"]
-                      : ["biceps", "triceps", "shoulders", "traps"]
-                    ).map((subCat) => (
-                      <div key={subCat}>
-                        {renderProgressBar(subCat, true)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          }
-
-          return (
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="space-y-6"
+          <div className="flex items-center justify-between border-b border-slate-850 pb-4">
+            <button
+              onClick={handleBackToCategories}
+              style={{ minHeight: "44px" }}
+              className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
             >
-              {/* Progress bar above the back button / header */}
-              {(() => {
-                const focusId = selectedCategory.id.replace("focus_", "");
-                if (selectedSubCategory && selectedSubCategory !== "all") {
-                  return renderProgressBar(selectedSubCategory, true);
-                } else {
-                  const statKeyMap: Record<string, string> = {
-                    chest: "chestStrength",
-                    back: "backStrength",
-                    core: "coreStrength",
-                    speed: "speed",
-                    stamina: "stamina"
-                  };
-                  const statKey = statKeyMap[focusId];
-                  return statKey ? renderProgressBar(statKey, false) : null;
-                }
-              })()}
-
-              <div className="flex items-center justify-between border-b border-slate-850 pb-4">
-                <button
-                  onClick={hasSubCategories ? () => setSelectedSubCategory(null) : handleBackToCategories}
-                  style={{ minHeight: "44px" }}
-                  className="px-4 bg-[#161B22] border-2 border-slate-850 text-slate-300 hover:text-white rounded-xl text-xs font-mono font-bold flex items-center gap-2 cursor-pointer transition active:scale-95 shrink-0"
-                >
-                  <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
-                </button>
+              <ChevronLeft className="w-4 h-4 text-cyan-400" /> BACK
+            </button>
                 
                 <div className="text-right shrink-0">
                   <span className="text-[10px] font-press-start text-slate-500 block uppercase">
@@ -1074,9 +970,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                 )}
               </div>
             </motion.div>
-          );
-        })()
-      )}
+          )}
 
       {/* 3. ONE-SET ENTRY FORM VIEW */}
       {currentView === "form" && selectedCategory && selectedExercise && (
