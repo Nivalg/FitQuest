@@ -547,6 +547,16 @@
     text-align: center;
   }
 
+  .notes-heal-banner {
+    text-align: center;
+    color: var(--gold);
+    font-size: 16px;
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    border-radius: 6px;
+    padding: 8px;
+  }
+
   .run-hp-display {
     display: flex;
     align-items: center;
@@ -672,6 +682,36 @@
   .run-node-connector.locked-connector {
     background: #4a3a80;
     opacity: 1;
+  }
+
+  .run-node-review .run-node-circle {
+    border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(255, 210, 63, 0.5);
+    animation: run-node-pulse-gold 1.5s ease-in-out infinite;
+  }
+
+  @keyframes run-node-pulse-gold {
+    0%, 100% { box-shadow: 0 0 12px rgba(255, 210, 63, 0.4); }
+    50% { box-shadow: 0 0 22px rgba(255, 210, 63, 0.9); }
+  }
+
+  .run-node-review .run-node-label {
+    color: var(--gold);
+  }
+
+  .run-node-notes-btn {
+    margin-top: 4px;
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid var(--cyan);
+    background: var(--panel);
+    color: var(--cyan);
+    border-radius: 4px;
+    box-shadow: none;
+  }
+
+  .run-node-notes-btn:active {
+    transform: none;
   }
 
   /* Battle */
@@ -1024,7 +1064,31 @@
       <button class="btn-ghost" id="btn-new-group">📚 COLLECTION</button>
       <button class="btn-gold" id="btn-ai-prompt">🤖 AI PROMPT</button>
     </div>
+    <button class="btn-cyan" id="btn-stats">📊 STATS &amp; PROFILE</button>
     <footer class="note">Tap a deck's ⚔ to battle its monster</footer>
+  </section>
+
+  <!-- STATS / PROFILE SCREEN -->
+  <section id="screen-stats" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title">Stats &amp; Profile</h2>
+      <button class="btn-ghost btn-small" id="btn-stats-back">← BACK</button>
+    </div>
+
+    <div id="stats-content"></div>
+
+    <div class="card-item" style="border-color: var(--cyan);">
+      <label>BACKUP YOUR DATA</label>
+      <p class="bulk-help">
+        Everything lives only in this browser's storage. Export a backup file now and
+        then, or if you switch devices/browsers, so you never lose your decks and progress.
+      </p>
+      <input type="file" id="input-import-file" accept=".json,application/json" class="hidden">
+      <div class="btn-row">
+        <button class="btn-cyan btn-small" id="btn-export-data">📤 EXPORT DATA</button>
+        <button class="btn-gold btn-small" id="btn-import-data">📥 IMPORT DATA</button>
+      </div>
+    </div>
   </section>
 
   <!-- COLLECTION VIEW SCREEN -->
@@ -1256,6 +1320,8 @@ question | option A | option B | option C | option D | 2"></textarea>
         <div class="notes-companion-emoji">🧙</div>
         <div class="notes-companion-book">📖</div>
       </div>
+
+      <div class="notes-heal-banner hidden" id="notes-heal-banner"></div>
     </div>
 
     <div class="notes-reading-box" id="notes-reading-box"></div>
@@ -1340,6 +1406,8 @@ question | option A | option B | option C | option D | 2"></textarea>
   var XP_PER_LEVEL = 100;
   var XP_PER_CORRECT = 5;
   var XP_VICTORY_BONUS = 25;
+  var REVIEW_HEAL_AMOUNT = 3;
+  var NOTES_HEAL_AMOUNT = 2;
   var LEVEL_TITLES = [
     { min: 1, title: 'Novice Wizard' },
     { min: 3, title: 'Apprentice Wizard' },
@@ -1760,6 +1828,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     group: document.getElementById('screen-group'),
     groupEditor: document.getElementById('screen-group-editor'),
     runMap: document.getElementById('screen-run-map'),
+    stats: document.getElementById('screen-stats'),
     aiPrompt: document.getElementById('screen-ai-prompt'),
     notesPrompt: document.getElementById('screen-notes-prompt'),
     notesRead: document.getElementById('screen-notes-read'),
@@ -2036,6 +2105,120 @@ question | option A | option B | option C | option D | 2"></textarea>
     showScreen('aiPrompt');
   });
 
+  function renderStatsScreen() {
+    var info = levelInfoForXp(state.player.xp);
+
+    var totalCards = state.decks.reduce(function (sum, d) { return sum + d.cards.length; }, 0);
+    var totalVictories = state.decks.reduce(function (sum, d) { return sum + (d.victories || 0); }, 0);
+    var rankCounts = { bronze: 0, silver: 0, gold: 0, diamond: 0 };
+    state.decks.forEach(function (d) {
+      var rank = getDeckRank(d);
+      if (rank) rankCounts[rank.tier] += 1;
+    });
+    var deepestTierOverall = state.groups.reduce(function (max, g) { return Math.max(max, g.deepestTierReached || 0); }, 0);
+
+    var html =
+      '<div class="player-badge">' +
+        '<div class="player-badge-row">' +
+          '<span class="player-badge-title">LV ' + info.level + ' · ' + escapeHtml(info.title) + '</span>' +
+          '<span class="player-badge-xp">' + state.player.xp + ' total XP</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card-item">' +
+        '<div>📚 Decks: ' + state.decks.length + '</div>' +
+        '<div>🗂 Collections: ' + state.groups.length + '</div>' +
+        '<div>🃏 Total cards: ' + totalCards + '</div>' +
+        '<div>⚔ Total victories: ' + totalVictories + '</div>' +
+        '<div>🔥 Best combo ever: ' + (state.player.bestCombo || 0) + '</div>' +
+        '<div>🏔 Deepest tier reached: ' + (deepestTierOverall > 0 ? deepestTierOverall : '—') + '</div>' +
+        '<div>🥉 Bronze: ' + rankCounts.bronze + ' · 🥈 Silver: ' + rankCounts.silver +
+          ' · 🥇 Gold: ' + rankCounts.gold + ' · 💎 Diamond: ' + rankCounts.diamond + '</div>' +
+      '</div>';
+
+    document.getElementById('stats-content').innerHTML = html;
+  }
+
+  document.getElementById('btn-stats').addEventListener('click', function () {
+    renderStatsScreen();
+    showScreen('stats');
+  });
+
+  document.getElementById('btn-stats-back').addEventListener('click', function () {
+    showScreen('decks');
+  });
+
+  var DATA_STORAGE_KEYS = [STORAGE_KEY, SEED_STORAGE_KEY, PLAYER_STORAGE_KEY, GROUPS_STORAGE_KEY, SEEDED_GROUPS_STORAGE_KEY, RUNS_STORAGE_KEY];
+
+  document.getElementById('btn-export-data').addEventListener('click', function () {
+    var bundle = {};
+    DATA_STORAGE_KEYS.forEach(function (key) {
+      try {
+        var raw = localStorage.getItem(key);
+        if (raw !== null) bundle[key] = raw;
+      } catch (e) {
+        // Storage unavailable - skip this key.
+      }
+    });
+
+    var payload = JSON.stringify({ app: 'quest-for-knowledge', version: 1, data: bundle }, null, 2);
+    var blob = new Blob([payload], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'quest-for-knowledge-backup.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('btn-import-data').addEventListener('click', function () {
+    document.getElementById('input-import-file').click();
+  });
+
+  document.getElementById('input-import-file').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    var reader = new FileReader();
+    reader.onload = function () {
+      var parsed;
+      try {
+        parsed = JSON.parse(String(reader.result));
+      } catch (err) {
+        alert('That file is not a valid backup - could not read it.');
+        return;
+      }
+
+      if (!parsed || !parsed.data || typeof parsed.data !== 'object') {
+        alert('That file does not look like a Quest for Knowledge backup.');
+        return;
+      }
+
+      if (!window.confirm('This will REPLACE all your current decks, collections, and progress with this backup. Continue?')) {
+        return;
+      }
+
+      DATA_STORAGE_KEYS.forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(parsed.data, key)) {
+          try {
+            localStorage.setItem(key, parsed.data[key]);
+          } catch (err) {
+            // Storage unavailable - skip this key.
+          }
+        }
+      });
+
+      alert('Backup restored! Reloading...');
+      location.reload();
+    };
+    reader.onerror = function () {
+      alert('Could not read that file.');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
   document.getElementById('btn-ai-prompt-back').addEventListener('click', function () {
     showScreen('decks');
   });
@@ -2152,11 +2335,16 @@ question | option A | option B | option C | option D | 2"></textarea>
   }
 
   function getRunState(groupId) {
-    return state.runs[groupId] || null;
+    var rs = state.runs[groupId];
+    if (!rs) return null;
+    if (!rs.missedCardsThisTier) rs.missedCardsThisTier = [];
+    if (!rs.reviewedTiers) rs.reviewedTiers = [];
+    if (!rs.notesHealedDeckIds) rs.notesHealedDeckIds = [];
+    return rs;
   }
 
   function startNewRun(groupId) {
-    state.runs[groupId] = { hp: PLAYER_MAX_HP, clearedDeckIds: [] };
+    state.runs[groupId] = { hp: PLAYER_MAX_HP, clearedDeckIds: [], missedCardsThisTier: [], reviewedTiers: [], notesHealedDeckIds: [] };
     saveRuns(state.runs);
   }
 
@@ -2198,9 +2386,12 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (!opts.locked) node.setAttribute('data-deck-id', deck.id);
 
     var badge = opts.cleared ? '<span class="run-node-cleared-badge">⭐</span>' : '';
+    var notesBtn = (!opts.locked && deck.notes && deck.notes.trim()) ?
+      '<button class="run-node-notes-btn" data-notes-deck-id="' + deck.id + '">📖</button>' : '';
     node.innerHTML =
       '<div class="run-node-circle">' + (opts.locked ? '🔒' : deck.monster) + badge + '</div>' +
-      '<div class="run-node-label">' + (opts.isBoss ? '👑 ' : '') + escapeHtml(deck.name) + '</div>';
+      '<div class="run-node-label">' + (opts.isBoss ? '👑 ' : '') + escapeHtml(deck.name) + '</div>' +
+      notesBtn;
     return node;
   }
 
@@ -2208,6 +2399,16 @@ question | option A | option B | option C | option D | 2"></textarea>
     var c = document.createElement('div');
     c.className = 'run-node-connector' + (locked ? ' locked-connector' : '');
     return c;
+  }
+
+  function buildReviewNode(tierIndex) {
+    var node = document.createElement('div');
+    node.className = 'run-node run-node-review';
+    node.setAttribute('data-review-tier-index', tierIndex);
+    node.innerHTML =
+      '<div class="run-node-circle">📋</div>' +
+      '<div class="run-node-label">Review<br>+HP</div>';
+    return node;
   }
 
   function renderRunMap(groupId) {
@@ -2245,6 +2446,14 @@ question | option A | option B | option C | option D | 2"></textarea>
         var levelsCleared = tier.levels.every(function (d) { return runState.clearedDeckIds.indexOf(d.id) !== -1; });
         var bossCleared = runState.clearedDeckIds.indexOf(tier.boss.id) !== -1;
         var bossLocked = tierIndex > activeTierIndex || (tierIndex === activeTierIndex && !levelsCleared);
+
+        var showReview = tierIndex === activeTierIndex && levelsCleared && !bossCleared &&
+          runState.reviewedTiers.indexOf(tierIndex) === -1 && runState.missedCardsThisTier.length > 0;
+        if (showReview) {
+          path.appendChild(buildReviewNode(tierIndex));
+          path.appendChild(buildRunConnector(false));
+        }
+
         var bossCurrent = tierIndex === activeTierIndex && levelsCleared && !bossCleared;
         path.appendChild(buildRunNode(tier.boss, { locked: bossLocked, cleared: bossCleared, current: bossCurrent, isBoss: true }));
         if (tierIndex < tiers.length - 1) {
@@ -2264,6 +2473,19 @@ question | option A | option B | option C | option D | 2"></textarea>
   }
 
   document.getElementById('run-map-path').addEventListener('click', function (e) {
+    var notesBtn = e.target.closest('.run-node-notes-btn');
+    if (notesBtn) {
+      openNotesRead(notesBtn.getAttribute('data-notes-deck-id'), 'runMap', state.activeRunGroupId);
+      return;
+    }
+
+    var reviewNode = e.target.closest('.run-node-review');
+    if (reviewNode) {
+      var tierIndex = parseInt(reviewNode.getAttribute('data-review-tier-index'), 10);
+      startReviewBattle(state.activeRunGroupId, tierIndex);
+      return;
+    }
+
     var node = e.target.closest('.run-node');
     if (!node || node.classList.contains('locked')) return;
     var deckId = node.getAttribute('data-deck-id');
@@ -2510,13 +2732,16 @@ question | option A | option B | option C | option D | 2"></textarea>
     copyTextareaContents('notes-prompt-text');
   });
 
-  function openNotesRead(deckId, returnScreen) {
+  function openNotesRead(deckId, returnScreen, runGroupId) {
     var deck = findDeck(deckId);
     if (!deck) return;
     state.notesReturnScreen = returnScreen;
 
     document.getElementById('notes-read-title').textContent = deck.name;
     var box = document.getElementById('notes-reading-box');
+    var healBanner = document.getElementById('notes-heal-banner');
+    healBanner.classList.add('hidden');
+
     if (deck.notes && deck.notes.trim()) {
       box.textContent = deck.notes;
       box.classList.remove('empty');
@@ -2524,6 +2749,20 @@ question | option A | option B | option C | option D | 2"></textarea>
       box.textContent = 'No notes yet for this deck.';
       box.classList.add('empty');
     }
+
+    if (runGroupId) {
+      var runState = getRunState(runGroupId);
+      if (runState && runState.notesHealedDeckIds.indexOf(deckId) === -1 && runState.hp < PLAYER_MAX_HP) {
+        var healed = Math.min(PLAYER_MAX_HP, runState.hp + NOTES_HEAL_AMOUNT);
+        var healedBy = healed - runState.hp;
+        runState.hp = healed;
+        runState.notesHealedDeckIds.push(deckId);
+        saveRuns(state.runs);
+        healBanner.textContent = '📖 Studying helped! +' + healedBy + ' HP restored.';
+        healBanner.classList.remove('hidden');
+      }
+    }
+
     showScreen('notesRead');
   }
 
@@ -2537,6 +2776,8 @@ question | option A | option B | option C | option D | 2"></textarea>
       showScreen('group');
     } else if (state.notesReturnScreen === 'editor') {
       showScreen('editor');
+    } else if (state.notesReturnScreen === 'runMap') {
+      renderRunMap(state.activeRunGroupId);
     } else {
       renderDeckList();
       showScreen('decks');
@@ -2773,6 +3014,46 @@ question | option A | option B | option C | option D | 2"></textarea>
     showScreen('battle');
   }
 
+  function startReviewBattle(groupId, tierIndex) {
+    var runState = getRunState(groupId);
+    if (!runState || !runState.missedCardsThisTier.length) {
+      alert('No missed cards to review right now.');
+      return;
+    }
+
+    var reviewCards = shuffle(runState.missedCardsThisTier).slice(0, 8);
+    var enemyMaxHp = Math.max(4, reviewCards.length * 2);
+
+    state.battle = {
+      deckId: '__review__',
+      queue: shuffle(reviewCards),
+      reviewCards: reviewCards,
+      index: 0,
+      playerHp: Math.max(0, runState.hp),
+      enemyHp: enemyMaxHp,
+      maxEnemyHp: enemyMaxHp,
+      revealed: false,
+      locked: false,
+      combo: 0,
+      bestCombo: 0,
+      runGroupId: groupId,
+      isReview: true,
+      reviewTierIndex: tierIndex
+    };
+
+    document.getElementById('enemy-emoji').textContent = '📋';
+    document.getElementById('enemy-emoji').classList.remove('boss-emoji');
+    document.getElementById('enemy-label').textContent = 'REVIEW MISSED CARDS';
+    document.getElementById('player-emoji').textContent = PLAYER_EMOJI;
+    setBattleLog('📋 Review time! Clear these to recover some HP.');
+    renderBattleHp();
+    hideComboPopup();
+    document.getElementById('crack-overlay').classList.remove('show');
+    updatePlayerBadge('battle');
+    renderCurrentCard();
+    showScreen('battle');
+  }
+
   function isComboMilestone(combo) {
     return combo === 3 || (combo >= 10 && combo % 10 === 0);
   }
@@ -2823,8 +3104,8 @@ question | option A | option B | option C | option D | 2"></textarea>
   function renderCurrentCard() {
     var b = state.battle;
     if (b.index >= b.queue.length) {
-      var deck = findDeck(b.deckId);
-      b.queue = shuffle(deck.cards);
+      var sourceCards = b.isReview ? b.reviewCards : findDeck(b.deckId).cards;
+      b.queue = shuffle(sourceCards);
       b.index = 0;
       setBattleLog('The deck reshuffles! Keep fighting!');
     }
@@ -2920,6 +3201,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   function applyAnswerResult(correct) {
     var b = state.battle;
+    var currentCard = b.queue[b.index];
 
     var dmg = 1 + Math.floor(Math.random() * 2); // 1-2 dmg
 
@@ -2954,6 +3236,21 @@ question | option A | option B | option C | option D | 2"></textarea>
       damageFlash('player-emoji', 'shake');
       damageFlash('player-hp-bar', 'pop');
       setBattleLog('Ouch! You take -' + dmg + ' HP!');
+
+      if (b.runGroupId && !b.isReview) {
+        var runStateForMiss = getRunState(b.runGroupId);
+        if (runStateForMiss && !runStateForMiss.missedCardsThisTier.some(function (c) { return c.id === currentCard.id; })) {
+          runStateForMiss.missedCardsThisTier.push({
+            id: currentCard.id,
+            type: currentCard.type,
+            q: currentCard.q,
+            options: currentCard.options ? currentCard.options.slice() : undefined,
+            correctIndex: currentCard.correctIndex,
+            a: currentCard.a
+          });
+          saveRuns(state.runs);
+        }
+      }
     }
 
     renderBattleHp();
@@ -2988,7 +3285,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   function endBattle(victory) {
     var b = state.battle;
-    var deck = findDeck(b.deckId);
+    var deck = b.isReview ? null : findDeck(b.deckId);
     var emojiEl = document.getElementById('result-emoji');
     var titleEl = document.getElementById('result-title');
     var starsEl = document.getElementById('result-stars');
@@ -2998,6 +3295,42 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     var runGameOver = false;
     var runComplete = false;
+
+    if (b.isReview) {
+      var reviewRunState = getRunState(b.runGroupId);
+      if (victory) {
+        var remainingReview = Math.max(0, b.playerHp);
+        var healedHp = Math.min(PLAYER_MAX_HP, remainingReview + REVIEW_HEAL_AMOUNT);
+        emojiEl.textContent = '📋';
+        titleEl.textContent = 'REVIEW COMPLETE!';
+        titleEl.className = 'result-title victory';
+        starsEl.innerHTML = '';
+        msgEl.textContent = 'You reviewed your missed cards and recovered HP! (+' + (healedHp - remainingReview) + ' HP)';
+
+        if (reviewRunState) {
+          reviewRunState.hp = healedHp;
+          if (typeof b.reviewTierIndex === 'number' && reviewRunState.reviewedTiers.indexOf(b.reviewTierIndex) === -1) {
+            reviewRunState.reviewedTiers.push(b.reviewTierIndex);
+          }
+          saveRuns(state.runs);
+        }
+      } else {
+        emojiEl.textContent = '💀';
+        titleEl.textContent = 'GAME OVER';
+        titleEl.className = 'result-title defeat';
+        starsEl.innerHTML = '<span class="dim">★</span><span class="dim">★</span><span class="dim">★</span>';
+        msgEl.textContent = 'Your HP ran out during the review! The run resets - back to the beginning.';
+        runGameOver = true;
+        startNewRun(b.runGroupId);
+      }
+
+      state.resultContext = { isRun: true, runGroupId: b.runGroupId, gameOver: runGameOver, complete: false };
+      retryBtn.textContent = runGameOver ? '🔄 RESTART RUN' : '🗺 CONTINUE';
+      backBtn.textContent = 'EXIT RUN';
+      renderDeckList();
+      showScreen('result');
+      return;
+    }
 
     if (victory) {
       var remaining = Math.max(0, b.playerHp);
@@ -3041,12 +3374,17 @@ question | option A | option B | option C | option D | 2"></textarea>
         if (runState) {
           runState.hp = remaining;
           if (runState.clearedDeckIds.indexOf(deck.id) === -1) runState.clearedDeckIds.push(deck.id);
+          if (deck.isBoss) runState.missedCardsThisTier = [];
           saveRuns(state.runs);
 
           var runGroup = state.groups.find(function (g) { return g.id === b.runGroupId; });
           if (runGroup) {
             var tiers = getRunTiers(runGroup);
             var activeIndex = getRunActiveTierIndex(tiers, runState);
+            if (activeIndex > (runGroup.deepestTierReached || 0)) {
+              runGroup.deepestTierReached = activeIndex;
+              saveGroups(state.groups);
+            }
             if (activeIndex >= tiers.length) {
               runComplete = true;
               message += ' 🎉🎉 RUN COMPLETE! You cleared the whole collection!';
@@ -3064,6 +3402,17 @@ question | option A | option B | option C | option D | 2"></textarea>
       msgEl.textContent = 'The ' + deck.monster + ' proved too strong. Study up and try again!';
 
       if (b.runGroupId) {
+        var runStateOnDefeat = getRunState(b.runGroupId);
+        var defeatGroup = state.groups.find(function (g) { return g.id === b.runGroupId; });
+        if (runStateOnDefeat && defeatGroup) {
+          var defeatTiers = getRunTiers(defeatGroup);
+          var defeatActiveIndex = getRunActiveTierIndex(defeatTiers, runStateOnDefeat);
+          if (defeatActiveIndex > (defeatGroup.deepestTierReached || 0)) {
+            defeatGroup.deepestTierReached = defeatActiveIndex;
+            saveGroups(state.groups);
+          }
+        }
+
         runGameOver = true;
         titleEl.textContent = 'GAME OVER';
         msgEl.textContent = 'Your HP ran out! The run resets - back to the beginning.';
