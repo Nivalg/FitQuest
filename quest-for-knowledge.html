@@ -1272,6 +1272,7 @@ question | option A | option B | option C | option D | 2"></textarea>
         <button class="btn-ghost btn-small" id="btn-bulk-file">📁 LOAD .TXT FILE</button>
         <button class="btn-cyan btn-small" id="btn-bulk-import">⬆ IMPORT CARDS</button>
       </div>
+      <button class="btn-gold btn-small" id="btn-deck-ai-prompt">🤖 GENERATE PROMPT FOR THIS DECK</button>
     </div>
 
     <div class="card-item" style="border-color: var(--gold);">
@@ -1771,6 +1772,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     notesReturnScreen: null,
     activeRunGroupId: null,
     resultContext: null,
+    aiPromptDeckId: null,
     battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed, combo, bestCombo, runGroupId }
   };
   state.groups = loadGroups(state.decks);
@@ -2094,12 +2096,23 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   function renderAiPrompt() {
     var topic = document.getElementById('input-ai-topic').value.trim() || '[YOUR TOPIC HERE]';
-    document.getElementById('ai-prompt-text').value = AI_PROMPT_TEMPLATE.replace('{{TOPIC}}', topic);
+    var text = AI_PROMPT_TEMPLATE.replace('{{TOPIC}}', topic);
+
+    var deck = state.aiPromptDeckId ? findDeck(state.aiPromptDeckId) : null;
+    if (deck && deck.cards.length) {
+      var existingLines = deck.cards.map(function (c) { return '- ' + c.q; }).join('\n');
+      text += '\n\nThe "' + deck.name + '" deck already has these questions - do NOT repeat\n' +
+        'them or make trivial rewordings of them. Generate NEW, DIFFERENT questions that\n' +
+        'cover related material instead:\n' + existingLines;
+    }
+
+    document.getElementById('ai-prompt-text').value = text;
   }
 
   document.getElementById('input-ai-topic').addEventListener('input', renderAiPrompt);
 
   document.getElementById('btn-ai-prompt').addEventListener('click', function () {
+    state.aiPromptDeckId = null;
     document.getElementById('input-ai-topic').value = '';
     renderAiPrompt();
     showScreen('aiPrompt');
@@ -2220,7 +2233,21 @@ question | option A | option B | option C | option D | 2"></textarea>
   });
 
   document.getElementById('btn-ai-prompt-back').addEventListener('click', function () {
-    showScreen('decks');
+    if (state.aiPromptDeckId) {
+      showScreen('editor');
+    } else {
+      renderDeckList();
+      showScreen('decks');
+    }
+  });
+
+  document.getElementById('btn-deck-ai-prompt').addEventListener('click', function () {
+    var deck = findDeck(state.editingDeckId);
+    if (!deck) return;
+    state.aiPromptDeckId = deck.id;
+    document.getElementById('input-ai-topic').value = deck.name;
+    renderAiPrompt();
+    showScreen('aiPrompt');
   });
 
   function copyTextareaContents(textareaId) {
