@@ -1384,7 +1384,7 @@ export default function AthleteDashboard({
 
             <div className="relative w-full max-w-[250px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto">
               <svg
-                viewBox={hudViewSide === "front" ? "0 0 488 585" : "488 0 488 585"}
+                viewBox={hudViewSide === "front" ? "16 0 488 585" : "472 0 488 585"}
                 className="w-full h-full select-none"
                 xmlns="http://www.w3.org/2000/svg"
                 shapeRendering="crispEdges"
