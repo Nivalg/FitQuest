@@ -308,6 +308,7 @@ export default function AthleteDashboard({
 }: AthleteDashboardProps) {
 
   const [activeSubTab, setActiveSubTab] = React.useState<"character" | "stats" | "quests">("character");
+  const [hudViewSide, setHudViewSide] = React.useState<"front" | "back">("front");
 
   const dailyQuests = React.useMemo(() => getDailyQuests(logs), [logs]);
   const achievements = React.useMemo(() => getAchievements(logs, profile), [logs, profile]);
@@ -1351,9 +1352,39 @@ export default function AthleteDashboard({
               </p>
             </div>
 
-            <div className="relative w-full max-w-[340px] aspect-[976/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto">
+            {/* FRONT / BACK TOGGLE CAPSULE */}
+            <div className="flex justify-center my-1">
+              <div className="bg-[#0D0D0E] border border-slate-800 p-1 rounded-xl flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setHudViewSide("front")}
+                  style={{ minHeight: "32px", minWidth: "90px" }}
+                  className={`px-4 py-1 rounded-lg text-[8.5px] font-press-start tracking-wider transition-all duration-200 cursor-pointer ${
+                    hudViewSide === "front"
+                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-bold"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  FRONT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHudViewSide("back")}
+                  style={{ minHeight: "32px", minWidth: "90px" }}
+                  className={`px-4 py-1 rounded-lg text-[8.5px] font-press-start tracking-wider transition-all duration-200 cursor-pointer ${
+                    hudViewSide === "back"
+                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-bold"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  BACK
+                </button>
+              </div>
+            </div>
+
+            <div className="relative w-full max-w-[250px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto">
               <svg
-                viewBox="0 0 976 585"
+                viewBox={hudViewSide === "front" ? "0 0 488 585" : "488 0 488 585"}
                 className="w-full h-full select-none"
                 xmlns="http://www.w3.org/2000/svg"
                 shapeRendering="crispEdges"
