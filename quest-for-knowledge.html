@@ -1107,8 +1107,33 @@
       <button class="btn-cyan" id="btn-group-add-decks">+ ADD DECKS</button>
       <button class="btn-gold" id="btn-start-run">🏃 START RUN</button>
     </div>
+    <button class="btn-ghost" id="btn-import-levels">🤖 IMPORT AI LEVELS + BOSS</button>
 
     <div id="group-deck-list" class="card-list"></div>
+  </section>
+
+  <!-- IMPORT AI LEVELS SCREEN -->
+  <section id="screen-import-levels" class="screen hidden">
+    <div class="topbar">
+      <h2 class="section-title">Import AI Levels</h2>
+      <button class="btn-ghost btn-small" id="btn-import-levels-back">← BACK</button>
+    </div>
+
+    <p class="bulk-help">
+      Paste the AI's FULL reply here - all "## Deck: name" sections at once. Each
+      section becomes a new level in this collection. If there are 2 or more, a
+      boss combining all of them is created automatically.
+    </p>
+
+    <textarea id="input-import-levels" rows="14" placeholder="## Deck: Level 3 Name
+question | option A | option B | option C | option D | 2
+...
+
+## Deck: Level 4 Name
+question | option A | option B | option C | option D | 1
+..."></textarea>
+
+    <button class="btn-gold" id="btn-create-levels-boss">🚀 CREATE LEVELS + BOSS</button>
   </section>
 
   <!-- RUN MAP SCREEN -->
@@ -1830,6 +1855,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     group: document.getElementById('screen-group'),
     groupEditor: document.getElementById('screen-group-editor'),
     runMap: document.getElementById('screen-run-map'),
+    importLevels: document.getElementById('screen-import-levels'),
     stats: document.getElementById('screen-stats'),
     aiPrompt: document.getElementById('screen-ai-prompt'),
     notesPrompt: document.getElementById('screen-notes-prompt'),
@@ -2129,9 +2155,9 @@ question | option A | option B | option C | option D | 2"></textarea>
         '- Do not use the "|" character anywhere inside the question or option text.\n' +
         '- Output plain text only - just "## Deck: <name>" headers followed by that\n' +
         '  deck\'s card lines, then a blank line before the next deck. No commentary.\n\n' +
-        'Once I import these as new decks, I\'ll use this app\'s own "Add Decks" and\n' +
-        '"Boss Deck" tools to fold them into this same collection - you do not need to\n' +
-        'generate anything for a boss.';
+        'Once you give me this, I will paste your FULL reply into this app\'s "Import AI\n' +
+        'Levels" tool, which automatically creates a new level deck per "## Deck:" section\n' +
+        'and a boss combining them - you do not need to generate anything for a boss.';
     } else {
       text = AI_PROMPT_TEMPLATE.replace('{{TOPIC}}', topic);
 
@@ -2710,6 +2736,135 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   document.getElementById('btn-group-add-decks').addEventListener('click', function () {
     openGroupAddDecks(state.viewingGroupId);
+  });
+
+  function parseMultiDeckText(text) {
+    var allErrors = [];
+    var sections = [];
+
+    var rawBlocks = text.split(/^\s*##\s*Deck:\s*/im);
+    rawBlocks.shift(); // discard anything before the first "## Deck:" header
+
+    rawBlocks.forEach(function (block, blockIndex) {
+      var lines = block.split('\n');
+      var name = (lines[0] || '').trim();
+      if (!name) {
+        allErrors.push('Deck block ' + (blockIndex + 1) + ': missing a name right after "## Deck:".');
+        return;
+      }
+
+      var cardLines = lines.slice(1).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+      if (!cardLines.length) {
+        allErrors.push('Deck "' + name + '": no card lines found under this heading.');
+        return;
+      }
+
+      var localErrors = [];
+      var cards = [];
+      cardLines.forEach(function (line, lineIdx) {
+        var card = parseBulkLine(line, lineIdx + 1, localErrors);
+        if (card) cards.push(card);
+      });
+
+      if (localErrors.length) {
+        localErrors.forEach(function (e) { allErrors.push('Deck "' + name + '": ' + e); });
+        return;
+      }
+
+      sections.push({ name: name, cards: cards });
+    });
+
+    return { sections: sections, errors: allErrors };
+  }
+
+  document.getElementById('btn-import-levels').addEventListener('click', function () {
+    document.getElementById('input-import-levels').value = '';
+    showScreen('importLevels');
+  });
+
+  document.getElementById('btn-import-levels-back').addEventListener('click', function () {
+    renderGroupView(state.viewingGroupId);
+    showScreen('group');
+  });
+
+  document.getElementById('btn-create-levels-boss').addEventListener('click', function () {
+    var groupId = state.viewingGroupId;
+    var group = state.groups.find(function (g) { return g.id === groupId; });
+    if (!group) {
+      renderDeckList();
+      showScreen('decks');
+      return;
+    }
+
+    var text = document.getElementById('input-import-levels').value;
+    var result = parseMultiDeckText(text);
+
+    if (!result.sections.length) {
+      alert('Could not find any "## Deck: <name>" sections with valid cards. Paste the AI\'s full reply.');
+      return;
+    }
+    if (result.errors.length) {
+      alert('Could not import - fix these issues and try again:\n\n' + result.errors.join('\n'));
+      return;
+    }
+
+    var newDeckIds = [];
+    result.sections.forEach(function (section) {
+      var newDeck = {
+        id: uid(),
+        name: section.name,
+        monster: randomMonster(),
+        bestStars: 0,
+        cards: section.cards
+      };
+      state.decks.push(newDeck);
+      newDeckIds.push(newDeck.id);
+    });
+    persist();
+
+    var message = 'Created ' + newDeckIds.length + ' new level' + (newDeckIds.length === 1 ? '' : 's') + '!';
+
+    if (newDeckIds.length >= 2) {
+      var existingBossCount = group.deckIds.map(findDeck).filter(function (d) { return d && d.isBoss; }).length;
+      var combinedCards = [];
+      newDeckIds.forEach(function (id) {
+        var d = findDeck(id);
+        d.cards.forEach(function (c) {
+          combinedCards.push({
+            id: uid(),
+            type: c.type,
+            q: c.q,
+            options: c.options ? c.options.slice() : undefined,
+            correctIndex: c.correctIndex,
+            a: c.a
+          });
+        });
+      });
+
+      var bossDeck = {
+        id: uid(),
+        name: group.name + ' Boss ' + (existingBossCount + 1),
+        monster: '💀',
+        bestStars: 0,
+        isBoss: true,
+        unlockRequires: newDeckIds.slice(),
+        cards: combinedCards
+      };
+      state.decks.push(bossDeck);
+      newDeckIds.push(bossDeck.id);
+      persist();
+      message += ' Plus a boss combining them, automatically!';
+    } else {
+      message += ' Add one more level later and a boss combining both will be created automatically.';
+    }
+
+    group.deckIds = group.deckIds.concat(newDeckIds);
+    saveGroups(state.groups);
+
+    alert(message);
+    document.getElementById('input-import-levels').value = '';
+    renderGroupView(groupId);
+    showScreen('group');
   });
 
   document.getElementById('btn-start').addEventListener('click', function () {
