@@ -1741,7 +1741,7 @@ question | option A | option B | option C | option D | 2"></textarea>
   var RUNS_STORAGE_KEY = 'questForKnowledge.runs.v1';
   var MONSTER_EMOJIS = ['👾', '🐍', '🦇', '🐙', '👹', '🤖', '🦖', '🕷️', '👻', '🐺', '🐉'];
   var PLAYER_EMOJI = '🧙';
-  var PLAYER_MAX_HP = 10;
+  var PLAYER_BASE_HP = 10; // + 1 per level of whichever xp bucket the battle belongs to
 
   var XP_PER_LEVEL = 100;
   var XP_PER_CORRECT = 5;
@@ -2098,6 +2098,16 @@ question | option A | option B | option C | option D | 2"></textarea>
       if (level >= LEVEL_TITLES[i].min) title = LEVEL_TITLES[i].title;
     }
     return { level: level, title: title, xpIntoLevel: xpIntoLevel, xpForLevel: XP_PER_LEVEL };
+  }
+
+  // Max HP scales with the level of whichever xp bucket (collection, or the
+  // shared Practice pool) a battle belongs to - +1 HP per level.
+  function maxHpForXp(xp) {
+    return PLAYER_BASE_HP + levelInfoForXp(xp).level;
+  }
+
+  function maxHpForGroup(group) {
+    return maxHpForXp(group ? (group.xp || 0) : state.player.xp);
   }
 
   // ---------- State ----------
@@ -2731,12 +2741,19 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (!rs.notesHealedDeckIds) rs.notesHealedDeckIds = [];
     if (typeof rs.checkpointTierIndex !== 'number') rs.checkpointTierIndex = -1;
     if (!rs.checkpointClearedDeckIds) rs.checkpointClearedDeckIds = [];
+    if (!rs.maxHp) {
+      var group = state.groups.find(function (g) { return g.id === groupId; });
+      rs.maxHp = maxHpForGroup(group);
+    }
     return rs;
   }
 
   function startNewRun(groupId) {
+    var group = state.groups.find(function (g) { return g.id === groupId; });
+    var maxHp = maxHpForGroup(group);
     state.runs[groupId] = {
-      hp: PLAYER_MAX_HP,
+      hp: maxHp,
+      maxHp: maxHp,
       clearedDeckIds: [],
       missedCardsThisTier: [],
       reviewedTiers: [],
@@ -2755,8 +2772,11 @@ question | option A | option B | option C | option D | 2"></textarea>
       startNewRun(groupId);
       return;
     }
+    var group = state.groups.find(function (g) { return g.id === groupId; });
+    var maxHp = maxHpForGroup(group);
     state.runs[groupId] = {
-      hp: PLAYER_MAX_HP,
+      hp: maxHp,
+      maxHp: maxHp,
       clearedDeckIds: runState.checkpointClearedDeckIds.slice(),
       missedCardsThisTier: [],
       reviewedTiers: [],
@@ -2853,9 +2873,9 @@ question | option A | option B | option C | option D | 2"></textarea>
     var runState = getRunState(groupId);
 
     document.getElementById('run-map-title').textContent = group.name;
-    var hpPct = Math.max(0, (runState.hp / PLAYER_MAX_HP) * 100);
+    var hpPct = Math.max(0, (runState.hp / runState.maxHp) * 100);
     document.getElementById('run-hp-bar').style.width = hpPct + '%';
-    document.getElementById('run-hp-text').textContent = Math.max(0, runState.hp) + '/' + PLAYER_MAX_HP;
+    document.getElementById('run-hp-text').textContent = Math.max(0, runState.hp) + '/' + runState.maxHp;
 
     var tiers = getRunTiers(group);
     var activeTierIndex = getRunActiveTierIndex(tiers, runState);
@@ -3280,8 +3300,8 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     if (runGroupId) {
       var runState = getRunState(runGroupId);
-      if (runState && runState.notesHealedDeckIds.indexOf(deckId) === -1 && runState.hp < PLAYER_MAX_HP) {
-        var healed = Math.min(PLAYER_MAX_HP, runState.hp + NOTES_HEAL_AMOUNT);
+      if (runState && runState.notesHealedDeckIds.indexOf(deckId) === -1 && runState.hp < runState.maxHp) {
+        var healed = Math.min(runState.maxHp, runState.hp + NOTES_HEAL_AMOUNT);
         var healedBy = healed - runState.hp;
         runState.hp = healed;
         runState.notesHealedDeckIds.push(deckId);
@@ -3517,10 +3537,12 @@ question | option A | option B | option C | option D | 2"></textarea>
       Math.max(6, Math.min(20, deck.cards.length * 2));
 
     var runGroupId = runOptions ? runOptions.groupId : null;
-    var startingHp = PLAYER_MAX_HP;
+    var maxPlayerHp = maxHpForGroup(findGroupForDeck(deckId));
+    var startingHp = maxPlayerHp;
     if (runGroupId) {
       var runState = getRunState(runGroupId);
-      startingHp = runState ? Math.max(0, runState.hp) : PLAYER_MAX_HP;
+      maxPlayerHp = runState ? runState.maxHp : maxPlayerHp;
+      startingHp = runState ? Math.max(0, runState.hp) : maxPlayerHp;
     }
 
     state.battle = {
@@ -3528,6 +3550,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       queue: shuffle(deck.cards),
       index: 0,
       playerHp: startingHp,
+      maxPlayerHp: maxPlayerHp,
       enemyHp: enemyMaxHp,
       maxEnemyHp: enemyMaxHp,
       revealed: false,
@@ -3572,6 +3595,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       reviewCards: reviewCards,
       index: 0,
       playerHp: Math.max(0, runState.hp),
+      maxPlayerHp: runState.maxHp,
       enemyHp: enemyMaxHp,
       maxEnemyHp: enemyMaxHp,
       revealed: false,
@@ -3618,12 +3642,14 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
 
     var startingCount = missedCards.length;
+    var maxPlayerHp = maxHpForGroup(group);
 
     state.battle = {
       deckId: '__review__',
       queue: shuffle(missedCards),
       index: 0,
-      playerHp: PLAYER_MAX_HP,
+      playerHp: maxPlayerHp,
+      maxPlayerHp: maxPlayerHp,
       enemyHp: startingCount,
       maxEnemyHp: startingCount,
       revealed: false,
@@ -3689,9 +3715,9 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   function renderPlayerHp() {
     var b = state.battle;
-    var playerPct = Math.max(0, (b.playerHp / PLAYER_MAX_HP) * 100);
+    var playerPct = Math.max(0, (b.playerHp / b.maxPlayerHp) * 100);
     document.getElementById('player-hp-bar').style.width = playerPct + '%';
-    document.getElementById('player-hp-text').textContent = Math.max(0, b.playerHp) + '/' + PLAYER_MAX_HP;
+    document.getElementById('player-hp-text').textContent = Math.max(0, b.playerHp) + '/' + b.maxPlayerHp;
   }
 
   function renderEnemyHp() {
@@ -4097,7 +4123,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       var reviewRunState = getRunState(b.runGroupId);
       if (victory) {
         var remainingReview = Math.max(0, b.playerHp);
-        var healedHp = Math.min(PLAYER_MAX_HP, remainingReview + REVIEW_HEAL_AMOUNT);
+        var healedHp = Math.min(b.maxPlayerHp, remainingReview + REVIEW_HEAL_AMOUNT);
         emojiEl.textContent = '📋';
         titleEl.textContent = 'REVIEW COMPLETE!';
         titleEl.className = 'result-title victory';
@@ -4134,7 +4160,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     if (victory) {
       var remaining = Math.max(0, b.playerHp);
-      var stars = starsForHp(remaining, PLAYER_MAX_HP);
+      var stars = starsForHp(remaining, b.maxPlayerHp);
       var previousRank = getDeckRank(deck);
       var xpGroup = findBattleXpGroup();
       var levelBefore = levelInfoForXp(xpGroup ? (xpGroup.xp || 0) : state.player.xp).level;
@@ -4159,7 +4185,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       }
       starsEl.innerHTML = starsHtml;
 
-      var message = 'You defeated ' + deck.monster + ' with ' + remaining + '/' + PLAYER_MAX_HP + ' HP remaining! (+' + XP_VICTORY_BONUS + ' XP)';
+      var message = 'You defeated ' + deck.monster + ' with ' + remaining + '/' + b.maxPlayerHp + ' HP remaining! (+' + XP_VICTORY_BONUS + ' XP)';
       if (deck.isBoss) {
         message += ' 🎉 You\'ve conquered the fundamentals - the basics are locked in!';
       }
