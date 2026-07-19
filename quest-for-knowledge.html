@@ -747,6 +747,7 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 10px;
+    position: relative;
   }
 
   .combatant {
@@ -908,6 +909,77 @@
     0% { opacity: 0; transform: translateY(0); }
     15% { opacity: 1; }
     100% { opacity: 0; transform: translateY(70px); }
+  }
+
+  /* Projectile that travels from the player to the enemy on a correct answer,
+     landing right before the existing elemental-fx impact burst plays. */
+  .projectile-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 45;
+    overflow: visible;
+  }
+
+  .fx-proj {
+    position: absolute;
+    top: 46%;
+    left: 18%;
+    font-size: 30px;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+
+  .fx-proj-bolt {
+    filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 10px #6cf);
+  }
+
+  .projectile-layer.play-lightning .fx-proj-bolt {
+    animation: fx-proj-travel-lightning 0.4s ease-in forwards;
+  }
+  .projectile-layer.play-tornado .fx-proj-tornado {
+    animation: fx-proj-travel-tornado 0.5s ease-in-out forwards;
+  }
+  .projectile-layer.play-fire .fx-proj-fire {
+    animation: fx-proj-travel-fire 0.45s ease-in forwards;
+  }
+  .projectile-layer.play-freeze .fx-proj-snow {
+    animation: fx-proj-travel-freeze 0.5s ease-in-out forwards;
+  }
+
+  @keyframes fx-proj-travel-lightning {
+    0% { left: 18%; top: 46%; opacity: 0; transform: translate(-50%, -50%) scale(0.6) rotate(0deg); }
+    10% { opacity: 1; }
+    30% { left: 40%; top: 35%; transform: translate(-50%, -50%) scale(1) rotate(-12deg); }
+    50% { left: 55%; top: 56%; transform: translate(-50%, -50%) scale(1) rotate(12deg); }
+    70% { left: 68%; top: 40%; transform: translate(-50%, -50%) scale(1.1) rotate(-6deg); }
+    88% { left: 79%; top: 46%; opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(0deg); }
+    100% { left: 81%; opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  }
+
+  @keyframes fx-proj-travel-tornado {
+    0% { left: 16%; top: 48%; opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(0deg); }
+    15% { opacity: 1; }
+    50% { left: 50%; top: 38%; transform: translate(-50%, -50%) scale(1.1) rotate(360deg); }
+    85% { left: 78%; top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(680deg); }
+    100% { left: 81%; opacity: 0; transform: translate(-50%, -50%) scale(0.9) rotate(760deg); }
+  }
+
+  @keyframes fx-proj-travel-fire {
+    0% { left: 18%; top: 50%; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    12% { opacity: 1; }
+    40% { left: 45%; top: 36%; transform: translate(-50%, -50%) scale(1.05); }
+    70% { left: 65%; top: 45%; transform: translate(-50%, -50%) scale(0.95); }
+    88% { left: 79%; top: 46%; opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    100% { left: 81%; opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+  }
+
+  @keyframes fx-proj-travel-freeze {
+    0% { left: 18%; top: 48%; opacity: 0; transform: translate(-50%, -50%) scale(0.5) rotate(0deg); }
+    12% { opacity: 1; }
+    50% { left: 50%; top: 38%; transform: translate(-50%, -50%) scale(0.9) rotate(180deg); }
+    85% { left: 78%; top: 48%; opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(320deg); }
+    100% { left: 81%; opacity: 0; transform: translate(-50%, -50%) scale(0.8) rotate(360deg); }
   }
 
   .combatant-label {
@@ -1584,6 +1656,13 @@ question | option A | option B | option C | option D | 2"></textarea>
         </div>
         <div class="hp-bar-outer"><div class="hp-bar-inner enemy" id="enemy-hp-bar"></div></div>
         <div class="hp-text" id="enemy-hp-text">10/10</div>
+      </div>
+
+      <div class="projectile-layer" id="projectile-layer">
+        <div class="fx-proj fx-proj-bolt">⚡</div>
+        <div class="fx-proj fx-proj-tornado">🌪️</div>
+        <div class="fx-proj fx-proj-fire">🔥</div>
+        <div class="fx-proj fx-proj-snow">❄️</div>
       </div>
     </div>
 
@@ -3551,6 +3630,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     hideComboPopup();
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
+    document.getElementById('projectile-layer').className = 'projectile-layer';
     updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
@@ -3593,6 +3673,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     hideComboPopup();
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
+    document.getElementById('projectile-layer').className = 'projectile-layer';
     updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
@@ -3638,6 +3719,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     hideComboPopup();
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
+    document.getElementById('projectile-layer').className = 'projectile-layer';
     updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
@@ -3788,14 +3870,28 @@ question | option A | option B | option C | option D | 2"></textarea>
     el.classList.add(cls);
   }
 
-  var ELEMENTAL_FX_TYPES = ['lightning', 'tornado', 'fire', 'freeze'];
+  var ELEMENTAL_FX_TRAVEL_MS = { lightning: 400, tornado: 500, fire: 450, freeze: 500 };
+  var ELEMENTAL_FX_TYPES = Object.keys(ELEMENTAL_FX_TRAVEL_MS);
 
+  // Launches a projectile from the player toward the enemy, then plays the
+  // existing impact burst (+ hit shake/HP pop) once it lands.
   function playElementalFx() {
-    var fx = document.getElementById('elemental-fx');
     var type = ELEMENTAL_FX_TYPES[Math.floor(Math.random() * ELEMENTAL_FX_TYPES.length)];
-    fx.className = 'elemental-fx';
-    void fx.offsetWidth; // force reflow so the same type can replay back-to-back
-    fx.classList.add('play-' + type);
+
+    var layer = document.getElementById('projectile-layer');
+    layer.className = 'projectile-layer';
+    void layer.offsetWidth; // force reflow so the same type can replay back-to-back
+    layer.classList.add('play-' + type);
+
+    setTimeout(function () {
+      damageFlash('enemy-emoji', 'shake');
+      damageFlash('enemy-hp-bar', 'pop');
+
+      var fx = document.getElementById('elemental-fx');
+      fx.className = 'elemental-fx';
+      void fx.offsetWidth;
+      fx.classList.add('play-' + type);
+    }, ELEMENTAL_FX_TRAVEL_MS[type]);
   }
 
   function applyAnswerResult(correct) {
@@ -3818,8 +3914,6 @@ question | option A | option B | option C | option D | 2"></textarea>
       if (crit) dmg *= comboCritMultiplier(b.combo);
 
       b.enemyHp -= dmg;
-      damageFlash('enemy-emoji', 'shake');
-      damageFlash('enemy-hp-bar', 'pop');
       playElementalFx();
       setBattleLog(crit ?
         ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
@@ -3887,7 +3981,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     b.index += 1;
 
     if (b.enemyHp <= 0) {
-      setTimeout(function () { endBattle(true); }, 450);
+      setTimeout(function () { endBattle(true); }, 750);
       return;
     }
     if (b.playerHp <= 0) {
@@ -3895,7 +3989,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       return;
     }
 
-    setTimeout(renderCurrentCard, 500);
+    setTimeout(renderCurrentCard, 750);
   }
 
   document.getElementById('btn-got-it').addEventListener('click', function () {
