@@ -1098,6 +1098,7 @@
   }
 
   .question-box {
+    position: relative;
     background: var(--panel);
     border: 3px solid var(--cyan);
     border-radius: 8px;
@@ -1111,6 +1112,22 @@
     font-size: 28px;
     box-shadow: 0 0 16px rgba(8, 217, 214, 0.5), inset 0 0 20px rgba(8,217,214,0.08);
   }
+
+  .btn-delete-study-card {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    background: transparent;
+    border: 2px solid var(--magenta);
+    color: var(--magenta);
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 16px;
+    line-height: 1;
+    box-shadow: 0 3px 0 #9c1339;
+    z-index: 5;
+  }
+  .btn-delete-study-card:active { transform: translateY(3px); box-shadow: 0 0 0 #9c1339; }
 
   .question-box.answer-mode {
     border-color: var(--gold);
@@ -1279,6 +1296,95 @@
     55% { transform: translate(-50%, -50%) scale(1.2) rotate(4deg); opacity: 1; }
     75% { transform: translate(-50%, -50%) scale(0.94) rotate(-2deg); }
     100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .xp-gained-banner {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 10px 24px;
+    border: 3px solid var(--cyan);
+    border-radius: 8px;
+    background: linear-gradient(120deg, #002a2a, #005a58, #002a2a, #005a58);
+    background-size: 300% 100%;
+    box-shadow: 0 0 20px rgba(8, 217, 214, 0.8), 0 0 44px rgba(8, 217, 214, 0.35);
+    transform: scale(0) rotate(-10deg);
+    opacity: 0;
+  }
+
+  .xp-gained-banner.show {
+    animation:
+      perfect-banner-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+      perfect-banner-shine 2.2s linear 0.55s infinite;
+  }
+
+  .xp-gained-banner-text {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 15px;
+    color: var(--cyan);
+    text-shadow: 2px 2px 0 #000, 0 0 10px rgba(8, 217, 214, 0.9);
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  .level-up-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(4, 2, 16, 0.82);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .level-up-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .level-up-card {
+    text-align: center;
+    padding: 28px 26px;
+    border: 3px solid var(--gold);
+    border-radius: 12px;
+    background: linear-gradient(120deg, #3a2a00, #7a5900, #3a2a00, #7a5900);
+    background-size: 300% 100%;
+    box-shadow: 0 0 24px rgba(255, 210, 63, 0.85), 0 0 60px rgba(255, 210, 63, 0.4);
+    transform: scale(0) rotate(-8deg);
+  }
+
+  .level-up-overlay.show .level-up-card {
+    animation:
+      perfect-banner-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+      perfect-banner-shine 2.2s linear 0.55s infinite;
+  }
+
+  .level-up-title {
+    display: block;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 22px;
+    color: var(--gold);
+    text-shadow: 3px 3px 0 #000, 0 0 12px rgba(255, 210, 63, 0.9);
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+  }
+
+  .level-up-subtext {
+    display: block;
+    font-size: 22px;
+    color: #eae6f5;
+    text-shadow: 2px 2px 0 #000;
+    margin-bottom: 16px;
+  }
+
+  .level-up-hint {
+    display: block;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    color: var(--cyan);
+    letter-spacing: 1px;
   }
 
   .mc-options {
@@ -1756,6 +1862,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     <div class="battle-log" id="battle-log">A wild monster blocks your path!</div>
 
     <div class="question-box" id="question-box">
+      <button class="btn-delete-study-card hidden" id="btn-delete-study-card" title="Delete this card">🗑</button>
       <div style="width:100%;">
         <span class="qa-label" id="qa-label">QUESTION</span>
         <span id="qa-text"></span>
@@ -1786,6 +1893,7 @@ question | option A | option B | option C | option D | 2"></textarea>
   <!-- RESULT SCREEN -->
   <section id="screen-result" class="screen hidden">
     <div class="perfect-banner hidden" id="perfect-banner"><span class="perfect-banner-text">✨ PERFECT! ✨</span></div>
+    <div class="xp-gained-banner hidden" id="xp-gained-banner"><span class="xp-gained-banner-text" id="xp-gained-banner-text">+0 XP</span></div>
     <div class="result-emoji" id="result-emoji">🏆</div>
     <h2 class="result-title" id="result-title">VICTORY!</h2>
     <div class="stars-display" id="result-stars"></div>
@@ -1795,6 +1903,14 @@ question | option A | option B | option C | option D | 2"></textarea>
       <button class="btn-ghost" id="btn-result-back">DECKS</button>
     </div>
   </section>
+
+  <div class="level-up-overlay" id="level-up-overlay">
+    <div class="level-up-card">
+      <span class="level-up-title">🎉 LEVEL UP! 🎉</span>
+      <span class="level-up-subtext" id="level-up-subtext">You are now Level 2!</span>
+      <span class="level-up-hint">TAP TO CONTINUE</span>
+    </div>
+  </div>
 
 </div>
 
@@ -3872,6 +3988,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     box.classList.remove('answer-mode');
     document.getElementById('qa-label').textContent = 'QUESTION';
     document.getElementById('qa-text').innerHTML = escapeHtml(card.q);
+    document.getElementById('btn-delete-study-card').classList.toggle('hidden', !b.isMissedStudy);
 
     var revealBtn = document.getElementById('btn-reveal');
     var judgeRow = document.getElementById('judge-row');
@@ -4154,6 +4271,48 @@ question | option A | option B | option C | option D | 2"></textarea>
     setTimeout(renderCurrentCard, mastered ? 950 : 750);
   }
 
+  // Permanently deletes the card currently shown in missed-cards study mode -
+  // removes it from whichever deck actually owns it and from the collection's
+  // missed-cards list, then counts it as cleared same as mastering it.
+  function deleteCurrentStudyCard() {
+    var b = state.battle;
+    if (!b || !b.isMissedStudy || b.locked) return;
+    var currentCard = b.queue[b.index];
+    if (!currentCard) return;
+    if (!window.confirm('Delete this card? This cannot be undone.')) return;
+
+    state.decks.forEach(function (deck) {
+      deck.cards = deck.cards.filter(function (c) { return c.id !== currentCard.id; });
+    });
+    persist();
+
+    var group = state.groups.find(function (g) { return g.id === b.runGroupId; });
+    if (group) {
+      var missedCards = getGroupMissedCards(group);
+      var idx = missedCards.findIndex(function (c) { return c.id === currentCard.id; });
+      if (idx !== -1) missedCards.splice(idx, 1);
+      saveGroups(state.groups);
+    }
+
+    b.enemyHp = Math.max(0, b.enemyHp - 1);
+    b.index += 1;
+    b.queue = b.queue.slice(0, b.index).concat(
+      b.queue.slice(b.index).filter(function (c) { return c.id !== currentCard.id; })
+    );
+
+    setBattleLog('🗑 Card deleted for good.');
+    updatePlayerBadge('battle', group ? (group.xp || 0) : state.player.xp);
+
+    if (b.enemyHp <= 0) {
+      playFinisherFx(function () { endBattle(true); });
+      return;
+    }
+
+    renderCurrentCard();
+  }
+
+  document.getElementById('btn-delete-study-card').addEventListener('click', deleteCurrentStudyCard);
+
   function applyAnswerResult(correct) {
     var b = state.battle;
     var currentCard = b.queue[b.index];
@@ -4290,6 +4449,17 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
   });
 
+  function showLevelUpOverlay() {
+    var overlay = document.getElementById('level-up-overlay');
+    overlay.classList.remove('show');
+    void overlay.offsetWidth; // restart the animation if it just played
+    overlay.classList.add('show');
+  }
+
+  document.getElementById('level-up-overlay').addEventListener('click', function () {
+    this.classList.remove('show');
+  });
+
   function endBattle(victory) {
     var b = state.battle;
     var deck = b.isReview ? null : findDeck(b.deckId);
@@ -4302,6 +4472,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     var perfectBanner = document.getElementById('perfect-banner');
     perfectBanner.classList.add('hidden');
     perfectBanner.classList.remove('show');
+
+    var xpBanner = document.getElementById('xp-gained-banner');
+    xpBanner.classList.add('hidden');
+    xpBanner.classList.remove('show');
 
     var runGameOver = false;
     var runComplete = false;
@@ -4448,6 +4622,16 @@ question | option A | option B | option C | option D | 2"></textarea>
       }
 
       msgEl.textContent = message;
+
+      document.getElementById('xp-gained-banner-text').textContent = '+' + XP_VICTORY_BONUS + ' XP';
+      xpBanner.classList.remove('hidden');
+      void xpBanner.offsetWidth; // restart the animation if it just played
+      xpBanner.classList.add('show');
+
+      if (levelAfter > levelBefore) {
+        document.getElementById('level-up-subtext').textContent = 'You are now Level ' + levelAfter + '!';
+        showLevelUpOverlay();
+      }
     } else {
       emojiEl.textContent = '💀';
       titleEl.textContent = 'DEFEAT...';
