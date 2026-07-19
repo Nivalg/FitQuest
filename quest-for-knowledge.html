@@ -691,6 +691,14 @@
     font-size: 20px;
   }
 
+  .run-node-checkpoint-badge {
+    position: absolute;
+    bottom: -6px;
+    right: -6px;
+    font-size: 16px;
+    filter: drop-shadow(0 0 3px rgba(255, 210, 63, 0.9));
+  }
+
   .run-node-connector {
     width: 4px;
     height: 26px;
@@ -924,6 +932,46 @@
     8% { opacity: 1; }
     70% { opacity: 0.85; }
     100% { opacity: 0; }
+  }
+
+  .perfect-banner {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 12px 28px;
+    border: 3px solid var(--gold);
+    border-radius: 8px;
+    background: linear-gradient(120deg, #3a2a00, #7a5900, #3a2a00, #7a5900);
+    background-size: 300% 100%;
+    box-shadow: 0 0 20px rgba(255, 210, 63, 0.8), 0 0 44px rgba(255, 210, 63, 0.35);
+    transform: scale(0) rotate(-10deg);
+    opacity: 0;
+  }
+
+  .perfect-banner.show {
+    animation:
+      perfect-banner-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+      perfect-banner-shine 2.2s linear 0.55s infinite;
+  }
+
+  .perfect-banner-text {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 16px;
+    color: var(--gold);
+    text-shadow: 2px 2px 0 #000, 0 0 10px rgba(255, 210, 63, 0.9);
+    letter-spacing: 2px;
+    white-space: nowrap;
+  }
+
+  @keyframes perfect-banner-pop {
+    0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+    55% { transform: scale(1.18) rotate(4deg); opacity: 1; }
+    75% { transform: scale(0.94) rotate(-2deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  @keyframes perfect-banner-shine {
+    0% { background-position: 300% 0; }
+    100% { background-position: -300% 0; }
   }
 
   .mc-options {
@@ -1425,6 +1473,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   <!-- RESULT SCREEN -->
   <section id="screen-result" class="screen hidden">
+    <div class="perfect-banner hidden" id="perfect-banner"><span class="perfect-banner-text">✨ PERFECT! ✨</span></div>
     <div class="result-emoji" id="result-emoji">🏆</div>
     <h2 class="result-title" id="result-title">VICTORY!</h2>
     <div class="stars-display" id="result-stars"></div>
@@ -2508,12 +2557,52 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (!rs.missedCardsThisTier) rs.missedCardsThisTier = [];
     if (!rs.reviewedTiers) rs.reviewedTiers = [];
     if (!rs.notesHealedDeckIds) rs.notesHealedDeckIds = [];
+    if (typeof rs.checkpointTierIndex !== 'number') rs.checkpointTierIndex = -1;
+    if (!rs.checkpointClearedDeckIds) rs.checkpointClearedDeckIds = [];
     return rs;
   }
 
   function startNewRun(groupId) {
-    state.runs[groupId] = { hp: PLAYER_MAX_HP, clearedDeckIds: [], missedCardsThisTier: [], reviewedTiers: [], notesHealedDeckIds: [] };
+    state.runs[groupId] = {
+      hp: PLAYER_MAX_HP,
+      clearedDeckIds: [],
+      missedCardsThisTier: [],
+      reviewedTiers: [],
+      notesHealedDeckIds: [],
+      checkpointTierIndex: -1,
+      checkpointClearedDeckIds: []
+    };
     saveRuns(state.runs);
+  }
+
+  // On defeat: resume from the last earned checkpoint instead of wiping the whole
+  // run, if one exists. Falls back to a full reset when no checkpoint was earned yet.
+  function resetRunToCheckpoint(groupId) {
+    var runState = getRunState(groupId);
+    if (!runState || runState.checkpointTierIndex < 0) {
+      startNewRun(groupId);
+      return;
+    }
+    state.runs[groupId] = {
+      hp: PLAYER_MAX_HP,
+      clearedDeckIds: runState.checkpointClearedDeckIds.slice(),
+      missedCardsThisTier: [],
+      reviewedTiers: [],
+      notesHealedDeckIds: [],
+      checkpointTierIndex: runState.checkpointTierIndex,
+      checkpointClearedDeckIds: runState.checkpointClearedDeckIds.slice()
+    };
+    saveRuns(state.runs);
+  }
+
+  var RANK_ORDER = { diamond: 3, gold: 2, silver: 1, bronze: 0 };
+
+  function tierLevelsAreGoldOrBetter(tier) {
+    if (!tier.levels.length) return false;
+    return tier.levels.every(function (d) {
+      var rank = getDeckRank(d);
+      return rank && RANK_ORDER[rank.tier] >= RANK_ORDER.gold;
+    });
   }
 
   function getRunTiers(group) {
@@ -2554,10 +2643,11 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (!opts.locked) node.setAttribute('data-deck-id', deck.id);
 
     var badge = opts.cleared ? '<span class="run-node-cleared-badge">⭐</span>' : '';
+    var checkpointBadge = opts.isCheckpoint ? '<span class="run-node-checkpoint-badge" title="Checkpoint - you respawn here on defeat">💾</span>' : '';
     var notesBtn = (!opts.locked && deck.notes && deck.notes.trim()) ?
       '<button class="run-node-notes-btn" data-notes-deck-id="' + deck.id + '">📖</button>' : '';
     node.innerHTML =
-      '<div class="run-node-circle">' + (opts.locked ? '🔒' : deck.monster) + badge + '</div>' +
+      '<div class="run-node-circle">' + (opts.locked ? '🔒' : deck.monster) + badge + checkpointBadge + '</div>' +
       '<div class="run-node-label">' + (opts.isBoss ? '👑 ' : '') + escapeHtml(deck.name) + '</div>' +
       notesBtn;
     return node;
@@ -2623,7 +2713,8 @@ question | option A | option B | option C | option D | 2"></textarea>
         }
 
         var bossCurrent = tierIndex === activeTierIndex && levelsCleared && !bossCleared;
-        path.appendChild(buildRunNode(tier.boss, { locked: bossLocked, cleared: bossCleared, current: bossCurrent, isBoss: true }));
+        var isCheckpoint = bossCleared && tierIndex === runState.checkpointTierIndex;
+        path.appendChild(buildRunNode(tier.boss, { locked: bossLocked, cleared: bossCleared, current: bossCurrent, isBoss: true, isCheckpoint: isCheckpoint }));
         if (tierIndex < tiers.length - 1) {
           path.appendChild(buildRunConnector(tierIndex >= activeTierIndex));
         }
@@ -3301,7 +3392,8 @@ question | option A | option B | option C | option D | 2"></textarea>
       locked: false,
       combo: 0,
       bestCombo: 0,
-      runGroupId: runGroupId
+      runGroupId: runGroupId,
+      missedAnyThisBattle: false
     };
 
     document.getElementById('enemy-emoji').textContent = deck.monster;
@@ -3341,7 +3433,8 @@ question | option A | option B | option C | option D | 2"></textarea>
       bestCombo: 0,
       runGroupId: groupId,
       isReview: true,
-      reviewTierIndex: tierIndex
+      reviewTierIndex: tierIndex,
+      missedAnyThisBattle: false
     };
 
     document.getElementById('enemy-emoji').textContent = '📋';
@@ -3384,7 +3477,8 @@ question | option A | option B | option C | option D | 2"></textarea>
       bestCombo: 0,
       runGroupId: groupId,
       isReview: true,
-      isMissedStudy: true
+      isMissedStudy: true,
+      missedAnyThisBattle: false
     };
 
     document.getElementById('enemy-emoji').textContent = '📖';
@@ -3592,6 +3686,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     } else {
       b.combo = 0;
       b.playerHp -= dmg;
+      b.missedAnyThisBattle = true;
       damageFlash('player-emoji', 'shake');
       damageFlash('player-hp-bar', 'pop');
       setBattleLog('Ouch! You take -' + dmg + ' HP!');
@@ -3666,6 +3761,9 @@ question | option A | option B | option C | option D | 2"></textarea>
     var msgEl = document.getElementById('result-message');
     var retryBtn = document.getElementById('btn-retry');
     var backBtn = document.getElementById('btn-result-back');
+    var perfectBanner = document.getElementById('perfect-banner');
+    perfectBanner.classList.add('hidden');
+    perfectBanner.classList.remove('show');
 
     var runGameOver = false;
     var runComplete = false;
@@ -3709,13 +3807,16 @@ question | option A | option B | option C | option D | 2"></textarea>
           saveRuns(state.runs);
         }
       } else {
+        var hasCheckpointOnReviewDefeat = reviewRunState && reviewRunState.checkpointTierIndex >= 0;
         emojiEl.textContent = '💀';
         titleEl.textContent = 'GAME OVER';
         titleEl.className = 'result-title defeat';
         starsEl.innerHTML = '<span class="dim">★</span><span class="dim">★</span><span class="dim">★</span>';
-        msgEl.textContent = 'Your HP ran out during the review! The run resets - back to the beginning.';
+        msgEl.textContent = hasCheckpointOnReviewDefeat ?
+          'Your HP ran out during the review! You respawn at your last checkpoint.' :
+          'Your HP ran out during the review! The run resets - back to the beginning.';
         runGameOver = true;
-        startNewRun(b.runGroupId);
+        resetRunToCheckpoint(b.runGroupId);
       }
 
       state.resultContext = { isRun: true, runGroupId: b.runGroupId, gameOver: runGameOver, complete: false };
@@ -3769,11 +3870,32 @@ question | option A | option B | option C | option D | 2"></textarea>
           runState.hp = remaining;
           if (runState.clearedDeckIds.indexOf(deck.id) === -1) runState.clearedDeckIds.push(deck.id);
           if (deck.isBoss) runState.missedCardsThisTier = [];
-          saveRuns(state.runs);
 
           var runGroup = state.groups.find(function (g) { return g.id === b.runGroupId; });
           if (runGroup) {
             var tiers = getRunTiers(runGroup);
+
+            if (deck.isBoss) {
+              var bossTierIndex = tiers.findIndex(function (t) { return t.boss && t.boss.id === deck.id; });
+              if (bossTierIndex !== -1) {
+                var perfectClear = !b.missedAnyThisBattle;
+                var goldLevels = tierLevelsAreGoldOrBetter(tiers[bossTierIndex]);
+
+                if (perfectClear) {
+                  perfectBanner.classList.remove('hidden');
+                  void perfectBanner.offsetWidth; // restart the animation if it just played
+                  perfectBanner.classList.add('show');
+                  message += ' ✨ PERFECT CLEAR! ✨';
+                }
+
+                if ((perfectClear || goldLevels) && bossTierIndex > runState.checkpointTierIndex) {
+                  runState.checkpointTierIndex = bossTierIndex;
+                  runState.checkpointClearedDeckIds = runState.clearedDeckIds.slice();
+                  message += ' 💾 Checkpoint saved!';
+                }
+              }
+            }
+
             var activeIndex = getRunActiveTierIndex(tiers, runState);
             if (activeIndex > (runGroup.deepestTierReached || 0)) {
               runGroup.deepestTierReached = activeIndex;
@@ -3784,6 +3906,8 @@ question | option A | option B | option C | option D | 2"></textarea>
               message += ' 🎉🎉 RUN COMPLETE! You cleared the whole collection!';
             }
           }
+
+          saveRuns(state.runs);
         }
       }
 
@@ -3807,10 +3931,13 @@ question | option A | option B | option C | option D | 2"></textarea>
           }
         }
 
+        var hasCheckpointOnDefeat = runStateOnDefeat && runStateOnDefeat.checkpointTierIndex >= 0;
         runGameOver = true;
         titleEl.textContent = 'GAME OVER';
-        msgEl.textContent = 'Your HP ran out! The run resets - back to the beginning.';
-        startNewRun(b.runGroupId);
+        msgEl.textContent = hasCheckpointOnDefeat ?
+          'Your HP ran out! You respawn at your last checkpoint - the bosses you cleared with a checkpoint stay defeated.' :
+          'Your HP ran out! The run resets - back to the beginning.';
+        resetRunToCheckpoint(b.runGroupId);
       }
     }
 
