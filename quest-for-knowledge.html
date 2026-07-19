@@ -781,6 +781,47 @@
     display: inline-block;
   }
 
+  /* Finisher wind-up - all 4 elements orbit the wizard before launching */
+  .player-emoji-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .player-orbit-fx {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 46;
+    overflow: visible;
+  }
+
+  .player-orbit-fx.hidden {
+    display: none;
+  }
+
+  .orbit-item {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    font-size: 20px;
+    opacity: 0;
+  }
+
+  .player-orbit-fx.show .orbit-item {
+    animation: orbit-around-player 1s linear;
+  }
+
+  .player-orbit-fx.show .orbit-item-0 { animation-delay: 0s; }
+  .player-orbit-fx.show .orbit-item-1 { animation-delay: -0.25s; }
+  .player-orbit-fx.show .orbit-item-2 { animation-delay: -0.5s; }
+  .player-orbit-fx.show .orbit-item-3 { animation-delay: -0.75s; }
+
+  @keyframes orbit-around-player {
+    0% { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) translateX(36px) rotate(0deg); }
+    92% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -50%) rotate(360deg) translateX(36px) rotate(-360deg); }
+  }
+
   .elemental-fx {
     position: absolute;
     inset: 0;
@@ -1655,10 +1696,18 @@ question | option A | option B | option C | option D | 2"></textarea>
   <section id="screen-battle" class="screen hidden">
     <button class="btn-ghost btn-small hidden" id="btn-battle-back">← BACK</button>
     <div class="battle-arena">
-      <div class="ko-banner hidden" id="ko-banner"><span class="ko-banner-text">💥 MASTERED!</span></div>
+      <div class="ko-banner hidden" id="ko-banner"><span class="ko-banner-text">✅ LEARNED!</span></div>
       <div class="combatant">
         <div class="combatant-label">YOU</div>
-        <div class="combatant-emoji" id="player-emoji">🧙</div>
+        <div class="player-emoji-wrap">
+          <div class="combatant-emoji" id="player-emoji">🧙</div>
+          <div class="player-orbit-fx hidden" id="player-orbit-fx">
+            <div class="orbit-item orbit-item-0">⚡</div>
+            <div class="orbit-item orbit-item-1">🌪️</div>
+            <div class="orbit-item orbit-item-2">🔥</div>
+            <div class="orbit-item orbit-item-3">❄️</div>
+          </div>
+        </div>
         <div class="hp-bar-outer"><div class="hp-bar-inner" id="player-hp-bar"></div></div>
         <div class="hp-text" id="player-hp-text">10/10</div>
       </div>
@@ -1746,9 +1795,12 @@ question | option A | option B | option C | option D | 2"></textarea>
   var PLAYER_EMOJI = '🧙';
   var PLAYER_BASE_HP = 10; // + 1 per level of whichever xp bucket the battle belongs to
 
-  var XP_PER_LEVEL = 100;
-  var XP_PER_CORRECT = 5;
-  var XP_VICTORY_BONUS = 25;
+  // Dark-Souls-style curve: each level needs more xp than the last. XP only
+  // comes from clearing a deck (see awardXp calls), not individual answers,
+  // so the base is tuned to level you up right after your very first win.
+  var XP_LEVEL_BASE = 20;
+  var XP_LEVEL_GROWTH = 1.6;
+  var XP_VICTORY_BONUS = XP_LEVEL_BASE;
   var REVIEW_HEAL_AMOUNT = 3;
   var NOTES_HEAL_AMOUNT = 2;
   var LEVEL_TITLES = [
@@ -2093,14 +2145,26 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
   }
 
+  // XP needed to climb from `level` to `level + 1` - grows each level so
+  // leveling up gets progressively harder instead of a flat requirement.
+  function xpToNextLevel(level) {
+    return Math.round(XP_LEVEL_BASE * Math.pow(XP_LEVEL_GROWTH, level - 1));
+  }
+
   function levelInfoForXp(xp) {
-    var level = Math.floor(xp / XP_PER_LEVEL) + 1;
-    var xpIntoLevel = xp % XP_PER_LEVEL;
+    var level = 1;
+    var remaining = xp;
+    var neededForNext = xpToNextLevel(level);
+    while (remaining >= neededForNext) {
+      remaining -= neededForNext;
+      level += 1;
+      neededForNext = xpToNextLevel(level);
+    }
     var title = LEVEL_TITLES[0].title;
     for (var i = 0; i < LEVEL_TITLES.length; i++) {
       if (level >= LEVEL_TITLES[i].min) title = LEVEL_TITLES[i].title;
     }
-    return { level: level, title: title, xpIntoLevel: xpIntoLevel, xpForLevel: XP_PER_LEVEL };
+    return { level: level, title: title, xpIntoLevel: remaining, xpForLevel: neededForNext };
   }
 
   // Max HP scales with the level of whichever xp bucket (collection, or the
@@ -3576,6 +3640,8 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('projectile-layer').className = 'projectile-layer';
     document.getElementById('ko-banner').classList.add('hidden');
     document.getElementById('ko-banner').classList.remove('show');
+    document.getElementById('player-orbit-fx').classList.add('hidden');
+    document.getElementById('player-orbit-fx').classList.remove('show');
     document.getElementById('btn-battle-back').classList.add('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
@@ -3623,6 +3689,8 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('projectile-layer').className = 'projectile-layer';
     document.getElementById('ko-banner').classList.add('hidden');
     document.getElementById('ko-banner').classList.remove('show');
+    document.getElementById('player-orbit-fx').classList.add('hidden');
+    document.getElementById('player-orbit-fx').classList.remove('show');
     document.getElementById('btn-battle-back').classList.add('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
@@ -3677,6 +3745,8 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('projectile-layer').className = 'projectile-layer';
     document.getElementById('ko-banner').classList.add('hidden');
     document.getElementById('ko-banner').classList.remove('show');
+    document.getElementById('player-orbit-fx').classList.add('hidden');
+    document.getElementById('player-orbit-fx').classList.remove('show');
     document.getElementById('btn-battle-back').classList.remove('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
@@ -3921,6 +3991,18 @@ question | option A | option B | option C | option D | 2"></textarea>
     }, totalTravel);
   }
 
+  function showKoBanner() {
+    var banner = document.getElementById('ko-banner');
+    banner.classList.remove('hidden');
+    void banner.offsetWidth;
+    banner.classList.add('show');
+    clearTimeout(showKoBanner._t);
+    showKoBanner._t = setTimeout(function () {
+      banner.classList.remove('show');
+      banner.classList.add('hidden');
+    }, 1300);
+  }
+
   function playMasteryKoFx() {
     var type = ELEMENTAL_FX_TYPES[Math.floor(Math.random() * ELEMENTAL_FX_TYPES.length)];
 
@@ -3939,16 +4021,51 @@ question | option A | option B | option C | option D | 2"></textarea>
       void fx.offsetWidth;
       fx.classList.add('play-' + type);
 
-      var banner = document.getElementById('ko-banner');
-      banner.classList.remove('hidden');
-      void banner.offsetWidth;
-      banner.classList.add('show');
+      showKoBanner();
     }, ELEMENTAL_FX_TRAVEL_MS[type]);
   }
 
-  // Missed-cards study mode: no HP risk, no combo/crit math - just track each
-  // card's own correct-in-a-row streak. 3 in a row masters it (one-hit KO,
-  // removed from the missed list); a miss just resets that card's streak.
+  // Finishing move for clearing an entire missed-cards list: all 4 elements
+  // orbit the wizard for ~1s, then all launch at the enemy together.
+  function playFinisherFx(onComplete) {
+    var orbit = document.getElementById('player-orbit-fx');
+    orbit.classList.remove('hidden');
+    void orbit.offsetWidth;
+    orbit.classList.add('show');
+
+    setTimeout(function () {
+      orbit.classList.remove('show');
+      orbit.classList.add('hidden');
+
+      var types = ELEMENTAL_FX_TYPES.slice();
+      var launchStagger = 70;
+      types.forEach(function (type, i) {
+        spawnProjectileClone(type, i * launchStagger);
+      });
+      var lastLaunchDelay = (types.length - 1) * launchStagger;
+      var slowestTravel = Math.max.apply(null, types.map(function (type) { return ELEMENTAL_FX_TRAVEL_MS[type]; }));
+      var totalTravel = lastLaunchDelay + slowestTravel;
+
+      setTimeout(function () {
+        renderEnemyHp();
+        damageFlash('enemy-emoji', 'shake');
+        damageFlash('enemy-hp-bar', 'pop');
+
+        var fx = document.getElementById('elemental-fx');
+        fx.className = 'elemental-fx';
+        void fx.offsetWidth;
+        types.forEach(function (type) { fx.classList.add('play-' + type); });
+
+        setTimeout(function () {
+          if (onComplete) onComplete();
+        }, 500);
+      }, totalTravel);
+    }, 1000);
+  }
+
+  // Missed-cards study mode: no HP risk, no combo/crit math, no per-answer xp
+  // - just track each card's own correct-in-a-row streak. 3 in a row masters
+  // it (removed from the missed list); a miss just resets that card's streak.
   function applyMissedStudyAnswerResult(correct, currentCard) {
     var b = state.battle;
     var group = state.groups.find(function (g) { return g.id === b.runGroupId; });
@@ -3957,8 +4074,6 @@ question | option A | option B | option C | option D | 2"></textarea>
     var mastered = false;
 
     if (correct) {
-      awardXp(XP_PER_CORRECT, group);
-
       if (cardEntry) {
         cardEntry.correctStreak = (cardEntry.correctStreak || 0) + 1;
         if (cardEntry.correctStreak >= 3) {
@@ -3969,9 +4084,13 @@ question | option A | option B | option C | option D | 2"></textarea>
         saveGroups(state.groups);
       }
 
-      if (mastered) {
+      var allCleared = mastered && b.enemyHp <= 0;
+
+      if (allCleared) {
+        setBattleLog('✨ Card learned! That was the last one - unleash the finisher!');
+      } else if (mastered) {
         playMasteryKoFx();
-        setBattleLog('💥 MASTERED! One-hit KO - that card is off your missed list for good.');
+        setBattleLog('✅ Card learned! It\'s off your missed list for good.');
       } else if (cardEntry) {
         playElementalFx();
         setBattleLog('✓ Correct! (' + cardEntry.correctStreak + '/3 in a row)');
@@ -4000,8 +4119,8 @@ question | option A | option B | option C | option D | 2"></textarea>
       );
     }
 
-    if (b.enemyHp <= 0) {
-      setTimeout(function () { endBattle(true); }, mastered ? 950 : 750);
+    if (mastered && b.enemyHp <= 0) {
+      playFinisherFx(function () { endBattle(true); });
       return;
     }
 
@@ -4024,7 +4143,6 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (correct) {
       b.combo += 1;
       if (b.combo > b.bestCombo) b.bestCombo = b.combo;
-      awardXp(XP_PER_CORRECT, cardGroup);
 
       var milestone = isComboMilestone(b.combo);
       // Combo crits only happen on boss fights - regular decks stay at normal
