@@ -3758,14 +3758,23 @@ question | option A | option B | option C | option D | 2"></textarea>
     el.classList.add('show');
   }
 
-  function renderBattleHp() {
+  function renderPlayerHp() {
     var b = state.battle;
     var playerPct = Math.max(0, (b.playerHp / PLAYER_MAX_HP) * 100);
-    var enemyPct = Math.max(0, (b.enemyHp / b.maxEnemyHp) * 100);
     document.getElementById('player-hp-bar').style.width = playerPct + '%';
-    document.getElementById('enemy-hp-bar').style.width = enemyPct + '%';
     document.getElementById('player-hp-text').textContent = Math.max(0, b.playerHp) + '/' + PLAYER_MAX_HP;
+  }
+
+  function renderEnemyHp() {
+    var b = state.battle;
+    var enemyPct = Math.max(0, (b.enemyHp / b.maxEnemyHp) * 100);
+    document.getElementById('enemy-hp-bar').style.width = enemyPct + '%';
     document.getElementById('enemy-hp-text').textContent = Math.max(0, b.enemyHp) + '/' + b.maxEnemyHp;
+  }
+
+  function renderBattleHp() {
+    renderPlayerHp();
+    renderEnemyHp();
   }
 
   function setBattleLog(msg) {
@@ -3884,6 +3893,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     layer.classList.add('play-' + type);
 
     setTimeout(function () {
+      renderEnemyHp();
       damageFlash('enemy-emoji', 'shake');
       damageFlash('enemy-hp-bar', 'pop');
 
@@ -3976,7 +3986,10 @@ question | option A | option B | option C | option D | 2"></textarea>
       }
     }
 
-    renderBattleHp();
+    renderPlayerHp();
+    // Enemy HP bar updates when the elemental attack lands (see playElementalFx),
+    // not immediately, so the bar drop is in sync with the hit animation.
+    if (!correct) renderEnemyHp();
     updatePlayerBadge('battle');
     b.index += 1;
 
