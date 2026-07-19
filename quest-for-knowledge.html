@@ -2175,7 +2175,16 @@ question | option A | option B | option C | option D | 2"></textarea>
         '- Generate enough NEW questions for 1-2 additional decks, each with 15-25 TRUE,\n' +
         '  UNIQUE questions grouped by sub-topic. Fewer good questions is better than\n' +
         '  padding the count with reworded duplicates.\n' +
-        '- Give each deck a short, clear name as a heading, like "## Deck: <name>".\n' +
+        '- CRITICAL FORMATTING RULE: before each deck, output a line that is LITERALLY\n' +
+        '  the two characters "#" "#", then a space, then the word "Deck:", then a\n' +
+        '  space, then the deck name. As plain typed characters it looks exactly like\n' +
+        '  this example (copy this pattern character-for-character):\n' +
+        '  ## Deck: Spanish Numbers and Time\n' +
+        '  Do NOT turn this into an actual rendered heading/title, do NOT use bold\n' +
+        '  (**), do NOT use a single "#" or three "###", and do NOT drop the "##" -\n' +
+        '  a script reads your RAW text output looking for that literal "## Deck:"\n' +
+        '  string, so if it is rendered as formatted heading text instead of plain\n' +
+        '  characters, or shortened to just "Deck:", the import will fail.\n' +
         '- Make every question multiple choice with exactly 4 answer options, only one\n' +
         '  of which is correct.\n' +
         '- Output each card as ONE line in this exact format:\n' +
