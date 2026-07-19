@@ -760,6 +760,7 @@
 
   .combatant-emoji {
     font-size: 48px;
+    line-height: 64px;
     transition: transform 0.15s ease;
   }
 
@@ -892,10 +893,10 @@
 
   @keyframes fx-tornado-spin {
     0% { opacity: 0; transform: translate(-50%, 30px) scale(0.2) rotate(0deg); }
-    20% { opacity: 1; }
-    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(360deg); }
-    80% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(620deg); }
-    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8) rotate(720deg); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(0.9) rotate(-5deg); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(5deg); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-5deg); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8) rotate(0deg); }
   }
 
   @keyframes fx-fire-burst {
@@ -960,9 +961,11 @@
   @keyframes fx-proj-travel-tornado {
     0% { left: 16%; top: 48%; opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(0deg); }
     15% { opacity: 1; }
-    50% { left: 50%; top: 38%; transform: translate(-50%, -50%) scale(1.1) rotate(360deg); }
-    85% { left: 78%; top: 50%; opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(680deg); }
-    100% { left: 81%; opacity: 0; transform: translate(-50%, -50%) scale(0.9) rotate(760deg); }
+    30% { left: 34%; top: 36%; transform: translate(-50%, -50%) scale(0.9) rotate(-5deg); }
+    50% { left: 50%; top: 48%; transform: translate(-50%, -50%) scale(1.1) rotate(5deg); }
+    70% { left: 66%; top: 36%; transform: translate(-50%, -50%) scale(1.1) rotate(-5deg); }
+    85% { left: 78%; top: 48%; opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(5deg); }
+    100% { left: 81%; opacity: 0; transform: translate(-50%, -50%) scale(0.9) rotate(0deg); }
   }
 
   @keyframes fx-proj-travel-fire {
