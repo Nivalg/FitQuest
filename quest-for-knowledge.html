@@ -1127,6 +1127,7 @@
       <button class="btn-gold" id="btn-start-run">🏃 START RUN</button>
     </div>
     <button class="btn-ghost" id="btn-import-levels">🤖 IMPORT AI LEVELS + BOSS</button>
+    <button class="btn-cyan" id="btn-review-missed">📖 REVIEW MISSED CARDS</button>
 
     <div id="group-deck-list" class="card-list"></div>
   </section>
@@ -2445,6 +2446,11 @@ question | option A | option B | option C | option D | 2"></textarea>
     showScreen('group');
   }
 
+  function getGroupMissedCards(group) {
+    if (!group.missedCards) group.missedCards = [];
+    return group.missedCards;
+  }
+
   function renderGroupView(groupId) {
     var group = state.groups.find(function (g) { return g.id === groupId; });
     if (!group) {
@@ -2454,6 +2460,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
 
     document.getElementById('input-group-view-name').value = group.name;
+
+    var missedCards = getGroupMissedCards(group);
+    document.getElementById('btn-review-missed').textContent =
+      '📖 REVIEW MISSED CARDS (' + missedCards.length + ')';
 
     var list = document.getElementById('group-deck-list');
     list.innerHTML = '';
@@ -2664,6 +2674,10 @@ question | option A | option B | option C | option D | 2"></textarea>
   document.getElementById('btn-start-run').addEventListener('click', function () {
     state.activeRunGroupId = state.viewingGroupId;
     renderRunMap(state.viewingGroupId);
+  });
+
+  document.getElementById('btn-review-missed').addEventListener('click', function () {
+    startMissedCardsReview(state.viewingGroupId);
   });
 
   document.getElementById('input-group-view-name').addEventListener('input', function (e) {
@@ -3343,6 +3357,49 @@ question | option A | option B | option C | option D | 2"></textarea>
     showScreen('battle');
   }
 
+  function startMissedCardsReview(groupId) {
+    var group = state.groups.find(function (g) { return g.id === groupId; });
+    if (!group) return;
+
+    var missedCards = getGroupMissedCards(group);
+    if (!missedCards.length) {
+      alert('No missed cards saved for this collection yet - get one wrong during a battle and it will show up here.');
+      return;
+    }
+
+    var reviewCards = shuffle(missedCards).slice(0, 15);
+    var enemyMaxHp = Math.max(4, reviewCards.length * 2);
+
+    state.battle = {
+      deckId: '__review__',
+      queue: shuffle(reviewCards),
+      reviewCards: reviewCards,
+      index: 0,
+      playerHp: PLAYER_MAX_HP,
+      enemyHp: enemyMaxHp,
+      maxEnemyHp: enemyMaxHp,
+      revealed: false,
+      locked: false,
+      combo: 0,
+      bestCombo: 0,
+      runGroupId: groupId,
+      isReview: true,
+      isMissedStudy: true
+    };
+
+    document.getElementById('enemy-emoji').textContent = '📖';
+    document.getElementById('enemy-emoji').classList.remove('boss-emoji');
+    document.getElementById('enemy-label').textContent = 'STUDY MISSED CARDS';
+    document.getElementById('player-emoji').textContent = PLAYER_EMOJI;
+    setBattleLog('📖 Time to review the ones you got wrong! Get them right to clear them from this list.');
+    renderBattleHp();
+    hideComboPopup();
+    document.getElementById('crack-overlay').classList.remove('show');
+    updatePlayerBadge('battle');
+    renderCurrentCard();
+    showScreen('battle');
+  }
+
   function isComboMilestone(combo) {
     return combo === 3 || (combo >= 10 && combo % 10 === 0);
   }
@@ -3494,6 +3551,10 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     var dmg = 1 + Math.floor(Math.random() * 2); // 1-2 dmg
 
+    var cardGroup = b.isReview ?
+      state.groups.find(function (g) { return g.id === b.runGroupId; }) :
+      findGroupForDeck(b.deckId);
+
     if (correct) {
       b.combo += 1;
       if (b.combo > b.bestCombo) b.bestCombo = b.combo;
@@ -3519,6 +3580,15 @@ question | option A | option B | option C | option D | 2"></textarea>
         }
         showComboPopup(b.combo, isNewRecord);
       }
+
+      if (cardGroup) {
+        var missedCards = getGroupMissedCards(cardGroup);
+        var masteredIndex = missedCards.findIndex(function (c) { return c.id === currentCard.id; });
+        if (masteredIndex !== -1) {
+          missedCards.splice(masteredIndex, 1);
+          saveGroups(state.groups);
+        }
+      }
     } else {
       b.combo = 0;
       b.playerHp -= dmg;
@@ -3538,6 +3608,21 @@ question | option A | option B | option C | option D | 2"></textarea>
             a: currentCard.a
           });
           saveRuns(state.runs);
+        }
+      }
+
+      if (cardGroup) {
+        var groupMissedCards = getGroupMissedCards(cardGroup);
+        if (!groupMissedCards.some(function (c) { return c.id === currentCard.id; })) {
+          groupMissedCards.push({
+            id: currentCard.id,
+            type: currentCard.type,
+            q: currentCard.q,
+            options: currentCard.options ? currentCard.options.slice() : undefined,
+            correctIndex: currentCard.correctIndex,
+            a: currentCard.a
+          });
+          saveGroups(state.groups);
         }
       }
     }
@@ -3584,6 +3669,26 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     var runGameOver = false;
     var runComplete = false;
+
+    if (b.isMissedStudy) {
+      var studyGroup = state.groups.find(function (g) { return g.id === b.runGroupId; });
+      var remainingMissed = studyGroup ? getGroupMissedCards(studyGroup).length : 0;
+
+      emojiEl.textContent = victory ? '📖' : '💀';
+      titleEl.textContent = victory ? 'STUDY COMPLETE!' : 'STUDY INTERRUPTED';
+      titleEl.className = 'result-title ' + (victory ? 'victory' : 'defeat');
+      starsEl.innerHTML = '';
+      msgEl.textContent = victory ?
+        ('Nice work! ' + remainingMissed + ' card' + (remainingMissed === 1 ? '' : 's') + ' still left to master in this collection.') :
+        'No worries - your missed cards are still saved. Jump back in any time to keep studying.';
+
+      state.resultContext = { isMissedStudy: true, groupId: b.runGroupId };
+      retryBtn.textContent = '🔄 STUDY AGAIN';
+      backBtn.textContent = '← BACK TO COLLECTION';
+      renderDeckList();
+      showScreen('result');
+      return;
+    }
 
     if (b.isReview) {
       var reviewRunState = getRunState(b.runGroupId);
@@ -3730,7 +3835,9 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   document.getElementById('btn-retry').addEventListener('click', function () {
     var ctx = state.resultContext;
-    if (ctx && ctx.isRun) {
+    if (ctx && ctx.isMissedStudy) {
+      startMissedCardsReview(ctx.groupId);
+    } else if (ctx && ctx.isRun) {
       renderRunMap(ctx.runGroupId);
     } else {
       startBattle(state.battle.deckId);
@@ -3739,8 +3846,8 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   document.getElementById('btn-result-back').addEventListener('click', function () {
     var ctx = state.resultContext;
-    if (ctx && ctx.isRun) {
-      renderGroupView(ctx.runGroupId);
+    if (ctx && (ctx.isMissedStudy || ctx.isRun)) {
+      renderGroupView(ctx.isMissedStudy ? ctx.groupId : ctx.runGroupId);
       showScreen('group');
     } else {
       renderDeckList();
