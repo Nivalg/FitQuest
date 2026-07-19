@@ -3856,21 +3856,55 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   var ELEMENTAL_FX_TRAVEL_MS = { lightning: 400, tornado: 500, fire: 450, freeze: 500 };
   var ELEMENTAL_FX_TYPES = Object.keys(ELEMENTAL_FX_TRAVEL_MS);
+  var PROJECTILE_STAGGER_MS = 140;
+
+  // CSS class suffix + emoji + travel animation for a dynamically-cloned
+  // projectile (used for multi-hit flurries - see spawnProjectileClone).
+  var FX_PROJ_INFO = {
+    lightning: { cls: 'fx-proj-bolt', emoji: '⚡', anim: 'fx-proj-travel-lightning 0.4s ease-in' },
+    tornado: { cls: 'fx-proj-tornado', emoji: '🌪️', anim: 'fx-proj-travel-tornado 0.5s ease-in-out' },
+    fire: { cls: 'fx-proj-fire', emoji: '🔥', anim: 'fx-proj-travel-fire 0.45s ease-in' },
+    freeze: { cls: 'fx-proj-snow', emoji: '❄️', anim: 'fx-proj-travel-freeze 0.5s ease-in-out' }
+  };
+
+  // Spawns a one-off copy of a projectile that plays its travel animation
+  // after `delayMs`, then removes itself. Used so a multi-hit flurry can fire
+  // several of the SAME projectile staggered in time, instead of stacking
+  // identical animations on top of each other at t=0.
+  function spawnProjectileClone(type, delayMs) {
+    var info = FX_PROJ_INFO[type];
+    var layer = document.getElementById('projectile-layer');
+    var el = document.createElement('div');
+    el.className = 'fx-proj ' + info.cls;
+    el.textContent = info.emoji;
+    el.style.animation = info.anim + ' forwards';
+    el.style.animationDelay = delayMs + 'ms';
+    layer.appendChild(el);
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, delayMs + ELEMENTAL_FX_TRAVEL_MS[type] + 50);
+  }
 
   // Launches a projectile from the player toward the enemy, then plays the
   // existing impact burst (+ hit shake/HP pop) once it lands. Pass a
-  // projectileCount > 1 (boss combo crits) to fire a flurry of distinct
-  // elemental types at once instead of a single hit.
+  // projectileCount > 1 (boss combo crits) to fire a staggered volley of the
+  // SAME elemental type instead of a single hit.
   function playElementalFx(projectileCount) {
-    var count = Math.min(projectileCount || 1, ELEMENTAL_FX_TYPES.length);
-    var types = shuffle(ELEMENTAL_FX_TYPES.slice()).slice(0, count);
+    var count = projectileCount || 1;
+    var type = ELEMENTAL_FX_TYPES[Math.floor(Math.random() * ELEMENTAL_FX_TYPES.length)];
 
-    var layer = document.getElementById('projectile-layer');
-    layer.className = 'projectile-layer';
-    void layer.offsetWidth; // force reflow so the same type can replay back-to-back
-    types.forEach(function (type) { layer.classList.add('play-' + type); });
+    if (count <= 1) {
+      var layer = document.getElementById('projectile-layer');
+      layer.className = 'projectile-layer';
+      void layer.offsetWidth; // force reflow so the same type can replay back-to-back
+      layer.classList.add('play-' + type);
+    } else {
+      for (var i = 0; i < count; i++) {
+        spawnProjectileClone(type, i * PROJECTILE_STAGGER_MS);
+      }
+    }
 
-    var maxTravel = Math.max.apply(null, types.map(function (type) { return ELEMENTAL_FX_TRAVEL_MS[type]; }));
+    var totalTravel = ELEMENTAL_FX_TRAVEL_MS[type] + (count - 1) * PROJECTILE_STAGGER_MS;
 
     setTimeout(function () {
       renderEnemyHp();
@@ -3880,8 +3914,8 @@ question | option A | option B | option C | option D | 2"></textarea>
       var fx = document.getElementById('elemental-fx');
       fx.className = 'elemental-fx';
       void fx.offsetWidth;
-      types.forEach(function (type) { fx.classList.add('play-' + type); });
-    }, maxTravel);
+      fx.classList.add('play-' + type);
+    }, totalTravel);
   }
 
   function playMasteryKoFx() {
