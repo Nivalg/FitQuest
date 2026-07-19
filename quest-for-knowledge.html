@@ -3219,7 +3219,10 @@ question | option A | option B | option C | option D | 2"></textarea>
         return;
       }
 
-      var cardLines = lines.slice(1).map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+      // Ignore stray prose/sub-headers the AI sometimes slips in (e.g. a
+      // sub-topic label) - a real card line always contains at least one "|".
+      var cardLines = lines.slice(1).map(function (l) { return l.trim(); })
+        .filter(function (l) { return l.length > 0 && l.indexOf('|') !== -1; });
       if (!cardLines.length) {
         allErrors.push('Deck "' + name + '": no card lines found under this heading.');
         return;
@@ -3616,7 +3619,10 @@ question | option A | option B | option C | option D | 2"></textarea>
   document.getElementById('btn-bulk-import').addEventListener('click', function () {
     var deck = findDeck(state.editingDeckId);
     var textarea = document.getElementById('input-bulk-import');
-    var lines = textarea.value.split('\n').map(function (l) { return l.trim(); }).filter(function (l) { return l.length > 0; });
+    // Ignore stray prose/headers the AI sometimes slips in despite instructions
+    // not to - a real card line always contains at least one "|".
+    var lines = textarea.value.split('\n').map(function (l) { return l.trim(); })
+      .filter(function (l) { return l.length > 0 && l.indexOf('|') !== -1; });
 
     if (!lines.length) {
       alert('Paste at least one card line first.');
