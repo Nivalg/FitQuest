@@ -109,6 +109,25 @@
     margin: 4px 0;
   }
 
+  .tier-heading {
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-shadow: 2px 2px 0 #000;
+    margin: 18px 0 6px;
+    padding-bottom: 4px;
+    border-bottom: 2px dashed var(--gold);
+  }
+
+  .tier-heading:first-child {
+    margin-top: 0;
+  }
+
+  .tier-heading-boss {
+    color: var(--magenta);
+    border-bottom-color: var(--magenta);
+  }
+
   .subtitle {
     text-align: center;
     color: var(--cyan);
@@ -1125,6 +1144,8 @@
       boss combining all of them is created automatically.
     </p>
 
+    <button class="btn-gold btn-small" id="btn-import-levels-ai-prompt">🤖 GENERATE PROMPT FOR NEXT LEVEL(S)</button>
+
     <textarea id="input-import-levels" rows="14" placeholder="## Deck: Level 3 Name
 question | option A | option B | option C | option D | 2
 ...
@@ -1798,6 +1819,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     activeRunGroupId: null,
     resultContext: null,
     aiPromptDeckId: null,
+    aiPromptGroupId: null,
     battle: null // { deckId, queue, index, playerHp, enemyHp, maxEnemyHp, revealed, combo, bestCombo, runGroupId }
   };
   state.groups = loadGroups(state.decks);
@@ -2133,7 +2155,8 @@ question | option A | option B | option C | option D | 2"></textarea>
   function renderAiPrompt() {
     var topic = document.getElementById('input-ai-topic').value.trim() || '[YOUR TOPIC HERE]';
     var deck = state.aiPromptDeckId ? findDeck(state.aiPromptDeckId) : null;
-    var group = deck ? findGroupForDeck(deck.id) : null;
+    var group = deck ? findGroupForDeck(deck.id) :
+      (state.aiPromptGroupId ? state.groups.find(function (g) { return g.id === state.aiPromptGroupId; }) : null);
 
     var text;
 
@@ -2182,6 +2205,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   document.getElementById('btn-ai-prompt').addEventListener('click', function () {
     state.aiPromptDeckId = null;
+    state.aiPromptGroupId = null;
     document.getElementById('input-ai-topic').value = '';
     renderAiPrompt();
     showScreen('aiPrompt');
@@ -2304,6 +2328,8 @@ question | option A | option B | option C | option D | 2"></textarea>
   document.getElementById('btn-ai-prompt-back').addEventListener('click', function () {
     if (state.aiPromptDeckId) {
       showScreen('editor');
+    } else if (state.aiPromptGroupId) {
+      showScreen('importLevels');
     } else {
       renderDeckList();
       showScreen('decks');
@@ -2314,7 +2340,18 @@ question | option A | option B | option C | option D | 2"></textarea>
     var deck = findDeck(state.editingDeckId);
     if (!deck) return;
     state.aiPromptDeckId = deck.id;
+    state.aiPromptGroupId = null;
     document.getElementById('input-ai-topic').value = deck.name;
+    renderAiPrompt();
+    showScreen('aiPrompt');
+  });
+
+  document.getElementById('btn-import-levels-ai-prompt').addEventListener('click', function () {
+    var group = state.groups.find(function (g) { return g.id === state.viewingGroupId; });
+    if (!group) return;
+    state.aiPromptDeckId = null;
+    state.aiPromptGroupId = group.id;
+    document.getElementById('input-ai-topic').value = group.name;
     renderAiPrompt();
     showScreen('aiPrompt');
   });
@@ -2421,8 +2458,24 @@ question | option A | option B | option C | option D | 2"></textarea>
       return;
     }
 
-    memberDecks.forEach(function (deck) {
-      list.appendChild(buildDeckCardElement(deck));
+    var tiers = getRunTiers(group);
+    tiers.forEach(function (tier, tierIndex) {
+      if (tier.levels.length) {
+        var levelHeading = document.createElement('h2');
+        levelHeading.className = 'tier-heading';
+        levelHeading.textContent = 'LEVEL ' + (tierIndex + 1);
+        list.appendChild(levelHeading);
+        tier.levels.forEach(function (deck) {
+          list.appendChild(buildDeckCardElement(deck));
+        });
+      }
+      if (tier.boss) {
+        var bossHeading = document.createElement('h2');
+        bossHeading.className = 'tier-heading tier-heading-boss';
+        bossHeading.textContent = '👑 BOSS';
+        list.appendChild(bossHeading);
+        list.appendChild(buildDeckCardElement(tier.boss));
+      }
     });
 
     var runState = getRunState(groupId);
