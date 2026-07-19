@@ -1183,6 +1183,44 @@
     100% { background-position: -300% 0; }
   }
 
+  .ko-banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 55;
+    transform: translate(-50%, -50%) scale(0) rotate(-10deg);
+    padding: 10px 22px;
+    border: 3px solid var(--magenta);
+    border-radius: 8px;
+    background: linear-gradient(120deg, #3a0022, #7a0048, #3a0022, #7a0048);
+    background-size: 300% 100%;
+    box-shadow: 0 0 20px rgba(255, 46, 99, 0.8), 0 0 44px rgba(255, 46, 99, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .ko-banner.show {
+    animation:
+      ko-banner-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+      perfect-banner-shine 1.6s linear 0.5s infinite;
+  }
+
+  .ko-banner-text {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 15px;
+    color: #ff8fc0;
+    text-shadow: 2px 2px 0 #000, 0 0 10px rgba(255, 46, 99, 0.9);
+    letter-spacing: 1px;
+  }
+
+  @keyframes ko-banner-pop {
+    0% { transform: translate(-50%, -50%) scale(0) rotate(-10deg); opacity: 0; }
+    55% { transform: translate(-50%, -50%) scale(1.2) rotate(4deg); opacity: 1; }
+    75% { transform: translate(-50%, -50%) scale(0.94) rotate(-2deg); }
+    100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+  }
+
   .mc-options {
     display: flex;
     flex-direction: column;
@@ -1333,11 +1371,6 @@
 
     <div id="deck-list" class="card-list"></div>
     <button class="btn-gold" id="btn-new-group" style="width:100%;">📚 NEW COLLECTION</button>
-    <div class="btn-row">
-      <button class="btn-ghost" id="btn-new-deck">+ NEW DECK</button>
-      <button class="btn-ghost" id="btn-new-boss">👑 BOSS DECK</button>
-    </div>
-    <button class="btn-cyan" id="btn-ai-prompt">🤖 AI PROMPT</button>
     <button class="btn-cyan" id="btn-stats">📊 STATS &amp; PROFILE</button>
     <footer class="note">Tap a deck's ⚔ to battle its monster</footer>
   </section>
@@ -1385,12 +1418,8 @@
       <div class="xp-bar-outer"><div class="xp-bar-inner" id="group-xpbar"></div></div>
     </div>
 
-    <div class="btn-row">
-      <button class="btn-gold" id="btn-group-new-deck">+ NEW LEVEL</button>
-      <button class="btn-cyan" id="btn-group-add-decks">+ ADD DECKS</button>
-    </div>
     <button class="btn-gold" id="btn-start-run">🏃 START RUN</button>
-    <button class="btn-ghost" id="btn-import-levels">🤖 IMPORT AI LEVELS + BOSS</button>
+    <button class="btn-gold" id="btn-import-levels">🤖 IMPORT AI LEVELS + BOSS</button>
     <button class="btn-cyan" id="btn-review-missed">📖 REVIEW MISSED CARDS</button>
 
     <div id="group-deck-list" class="card-list"></div>
@@ -1488,26 +1517,6 @@ question | option A | option B | option C | option D | 1
       imported a few chapters, use 👑 BOSS DECK to add a boss over any subset, then
       📚 COLLECTION to bundle a chapter-set + its boss under one entry on the main screen.
     </p>
-  </section>
-
-  <!-- BOSS DECK CREATOR SCREEN -->
-  <section id="screen-boss-editor" class="screen hidden">
-    <div class="topbar">
-      <h2 class="section-title">Create Boss Deck</h2>
-      <button class="btn-ghost btn-small" id="btn-boss-editor-back">← BACK</button>
-    </div>
-
-    <div class="field">
-      <label>BOSS NAME</label>
-      <input type="text" id="input-boss-name" maxlength="60" placeholder="e.g. Final Exam">
-    </div>
-
-    <div class="field">
-      <label>SELECT DECKS TO COMBINE (2 or more)</label>
-      <div id="boss-source-list" class="card-list"></div>
-    </div>
-
-    <button class="btn-gold" id="btn-create-boss">👑 CREATE BOSS DECK</button>
   </section>
 
   <!-- DECK EDITOR SCREEN -->
@@ -1641,7 +1650,9 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   <!-- BATTLE SCREEN -->
   <section id="screen-battle" class="screen hidden">
+    <button class="btn-ghost btn-small hidden" id="btn-battle-back">← BACK</button>
     <div class="battle-arena">
+      <div class="ko-banner hidden" id="ko-banner"><span class="ko-banner-text">💥 MASTERED!</span></div>
       <div class="combatant">
         <div class="combatant-label">YOU</div>
         <div class="combatant-emoji" id="player-emoji">🧙</div>
@@ -2096,7 +2107,6 @@ question | option A | option B | option C | option D | 2"></textarea>
     player: loadPlayerProgress(),
     editingDeckId: null,
     viewingGroupId: null,
-    editingGroupId: null,
     notesReturnScreen: null,
     activeRunGroupId: null,
     resultContext: null,
@@ -2171,7 +2181,6 @@ question | option A | option B | option C | option D | 2"></textarea>
     title: document.getElementById('screen-title'),
     decks: document.getElementById('screen-decks'),
     editor: document.getElementById('screen-editor'),
-    bossEditor: document.getElementById('screen-boss-editor'),
     group: document.getElementById('screen-group'),
     groupEditor: document.getElementById('screen-group-editor'),
     runMap: document.getElementById('screen-run-map'),
@@ -2367,78 +2376,6 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
   }
 
-  document.getElementById('btn-new-deck').addEventListener('click', function () {
-    var deck = {
-      id: uid(),
-      name: 'New Deck',
-      monster: randomMonster(),
-      bestStars: 0,
-      cards: []
-    };
-    state.decks.push(deck);
-    persist();
-    openEditor(deck.id);
-  });
-
-  document.getElementById('btn-group-new-deck').addEventListener('click', function () {
-    var group = state.groups.find(function (g) { return g.id === state.viewingGroupId; });
-    if (!group) return;
-    var deck = {
-      id: uid(),
-      name: 'New Level',
-      monster: randomMonster(),
-      bestStars: 0,
-      cards: []
-    };
-    state.decks.push(deck);
-    group.deckIds.push(deck.id);
-    persist();
-    saveGroups(state.groups);
-    openEditor(deck.id);
-  });
-
-  function openBossEditor() {
-    document.getElementById('input-boss-name').value = '';
-    renderBossSourceList();
-    showScreen('bossEditor');
-  }
-
-  function renderBossSourceList() {
-    var list = document.getElementById('boss-source-list');
-    list.innerHTML = '';
-
-    var sourceDecks = state.decks.filter(function (d) { return !d.isBoss; });
-
-    if (!sourceDecks.length) {
-      var empty = document.createElement('div');
-      empty.className = 'empty-state';
-      empty.textContent = 'Create a couple of regular decks first, then come back to combine them into a boss.';
-      list.appendChild(empty);
-      return;
-    }
-
-    sourceDecks.forEach(function (deck) {
-      var item = document.createElement('label');
-      item.className = 'boss-source-item';
-      item.innerHTML =
-        '<input type="checkbox" value="' + deck.id + '">' +
-        '<div class="deck-emoji">' + deck.monster + '</div>' +
-        '<div class="deck-info">' +
-          '<div class="deck-name">' + escapeHtml(deck.name) + '</div>' +
-          '<div class="deck-meta">' + deck.cards.length + ' card' + (deck.cards.length === 1 ? '' : 's') + '</div>' +
-        '</div>';
-      list.appendChild(item);
-    });
-  }
-
-  document.getElementById('boss-source-list').addEventListener('change', function (e) {
-    if (e.target.type !== 'checkbox') return;
-    e.target.closest('.boss-source-item').classList.toggle('checked', e.target.checked);
-  });
-
-  document.getElementById('btn-new-boss').addEventListener('click', function () {
-    openBossEditor();
-  });
 
   var AI_PROMPT_TEMPLATE =
     'Generate flashcard study questions about: {{TOPIC}}\n\n' +
@@ -2537,14 +2474,6 @@ question | option A | option B | option C | option D | 2"></textarea>
   }
 
   document.getElementById('input-ai-topic').addEventListener('input', renderAiPrompt);
-
-  document.getElementById('btn-ai-prompt').addEventListener('click', function () {
-    state.aiPromptDeckId = null;
-    state.aiPromptGroupId = null;
-    document.getElementById('input-ai-topic').value = '';
-    renderAiPrompt();
-    showScreen('aiPrompt');
-  });
 
   function renderStatsScreen() {
     var practiceInfo = levelInfoForXp(state.player.xp);
@@ -2729,53 +2658,6 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   document.getElementById('btn-copy-ai-prompt').addEventListener('click', function () {
     copyTextareaContents('ai-prompt-text');
-  });
-
-  document.getElementById('btn-boss-editor-back').addEventListener('click', function () {
-    renderDeckList();
-    showScreen('decks');
-  });
-
-  document.getElementById('btn-create-boss').addEventListener('click', function () {
-    var nameEl = document.getElementById('input-boss-name');
-    var name = nameEl.value.trim() || 'Boss Deck';
-
-    var checked = document.querySelectorAll('#boss-source-list input[type=checkbox]:checked');
-    if (checked.length < 2) {
-      alert('Select at least 2 decks to combine into a boss.');
-      return;
-    }
-
-    var sourceIds = Array.prototype.map.call(checked, function (el) { return el.value; });
-    var combinedCards = [];
-    sourceIds.forEach(function (id) {
-      var deck = findDeck(id);
-      deck.cards.forEach(function (c) {
-        combinedCards.push({
-          id: uid(),
-          type: c.type,
-          q: c.q,
-          options: c.options ? c.options.slice() : undefined,
-          correctIndex: c.correctIndex,
-          a: c.a
-        });
-      });
-    });
-
-    var bossDeck = {
-      id: uid(),
-      name: name,
-      monster: '💀',
-      bestStars: 0,
-      isBoss: true,
-      unlockRequires: sourceIds,
-      cards: combinedCards
-    };
-
-    state.decks.push(bossDeck);
-    persist();
-    renderDeckList();
-    showScreen('decks');
   });
 
   function openGroupView(groupId) {
@@ -3078,21 +2960,7 @@ question | option A | option B | option C | option D | 2"></textarea>
   });
 
   function openGroupEditor() {
-    state.editingGroupId = null;
-    document.getElementById('group-editor-title').textContent = 'Create Collection';
-    document.getElementById('btn-create-group').textContent = '📚 CREATE COLLECTION';
     document.getElementById('input-group-name').value = '';
-    renderGroupSourceList();
-    showScreen('groupEditor');
-  }
-
-  function openGroupAddDecks(groupId) {
-    var group = state.groups.find(function (g) { return g.id === groupId; });
-    if (!group) return;
-    state.editingGroupId = groupId;
-    document.getElementById('group-editor-title').textContent = 'Add Decks';
-    document.getElementById('btn-create-group').textContent = '+ ADD TO COLLECTION';
-    document.getElementById('input-group-name').value = group.name;
     renderGroupSourceList();
     showScreen('groupEditor');
   }
@@ -3140,14 +3008,8 @@ question | option A | option B | option C | option D | 2"></textarea>
   });
 
   document.getElementById('btn-group-editor-back').addEventListener('click', function () {
-    if (state.editingGroupId) {
-      var targetId = state.editingGroupId;
-      state.editingGroupId = null;
-      openGroupView(targetId);
-    } else {
-      renderDeckList();
-      showScreen('decks');
-    }
+    renderDeckList();
+    showScreen('decks');
   });
 
   document.getElementById('btn-create-group').addEventListener('click', function () {
@@ -3158,29 +3020,6 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (!name) {
       alert('Give this collection a name.');
       nameEl.focus();
-      return;
-    }
-
-    if (state.editingGroupId) {
-      var existingGroup = state.groups.find(function (g) { return g.id === state.editingGroupId; });
-      if (!existingGroup) {
-        state.editingGroupId = null;
-        renderDeckList();
-        showScreen('decks');
-        return;
-      }
-      if (checked.length < 1) {
-        alert('Select at least 1 deck to add.');
-        return;
-      }
-      Array.prototype.forEach.call(checked, function (el) {
-        if (existingGroup.deckIds.indexOf(el.value) === -1) existingGroup.deckIds.push(el.value);
-      });
-      existingGroup.name = name;
-      saveGroups(state.groups);
-      var targetId = state.editingGroupId;
-      state.editingGroupId = null;
-      openGroupView(targetId);
       return;
     }
 
@@ -3196,10 +3035,6 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     saveGroups(state.groups);
     openGroupView(newGroup.id);
-  });
-
-  document.getElementById('btn-group-add-decks').addEventListener('click', function () {
-    openGroupAddDecks(state.viewingGroupId);
   });
 
   function parseMultiDeckText(text) {
@@ -3713,6 +3548,9 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
     document.getElementById('projectile-layer').className = 'projectile-layer';
+    document.getElementById('ko-banner').classList.add('hidden');
+    document.getElementById('ko-banner').classList.remove('show');
+    document.getElementById('btn-battle-back').classList.add('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
     showScreen('battle');
@@ -3756,11 +3594,19 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
     document.getElementById('projectile-layer').className = 'projectile-layer';
+    document.getElementById('ko-banner').classList.add('hidden');
+    document.getElementById('ko-banner').classList.remove('show');
+    document.getElementById('btn-battle-back').classList.add('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
     showScreen('battle');
   }
 
+  // Missed-cards study mode: no HP risk at all, just an untimed loop through
+  // whatever's still in the collection's missed-cards list. A card leaves the
+  // list once it's been answered correctly 3 times in a row (a wrong answer
+  // resets that card's streak back to 0, no other penalty). Enemy HP tracks
+  // "cards left to master" - each mastered card is a one-hit kill (-1 HP).
   function startMissedCardsReview(groupId) {
     var group = state.groups.find(function (g) { return g.id === groupId; });
     if (!group) return;
@@ -3771,17 +3617,15 @@ question | option A | option B | option C | option D | 2"></textarea>
       return;
     }
 
-    var reviewCards = shuffle(missedCards).slice(0, 15);
-    var enemyMaxHp = Math.max(4, reviewCards.length * 2);
+    var startingCount = missedCards.length;
 
     state.battle = {
       deckId: '__review__',
-      queue: shuffle(reviewCards),
-      reviewCards: reviewCards,
+      queue: shuffle(missedCards),
       index: 0,
       playerHp: PLAYER_MAX_HP,
-      enemyHp: enemyMaxHp,
-      maxEnemyHp: enemyMaxHp,
+      enemyHp: startingCount,
+      maxEnemyHp: startingCount,
       revealed: false,
       locked: false,
       combo: 0,
@@ -3796,12 +3640,15 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('enemy-emoji').classList.remove('boss-emoji');
     document.getElementById('enemy-label').textContent = 'STUDY MISSED CARDS';
     document.getElementById('player-emoji').textContent = PLAYER_EMOJI;
-    setBattleLog('📖 Time to review the ones you got wrong! Get them right to clear them from this list.');
+    setBattleLog('📖 Get a card right 3 times in a row to master it - no HP risk, just keep going!');
     renderBattleHp();
     hideComboPopup();
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
     document.getElementById('projectile-layer').className = 'projectile-layer';
+    document.getElementById('ko-banner').classList.add('hidden');
+    document.getElementById('ko-banner').classList.remove('show');
+    document.getElementById('btn-battle-back').classList.remove('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
     showScreen('battle');
@@ -3866,7 +3713,17 @@ question | option A | option B | option C | option D | 2"></textarea>
   function renderCurrentCard() {
     var b = state.battle;
     if (b.index >= b.queue.length) {
-      var sourceCards = b.isReview ? b.reviewCards : findDeck(b.deckId).cards;
+      var sourceCards;
+      if (b.isMissedStudy) {
+        // Pull live from the collection's missed-cards list, not a fixed
+        // snapshot, so mastered cards stop reappearing once removed.
+        var liveGroup = state.groups.find(function (g) { return g.id === b.runGroupId; });
+        sourceCards = liveGroup ? getGroupMissedCards(liveGroup) : [];
+      } else if (b.isReview) {
+        sourceCards = b.reviewCards;
+      } else {
+        sourceCards = findDeck(b.deckId).cards;
+      }
       b.queue = shuffle(sourceCards);
       b.index = 0;
       setBattleLog('The deck reshuffles! Keep fighting!');
@@ -3986,9 +3843,101 @@ question | option A | option B | option C | option D | 2"></textarea>
     }, ELEMENTAL_FX_TRAVEL_MS[type]);
   }
 
+  function playMasteryKoFx() {
+    var type = ELEMENTAL_FX_TYPES[Math.floor(Math.random() * ELEMENTAL_FX_TYPES.length)];
+
+    var layer = document.getElementById('projectile-layer');
+    layer.className = 'projectile-layer';
+    void layer.offsetWidth;
+    layer.classList.add('play-' + type);
+
+    setTimeout(function () {
+      renderEnemyHp();
+      damageFlash('enemy-emoji', 'shake');
+      damageFlash('enemy-hp-bar', 'pop');
+
+      var fx = document.getElementById('elemental-fx');
+      fx.className = 'elemental-fx';
+      void fx.offsetWidth;
+      fx.classList.add('play-' + type);
+
+      var banner = document.getElementById('ko-banner');
+      banner.classList.remove('hidden');
+      void banner.offsetWidth;
+      banner.classList.add('show');
+    }, ELEMENTAL_FX_TRAVEL_MS[type]);
+  }
+
+  // Missed-cards study mode: no HP risk, no combo/crit math - just track each
+  // card's own correct-in-a-row streak. 3 in a row masters it (one-hit KO,
+  // removed from the missed list); a miss just resets that card's streak.
+  function applyMissedStudyAnswerResult(correct, currentCard) {
+    var b = state.battle;
+    var group = state.groups.find(function (g) { return g.id === b.runGroupId; });
+    var missedCards = group ? getGroupMissedCards(group) : [];
+    var cardEntry = missedCards.find(function (c) { return c.id === currentCard.id; });
+    var mastered = false;
+
+    if (correct) {
+      awardXp(XP_PER_CORRECT, group);
+
+      if (cardEntry) {
+        cardEntry.correctStreak = (cardEntry.correctStreak || 0) + 1;
+        if (cardEntry.correctStreak >= 3) {
+          mastered = true;
+          missedCards.splice(missedCards.indexOf(cardEntry), 1);
+          b.enemyHp -= 1;
+        }
+        saveGroups(state.groups);
+      }
+
+      if (mastered) {
+        playMasteryKoFx();
+        setBattleLog('💥 MASTERED! One-hit KO - that card is off your missed list for good.');
+      } else if (cardEntry) {
+        playElementalFx();
+        setBattleLog('✓ Correct! (' + cardEntry.correctStreak + '/3 in a row)');
+      } else {
+        playElementalFx();
+        setBattleLog('✓ Correct!');
+      }
+    } else {
+      if (cardEntry) {
+        cardEntry.correctStreak = 0;
+        saveGroups(state.groups);
+      }
+      showCrackOverlay();
+      setBattleLog('Missed it - streak reset. No HP lost, keep going!');
+    }
+
+    updatePlayerBadge('battle', group ? (group.xp || 0) : state.player.xp);
+    b.index += 1;
+
+    if (mastered) {
+      // Drop the just-mastered card from the rest of this shuffled cycle too,
+      // so it can't reappear again before the next reshuffle picks up the
+      // now-shorter missed list.
+      b.queue = b.queue.slice(0, b.index).concat(
+        b.queue.slice(b.index).filter(function (c) { return c.id !== currentCard.id; })
+      );
+    }
+
+    if (b.enemyHp <= 0) {
+      setTimeout(function () { endBattle(true); }, mastered ? 950 : 750);
+      return;
+    }
+
+    setTimeout(renderCurrentCard, mastered ? 950 : 750);
+  }
+
   function applyAnswerResult(correct) {
     var b = state.battle;
     var currentCard = b.queue[b.index];
+
+    if (b.isMissedStudy) {
+      applyMissedStudyAnswerResult(correct, currentCard);
+      return;
+    }
 
     var dmg = 1 + Math.floor(Math.random() * 2); // 1-2 dmg
 
@@ -4099,6 +4048,18 @@ question | option A | option B | option C | option D | 2"></textarea>
     applyAnswerResult(false);
   });
 
+  document.getElementById('btn-battle-back').addEventListener('click', function () {
+    var b = state.battle;
+    var groupId = b && b.runGroupId;
+    if (groupId) {
+      renderGroupView(groupId);
+      showScreen('group');
+    } else {
+      renderDeckList();
+      showScreen('decks');
+    }
+  });
+
   function endBattle(victory) {
     var b = state.battle;
     var deck = b.isReview ? null : findDeck(b.deckId);
@@ -4116,16 +4077,13 @@ question | option A | option B | option C | option D | 2"></textarea>
     var runComplete = false;
 
     if (b.isMissedStudy) {
-      var studyGroup = state.groups.find(function (g) { return g.id === b.runGroupId; });
-      var remainingMissed = studyGroup ? getGroupMissedCards(studyGroup).length : 0;
-
-      emojiEl.textContent = victory ? '📖' : '💀';
-      titleEl.textContent = victory ? 'STUDY COMPLETE!' : 'STUDY INTERRUPTED';
-      titleEl.className = 'result-title ' + (victory ? 'victory' : 'defeat');
+      // No HP risk in this mode, so the only way to reach here is mastering
+      // every card that was on the missed list.
+      emojiEl.textContent = '🎉';
+      titleEl.textContent = 'ALL MASTERED!';
+      titleEl.className = 'result-title victory';
       starsEl.innerHTML = '';
-      msgEl.textContent = victory ?
-        ('Nice work! ' + remainingMissed + ' card' + (remainingMissed === 1 ? '' : 's') + ' still left to master in this collection.') :
-        'No worries - your missed cards are still saved. Jump back in any time to keep studying.';
+      msgEl.textContent = 'You mastered every card on this collection\'s missed list!';
 
       state.resultContext = { isMissedStudy: true, groupId: b.runGroupId };
       retryBtn.textContent = '🔄 STUDY AGAIN';
