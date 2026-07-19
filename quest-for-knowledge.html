@@ -3684,9 +3684,19 @@ question | option A | option B | option C | option D | 2"></textarea>
     return combo === 3 || (combo >= 10 && combo % 10 === 0);
   }
 
-  function comboCritMultiplier(combo) {
+  // Fixed crit damage on combo milestones - boss fights only (see applyAnswerResult).
+  // 3-combo -> 3, 10-combo -> 5, 30-combo -> 10, scaling smoothly beyond that.
+  function comboCritDamage(combo) {
+    if (combo === 3) return 3;
+    var tier = combo / 10;
+    return Math.round(2.5 * (tier + 1));
+  }
+
+  // Bigger combos launch a bigger flurry of projectiles for the crit hit.
+  function comboCritProjectileCount(combo) {
     if (combo === 3) return 2;
-    return Math.min(2 + Math.floor(combo / 10), 5);
+    if (combo < 30) return 3;
+    return 4;
   }
 
   function hideComboPopup() {
@@ -3848,14 +3858,19 @@ question | option A | option B | option C | option D | 2"></textarea>
   var ELEMENTAL_FX_TYPES = Object.keys(ELEMENTAL_FX_TRAVEL_MS);
 
   // Launches a projectile from the player toward the enemy, then plays the
-  // existing impact burst (+ hit shake/HP pop) once it lands.
-  function playElementalFx() {
-    var type = ELEMENTAL_FX_TYPES[Math.floor(Math.random() * ELEMENTAL_FX_TYPES.length)];
+  // existing impact burst (+ hit shake/HP pop) once it lands. Pass a
+  // projectileCount > 1 (boss combo crits) to fire a flurry of distinct
+  // elemental types at once instead of a single hit.
+  function playElementalFx(projectileCount) {
+    var count = Math.min(projectileCount || 1, ELEMENTAL_FX_TYPES.length);
+    var types = shuffle(ELEMENTAL_FX_TYPES.slice()).slice(0, count);
 
     var layer = document.getElementById('projectile-layer');
     layer.className = 'projectile-layer';
     void layer.offsetWidth; // force reflow so the same type can replay back-to-back
-    layer.classList.add('play-' + type);
+    types.forEach(function (type) { layer.classList.add('play-' + type); });
+
+    var maxTravel = Math.max.apply(null, types.map(function (type) { return ELEMENTAL_FX_TRAVEL_MS[type]; }));
 
     setTimeout(function () {
       renderEnemyHp();
@@ -3865,8 +3880,8 @@ question | option A | option B | option C | option D | 2"></textarea>
       var fx = document.getElementById('elemental-fx');
       fx.className = 'elemental-fx';
       void fx.offsetWidth;
-      fx.classList.add('play-' + type);
-    }, ELEMENTAL_FX_TRAVEL_MS[type]);
+      types.forEach(function (type) { fx.classList.add('play-' + type); });
+    }, maxTravel);
   }
 
   function playMasteryKoFx() {
@@ -3975,11 +3990,15 @@ question | option A | option B | option C | option D | 2"></textarea>
       awardXp(XP_PER_CORRECT, cardGroup);
 
       var milestone = isComboMilestone(b.combo);
-      var crit = milestone;
-      if (crit) dmg *= comboCritMultiplier(b.combo);
+      // Combo crits only happen on boss fights - regular decks stay at normal
+      // damage so leveling up doesn't let you skip through a deck's cards.
+      var battleDeck = b.isReview ? null : findDeck(b.deckId);
+      var isBossBattle = !!(battleDeck && battleDeck.isBoss);
+      var crit = milestone && isBossBattle;
+      if (crit) dmg = comboCritDamage(b.combo);
 
       b.enemyHp -= dmg;
-      playElementalFx();
+      playElementalFx(crit ? comboCritProjectileCount(b.combo) : 1);
       setBattleLog(crit ?
         ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
         ('Direct hit! -' + dmg + ' HP to the monster!'));
