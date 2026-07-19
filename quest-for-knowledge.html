@@ -3087,8 +3087,14 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   document.getElementById('btn-create-group').addEventListener('click', function () {
     var nameEl = document.getElementById('input-group-name');
-    var name = nameEl.value.trim() || 'Collection';
+    var name = nameEl.value.trim();
     var checked = document.querySelectorAll('#group-source-list input[type=checkbox]:checked');
+
+    if (!name) {
+      alert('Give this collection a name.');
+      nameEl.focus();
+      return;
+    }
 
     if (state.editingGroupId) {
       var existingGroup = state.groups.find(function (g) { return g.id === state.editingGroupId; });
