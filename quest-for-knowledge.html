@@ -1324,7 +1324,7 @@
 
     <div class="player-badge">
       <div class="player-badge-row">
-        <span class="player-badge-title">LV <span id="decks-level">1</span> · <span id="decks-title">Novice Wizard</span></span>
+        <span class="player-badge-title">🎓 Practice LV <span id="decks-level">1</span> · <span id="decks-title">Novice Wizard</span></span>
         <span class="player-badge-xp" id="decks-xptext">0 / 100 XP</span>
       </div>
       <div class="xp-bar-outer"><div class="xp-bar-inner" id="decks-xpbar"></div></div>
@@ -1332,14 +1332,12 @@
     </div>
 
     <div id="deck-list" class="card-list"></div>
+    <button class="btn-gold" id="btn-new-group" style="width:100%;">📚 NEW COLLECTION</button>
     <div class="btn-row">
-      <button class="btn-cyan" id="btn-new-deck">+ NEW DECK</button>
+      <button class="btn-ghost" id="btn-new-deck">+ NEW DECK</button>
       <button class="btn-ghost" id="btn-new-boss">👑 BOSS DECK</button>
     </div>
-    <div class="btn-row">
-      <button class="btn-ghost" id="btn-new-group">📚 COLLECTION</button>
-      <button class="btn-gold" id="btn-ai-prompt">🤖 AI PROMPT</button>
-    </div>
+    <button class="btn-cyan" id="btn-ai-prompt">🤖 AI PROMPT</button>
     <button class="btn-cyan" id="btn-stats">📊 STATS &amp; PROFILE</button>
     <footer class="note">Tap a deck's ⚔ to battle its monster</footer>
   </section>
@@ -1379,10 +1377,19 @@
       <input type="text" id="input-group-view-name" maxlength="60" placeholder="e.g. Manufacturing Basics">
     </div>
 
-    <div class="btn-row">
-      <button class="btn-cyan" id="btn-group-add-decks">+ ADD DECKS</button>
-      <button class="btn-gold" id="btn-start-run">🏃 START RUN</button>
+    <div class="player-badge">
+      <div class="player-badge-row">
+        <span class="player-badge-title">LV <span id="group-level">1</span> · <span id="group-title">Novice Wizard</span></span>
+        <span class="player-badge-xp" id="group-xptext">0 / 100 XP</span>
+      </div>
+      <div class="xp-bar-outer"><div class="xp-bar-inner" id="group-xpbar"></div></div>
     </div>
+
+    <div class="btn-row">
+      <button class="btn-gold" id="btn-group-new-deck">+ NEW LEVEL</button>
+      <button class="btn-cyan" id="btn-group-add-decks">+ ADD DECKS</button>
+    </div>
+    <button class="btn-gold" id="btn-start-run">🏃 START RUN</button>
     <button class="btn-ghost" id="btn-import-levels">🤖 IMPORT AI LEVELS + BOSS</button>
     <button class="btn-cyan" id="btn-review-missed">📖 REVIEW MISSED CARDS</button>
 
@@ -2111,15 +2118,36 @@ question | option A | option B | option C | option D | 2"></textarea>
     saveDecks(state.decks);
   }
 
-  function awardXp(amount) {
-    state.player.xp += amount;
-    savePlayerProgress(state.player);
+  // Leveling is scoped per collection - each group has its own xp pool.
+  // Decks that aren't in any collection share one "Practice" pool (state.player.xp).
+  function awardXp(amount, group) {
+    if (group) {
+      group.xp = (group.xp || 0) + amount;
+      saveGroups(state.groups);
+    } else {
+      state.player.xp += amount;
+      savePlayerProgress(state.player);
+    }
   }
 
-  function updatePlayerBadge(prefix) {
+  // Resolves which xp pool the CURRENT battle belongs to (null = the Practice pool).
+  function findBattleXpGroup() {
+    var b = state.battle;
+    if (!b) return null;
+    return b.isReview ?
+      state.groups.find(function (g) { return g.id === b.runGroupId; }) :
+      findGroupForDeck(b.deckId);
+  }
+
+  function battleXpBucketValue() {
+    var group = findBattleXpGroup();
+    return group ? (group.xp || 0) : state.player.xp;
+  }
+
+  function updatePlayerBadge(prefix, xp) {
     var levelEl = document.getElementById(prefix + '-level');
     if (!levelEl) return;
-    var info = levelInfoForXp(state.player.xp);
+    var info = levelInfoForXp(xp);
     levelEl.textContent = info.level;
     document.getElementById(prefix + '-title').textContent = info.title;
     document.getElementById(prefix + '-xptext').textContent = info.xpIntoLevel + ' / ' + info.xpForLevel + ' XP';
@@ -2135,11 +2163,6 @@ question | option A | option B | option C | option D | 2"></textarea>
         recordEl.classList.add('hidden');
       }
     }
-  }
-
-  function updateAllPlayerBadges() {
-    updatePlayerBadge('decks');
-    updatePlayerBadge('battle');
   }
 
   // ---------- Navigation ----------
@@ -2243,13 +2266,14 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     var memberDecks = group.deckIds.map(findDeck).filter(Boolean);
     var totalCards = memberDecks.reduce(function (sum, d) { return sum + d.cards.length; }, 0);
+    var groupInfo = levelInfoForXp(group.xp || 0);
 
     card.innerHTML =
       '<div class="deck-emoji">' + group.monster + '</div>' +
       '<div class="deck-info">' +
         '<div class="deck-name">' + escapeHtml(group.name) + '</div>' +
         '<div class="deck-meta">' + memberDecks.length + ' decks · ' + totalCards + ' cards total</div>' +
-        '<div class="group-meta-line">Tap to open</div>' +
+        '<div class="group-meta-line">LV ' + groupInfo.level + ' · ' + escapeHtml(groupInfo.title) + '</div>' +
       '</div>' +
       '<div class="deck-actions">' +
         '<button class="btn-gold btn-small" data-group-action="open" data-id="' + group.id + '">→ OPEN</button>' +
@@ -2260,7 +2284,7 @@ question | option A | option B | option C | option D | 2"></textarea>
   }
 
   function renderDeckList() {
-    updatePlayerBadge('decks');
+    updatePlayerBadge('decks', state.player.xp);
 
     var list = document.getElementById('deck-list');
     list.innerHTML = '';
@@ -2353,6 +2377,23 @@ question | option A | option B | option C | option D | 2"></textarea>
     };
     state.decks.push(deck);
     persist();
+    openEditor(deck.id);
+  });
+
+  document.getElementById('btn-group-new-deck').addEventListener('click', function () {
+    var group = state.groups.find(function (g) { return g.id === state.viewingGroupId; });
+    if (!group) return;
+    var deck = {
+      id: uid(),
+      name: 'New Level',
+      monster: randomMonster(),
+      bestStars: 0,
+      cards: []
+    };
+    state.decks.push(deck);
+    group.deckIds.push(deck.id);
+    persist();
+    saveGroups(state.groups);
     openEditor(deck.id);
   });
 
@@ -2496,7 +2537,7 @@ question | option A | option B | option C | option D | 2"></textarea>
   });
 
   function renderStatsScreen() {
-    var info = levelInfoForXp(state.player.xp);
+    var practiceInfo = levelInfoForXp(state.player.xp);
 
     var totalCards = state.decks.reduce(function (sum, d) { return sum + d.cards.length; }, 0);
     var totalVictories = state.decks.reduce(function (sum, d) { return sum + (d.victories || 0); }, 0);
@@ -2507,13 +2548,26 @@ question | option A | option B | option C | option D | 2"></textarea>
     });
     var deepestTierOverall = state.groups.reduce(function (max, g) { return Math.max(max, g.deepestTierReached || 0); }, 0);
 
+    var collectionLevelsHtml = state.groups.map(function (g) {
+      var gInfo = levelInfoForXp(g.xp || 0);
+      return '<div class="card-item-row">' +
+        '<span>' + g.monster + ' ' + escapeHtml(g.name) + '</span>' +
+        '<span>LV ' + gInfo.level + ' · ' + escapeHtml(gInfo.title) + '</span>' +
+      '</div>';
+    }).join('');
+
     var html =
       '<div class="player-badge">' +
         '<div class="player-badge-row">' +
-          '<span class="player-badge-title">LV ' + info.level + ' · ' + escapeHtml(info.title) + '</span>' +
-          '<span class="player-badge-xp">' + state.player.xp + ' total XP</span>' +
+          '<span class="player-badge-title">🎓 Practice LV ' + practiceInfo.level + ' · ' + escapeHtml(practiceInfo.title) + '</span>' +
+          '<span class="player-badge-xp">' + state.player.xp + ' practice XP</span>' +
         '</div>' +
       '</div>' +
+      (state.groups.length ?
+        ('<div class="card-item">' +
+          '<label>COLLECTION LEVELS</label>' +
+          collectionLevelsHtml +
+        '</div>') : '') +
       '<div class="card-item">' +
         '<div>📚 Decks: ' + state.decks.length + '</div>' +
         '<div>🗂 Collections: ' + state.groups.length + '</div>' +
@@ -2734,6 +2788,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
 
     document.getElementById('input-group-view-name').value = group.name;
+    updatePlayerBadge('group', group.xp || 0);
 
     var missedCards = getGroupMissedCards(group);
     document.getElementById('btn-review-missed').textContent =
@@ -2746,7 +2801,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (!memberDecks.length) {
       var empty = document.createElement('div');
       empty.className = 'empty-state';
-      empty.textContent = 'This collection has no decks left in it.';
+      empty.textContent = 'This collection has no decks yet. Tap + NEW LEVEL to create your first one.';
       list.appendChild(empty);
       return;
     }
@@ -3046,7 +3101,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (!sourceDecks.length) {
       var empty = document.createElement('div');
       empty.className = 'empty-state';
-      empty.textContent = 'No ungrouped decks available. Create a deck first, or ungroup an existing collection.';
+      empty.textContent = 'No ungrouped decks to attach right now - that\'s fine, just name this collection and you can add levels once you\'re inside it.';
       list.appendChild(empty);
       return;
     }
@@ -3119,23 +3174,18 @@ question | option A | option B | option C | option D | 2"></textarea>
       return;
     }
 
-    if (checked.length < 1) {
-      alert('Select at least 1 deck to add to this collection.');
-      return;
-    }
-
     var deckIds = Array.prototype.map.call(checked, function (el) { return el.value; });
 
-    state.groups.push({
+    var newGroup = {
       id: uid(),
       name: name,
       monster: '📚',
       deckIds: deckIds
-    });
+    };
+    state.groups.push(newGroup);
 
     saveGroups(state.groups);
-    renderDeckList();
-    showScreen('decks');
+    openGroupView(newGroup.id);
   });
 
   document.getElementById('btn-group-add-decks').addEventListener('click', function () {
@@ -3582,8 +3632,13 @@ question | option A | option B | option C | option D | 2"></textarea>
     var deck = findDeck(state.editingDeckId);
     if (deck && !deck.name.trim()) deck.name = 'Untitled Deck';
     persist();
-    renderDeckList();
-    showScreen('decks');
+    if (state.viewingGroupId) {
+      renderGroupView(state.viewingGroupId);
+      showScreen('group');
+    } else {
+      renderDeckList();
+      showScreen('decks');
+    }
   });
 
   document.getElementById('btn-battle-deck').addEventListener('click', function () {
@@ -3637,7 +3692,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
     document.getElementById('projectile-layer').className = 'projectile-layer';
-    updatePlayerBadge('battle');
+    updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
     showScreen('battle');
   }
@@ -3680,7 +3735,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
     document.getElementById('projectile-layer').className = 'projectile-layer';
-    updatePlayerBadge('battle');
+    updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
     showScreen('battle');
   }
@@ -3726,7 +3781,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('crack-overlay').classList.remove('show');
     document.getElementById('elemental-fx').className = 'elemental-fx';
     document.getElementById('projectile-layer').className = 'projectile-layer';
-    updatePlayerBadge('battle');
+    updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
     showScreen('battle');
   }
@@ -3916,14 +3971,12 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     var dmg = 1 + Math.floor(Math.random() * 2); // 1-2 dmg
 
-    var cardGroup = b.isReview ?
-      state.groups.find(function (g) { return g.id === b.runGroupId; }) :
-      findGroupForDeck(b.deckId);
+    var cardGroup = findBattleXpGroup();
 
     if (correct) {
       b.combo += 1;
       if (b.combo > b.bestCombo) b.bestCombo = b.combo;
-      awardXp(XP_PER_CORRECT);
+      awardXp(XP_PER_CORRECT, cardGroup);
 
       var milestone = isComboMilestone(b.combo);
       var crit = milestone;
@@ -3996,7 +4049,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     // Enemy HP bar updates when the elemental attack lands (see playElementalFx),
     // not immediately, so the bar drop is in sync with the hit animation.
     if (!correct) renderEnemyHp();
-    updatePlayerBadge('battle');
+    updatePlayerBadge('battle', cardGroup ? (cardGroup.xp || 0) : state.player.xp);
     b.index += 1;
 
     if (b.enemyHp <= 0) {
@@ -4104,9 +4157,10 @@ question | option A | option B | option C | option D | 2"></textarea>
       var remaining = Math.max(0, b.playerHp);
       var stars = starsForHp(remaining, PLAYER_MAX_HP);
       var previousRank = getDeckRank(deck);
-      var levelBefore = levelInfoForXp(state.player.xp).level;
+      var xpGroup = findBattleXpGroup();
+      var levelBefore = levelInfoForXp(xpGroup ? (xpGroup.xp || 0) : state.player.xp).level;
 
-      awardXp(XP_VICTORY_BONUS);
+      awardXp(XP_VICTORY_BONUS, xpGroup);
 
       if (stars > (deck.bestStars || 0)) deck.bestStars = stars;
       deck.victories = (deck.victories || 0) + 1;
@@ -4114,7 +4168,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       persist();
 
       var newRank = getDeckRank(deck);
-      var levelAfter = levelInfoForXp(state.player.xp).level;
+      var levelAfter = levelInfoForXp(xpGroup ? (xpGroup.xp || 0) : state.player.xp).level;
 
       emojiEl.textContent = '🏆';
       titleEl.textContent = 'VICTORY!';
@@ -4248,6 +4302,9 @@ question | option A | option B | option C | option D | 2"></textarea>
     var ctx = state.resultContext;
     if (ctx && (ctx.isMissedStudy || ctx.isRun)) {
       renderGroupView(ctx.isMissedStudy ? ctx.groupId : ctx.runGroupId);
+      showScreen('group');
+    } else if (state.viewingGroupId) {
+      renderGroupView(state.viewingGroupId);
       showScreen('group');
     } else {
       renderDeckList();
