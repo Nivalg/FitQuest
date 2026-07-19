@@ -2458,8 +2458,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     '  question text | option A | option B | option C | option D | correct#\n' +
     '  where correct# is a number 1-4 marking which option (in order) is right.\n' +
     '- Do not use the "|" character anywhere inside the question or option text.\n' +
-    '- Output plain text only - no markdown tables, no numbering, no extra\n' +
-    '  commentary. Just the card lines, one per line, nothing else.\n\n' +
+    '- CRITICAL: your ENTIRE reply must be ONLY the card lines - no greeting, no\n' +
+    '  "Sure, here are your questions:" intro, no markdown tables, no numbering,\n' +
+    '  no summary or sign-off at the end. I need to hit "copy" on your whole\n' +
+    '  response and paste it straight into an import box without editing it first.\n\n' +
     'If I am working through a whole book chapter by chapter, I will paste this\n' +
     'same prompt again for each new chapter along with that chapter\'s text - treat\n' +
     'each request as fully independent and do not try to cover the whole book at once.';
@@ -2488,9 +2490,14 @@ question | option A | option B | option C | option D | 2"></textarea>
         'repeat any of them or make trivial rewordings. Generate NEW, DIFFERENT questions\n' +
         'that fit the same overall subject:\n\n' + existingBlock + '\n\n' +
         'Requirements:\n' +
-        '- Generate enough NEW questions for 1-2 additional decks, each with 15-25 TRUE,\n' +
-        '  UNIQUE questions grouped by sub-topic. Fewer good questions is better than\n' +
-        '  padding the count with reworded duplicates.\n' +
+        '- YOU decide how many new decks to generate and how much content each one\n' +
+        '  needs, based on how much genuinely distinct material this topic supports.\n' +
+        '  Generate a MINIMUM of 2 decks (so a boss can be created over them) and a\n' +
+        '  MAXIMUM of 10 decks - use your judgment on where in that range to land.\n' +
+        '  Do not pad a thin topic out to hit a higher count, and do not artificially\n' +
+        '  split a rich topic into only 2 decks if it clearly supports more. Each deck\n' +
+        '  should have 15-25 TRUE, UNIQUE questions grouped by sub-topic - fewer good\n' +
+        '  questions is better than padding the count with reworded duplicates.\n' +
         '- CRITICAL FORMATTING RULE: before each deck, output a line that is LITERALLY\n' +
         '  the two characters "#" "#", then a space, then the word "Deck:", then a\n' +
         '  space, then the deck name. As plain typed characters it looks exactly like\n' +
@@ -2507,8 +2514,11 @@ question | option A | option B | option C | option D | 2"></textarea>
         '  question text | option A | option B | option C | option D | correct#\n' +
         '  where correct# is a number 1-4 marking which option (in order) is right.\n' +
         '- Do not use the "|" character anywhere inside the question or option text.\n' +
-        '- Output plain text only - just "## Deck: <name>" headers followed by that\n' +
-        '  deck\'s card lines, then a blank line before the next deck. No commentary.\n\n' +
+        '- CRITICAL: your ENTIRE reply must be ONLY "## Deck: <name>" headers followed\n' +
+        '  by that deck\'s card lines, with a blank line before the next deck - no\n' +
+        '  greeting, no "Sure, here are your decks:" intro, no summary or sign-off at\n' +
+        '  the end. I need to hit "copy" on your whole response and paste it straight\n' +
+        '  into an import box without editing it first.\n\n' +
         'Once you give me this, I will paste your FULL reply into this app\'s "Import AI\n' +
         'Levels" tool, which automatically creates a new level deck per "## Deck:" section\n' +
         'and a boss combining them - you do not need to generate anything for a boss.';
@@ -3379,12 +3389,17 @@ question | option A | option B | option C | option D | 2"></textarea>
     });
 
     return 'Here are the flashcard questions and correct answers from a study deck called "' + deck.name + '".\n\n' +
-      'Write a clear, detailed study summary that explains and ties together everything\n' +
-      'covered by these questions, in simple language a learner can review before testing\n' +
-      'themselves. Organize it logically into sections by related concepts rather than\n' +
+      'Write a clear study summary that explains and ties together everything covered\n' +
+      'by these questions, in simple language a learner can review before testing\n' +
+      'themselves. Group it logically into sections by related concept rather than\n' +
       'going question-by-question, and make sure every concept below is explained.\n\n' +
-      'Output plain explanatory text only - no markdown headers or bullet lists needed,\n' +
-      'just clear, well-organized prose.\n\n' +
+      'Formatting requirements:\n' +
+      '- Break it into short sections, each with a brief heading line for that\n' +
+      '  concept group.\n' +
+      '- Under each heading, use short bullet points (one idea per line) instead of\n' +
+      '  long paragraphs - a learner should be able to scan it quickly, not read a\n' +
+      '  wall of text.\n' +
+      '- Keep each bullet to 1-2 short sentences.\n\n' +
       'Concepts to cover:\n' +
       lines.join('\n');
   }
