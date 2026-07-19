@@ -1890,6 +1890,8 @@ question | option A | option B | option C | option D | 2"></textarea>
       badgesHtml += '<span class="combo-badge">🔥 Best Combo x' + deck.bestCombo + '</span>';
     }
 
+    var hasNotes = !!(deck.notes && deck.notes.trim());
+
     if (deck.isBoss) {
       var unlocked = isBossUnlocked(deck);
       card.classList.add('deck-card-boss');
@@ -1913,7 +1915,7 @@ question | option A | option B | option C | option D | 2"></textarea>
         '</div>' +
         '<div class="deck-actions">' +
           (unlocked ? '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' : '<span class="lock-badge">🔒 LOCKED</span>') +
-          '<button class="btn-small" data-action="read-notes" data-id="' + deck.id + '">📖 NOTES</button>' +
+          (hasNotes ? '<button class="btn-small" data-action="read-notes" data-id="' + deck.id + '">📖 NOTES</button>' : '') +
           '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
         '</div>';
 
@@ -1931,7 +1933,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       '<div class="deck-actions">' +
         '<button class="btn-gold btn-small" data-action="battle" data-id="' + deck.id + '">⚔ FIGHT</button>' +
         '<button class="btn-cyan btn-small" data-action="edit" data-id="' + deck.id + '">EDIT</button>' +
-        '<button class="btn-small" data-action="read-notes" data-id="' + deck.id + '">📖 NOTES</button>' +
+        (hasNotes ? '<button class="btn-small" data-action="read-notes" data-id="' + deck.id + '">📖 NOTES</button>' : '') +
         '<button class="btn-small" data-action="delete" data-id="' + deck.id + '">DEL</button>' +
       '</div>';
 
@@ -2101,13 +2103,17 @@ question | option A | option B | option C | option D | 2"></textarea>
   });
 
   var AI_PROMPT_TEMPLATE =
-    'I am going to give you ONE chapter or section from a larger study book/guide.\n' +
-    'This request covers ONLY that section: {{TOPIC}}\n\n' +
+    'Generate flashcard study questions about: {{TOPIC}}\n\n' +
+    'Do NOT wait for me to paste anything else - use your own knowledge of this\n' +
+    'topic and generate the questions right now, in this same response.\n' +
+    '(The only exception: if I have also pasted a chapter/section of text along\n' +
+    'with this prompt in the same message, base your questions on that text\n' +
+    'instead of general knowledge.)\n\n' +
     'Requirements:\n' +
-    '- Generate 15-25 TRUE, UNIQUE questions covering just this section\'s content.\n' +
-    '  Fewer good questions is better than padding the count - if this section does\n' +
-    '  not have enough distinct material for that many, generate fewer instead of\n' +
-    '  repeating a question with reworded/reordered variations.\n' +
+    '- Generate 15-25 TRUE, UNIQUE questions. Fewer good questions is better than\n' +
+    '  padding the count - if the topic doesn\'t support that many genuinely\n' +
+    '  distinct questions, generate fewer instead of repeating a question with\n' +
+    '  reworded/reordered variations.\n' +
     '- Make every question multiple choice with exactly 4 answer options,\n' +
     '  only one of which is correct.\n' +
     '- Output each card as ONE line in this exact format:\n' +
@@ -2116,9 +2122,9 @@ question | option A | option B | option C | option D | 2"></textarea>
     '- Do not use the "|" character anywhere inside the question or option text.\n' +
     '- Output plain text only - no markdown tables, no numbering, no extra\n' +
     '  commentary. Just the card lines, one per line, nothing else.\n\n' +
-    'If I am working through a whole book, I will paste this same prompt again for\n' +
-    'each new chapter along with that chapter\'s text - treat each request as fully\n' +
-    'independent and do not try to cover the whole book at once.';
+    'If I am working through a whole book chapter by chapter, I will paste this\n' +
+    'same prompt again for each new chapter along with that chapter\'s text - treat\n' +
+    'each request as fully independent and do not try to cover the whole book at once.';
 
   function findGroupForDeck(deckId) {
     return state.groups.find(function (g) { return g.deckIds.indexOf(deckId) !== -1; }) || null;
