@@ -2801,12 +2801,14 @@ question | option A | option B | option C | option D | 2"></textarea>
     var allErrors = [];
     var sections = [];
 
-    var rawBlocks = text.split(/^\s*##\s*Deck:\s*/im);
-    rawBlocks.shift(); // discard anything before the first "## Deck:" header
+    // Tolerate AI replies/clipboards that drop the "##" - some chat apps render
+    // "## Deck: X" as a heading and copy only the plain rendered text back out.
+    var rawBlocks = text.split(/^\s*#{0,3}\s*\*{0,2}\s*Deck:\s*\*{0,2}\s*/im);
+    rawBlocks.shift(); // discard anything before the first "Deck:" header
 
     rawBlocks.forEach(function (block, blockIndex) {
       var lines = block.split('\n');
-      var name = (lines[0] || '').trim();
+      var name = (lines[0] || '').trim().replace(/\*+$/, '').trim();
       if (!name) {
         allErrors.push('Deck block ' + (blockIndex + 1) + ': missing a name right after "## Deck:".');
         return;
