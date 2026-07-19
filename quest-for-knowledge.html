@@ -183,6 +183,17 @@
   }
   button.btn-small:active { transform: translateY(4px); box-shadow: 0 0 0 #9c1339; }
 
+  #btn-battle-back {
+    position: fixed;
+    left: max(16px, calc(50% - 224px));
+    bottom: 16px;
+    z-index: 200;
+  }
+
+  #screen-battle {
+    padding-bottom: 64px;
+  }
+
   button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -507,14 +518,19 @@
   }
 
   .notes-sticky-header {
-    position: sticky;
+    position: fixed;
     top: 0;
-    z-index: 10;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    z-index: 500;
     background: var(--bg);
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding-bottom: 8px;
+    padding: 16px 16px 10px;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.55);
   }
 
   .notes-companion {
@@ -1688,6 +1704,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
       <div class="notes-heal-banner hidden" id="notes-heal-banner"></div>
     </div>
+    <div id="notes-header-spacer"></div>
 
     <div class="notes-reading-box" id="notes-reading-box"></div>
   </section>
@@ -3379,6 +3396,15 @@ question | option A | option B | option C | option D | 2"></textarea>
     }
 
     showScreen('notesRead');
+    window.scrollTo(0, 0);
+    requestAnimationFrame(function () {
+      var header = document.querySelector('#screen-notes-read .notes-sticky-header');
+      var spacer = document.getElementById('notes-header-spacer');
+      if (header && spacer) {
+        spacer.style.height = header.offsetHeight + 'px';
+      }
+      window.scrollTo(0, 0);
+    });
   }
 
   document.getElementById('btn-read-notes').addEventListener('click', function () {
@@ -3439,6 +3465,7 @@ question | option A | option B | option C | option D | 2"></textarea>
   document.getElementById('card-list').addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-action="delete-card"]');
     if (!btn) return;
+    if (!window.confirm('Delete this card? This cannot be undone.')) return;
     var deck = findDeck(state.editingDeckId);
     var cardId = btn.getAttribute('data-id');
     deck.cards = deck.cards.filter(function (c) { return c.id !== cardId; });
@@ -3642,7 +3669,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('ko-banner').classList.remove('show');
     document.getElementById('player-orbit-fx').classList.add('hidden');
     document.getElementById('player-orbit-fx').classList.remove('show');
-    document.getElementById('btn-battle-back').classList.add('hidden');
+    document.getElementById('btn-battle-back').classList.toggle('hidden', !runGroupId);
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
     showScreen('battle');
@@ -4251,7 +4278,10 @@ question | option A | option B | option C | option D | 2"></textarea>
   document.getElementById('btn-battle-back').addEventListener('click', function () {
     var b = state.battle;
     var groupId = b && b.runGroupId;
-    if (groupId) {
+    if (groupId && !b.isMissedStudy) {
+      renderRunMap(groupId);
+      showScreen('runMap');
+    } else if (groupId) {
       renderGroupView(groupId);
       showScreen('group');
     } else {
