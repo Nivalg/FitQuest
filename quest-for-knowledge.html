@@ -773,6 +773,143 @@
     50% { transform: scale(1.08); }
   }
 
+  /* Elemental hit effects - played over the enemy emoji on a correct answer */
+  .enemy-emoji-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .elemental-fx {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 40;
+    overflow: visible;
+  }
+
+  .elemental-fx > div {
+    position: absolute;
+    opacity: 0;
+  }
+
+  .fx-flash {
+    inset: -6px;
+    border-radius: 50%;
+  }
+
+  .fx-bolt {
+    top: 50%;
+    left: 50%;
+    font-size: 44px;
+    transform: translate(-50%, -50%) scale(0.4) rotate(-10deg);
+    filter: drop-shadow(0 0 8px #fff) drop-shadow(0 0 16px #6cf);
+  }
+
+  .fx-tornado {
+    top: 50%;
+    left: 50%;
+    font-size: 46px;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+
+  .fx-fire {
+    bottom: -6px;
+    left: 50%;
+    font-size: 42px;
+    transform: translateX(-50%) scale(0.2);
+  }
+
+  .elemental-fx > .fx-snow {
+    inset: 0;
+    opacity: 1;
+  }
+
+  .fx-snow span {
+    position: absolute;
+    top: -18px;
+    font-size: 18px;
+    opacity: 0;
+  }
+
+  .fx-snow span:nth-child(1) { left: 6%; }
+  .fx-snow span:nth-child(2) { left: 28%; }
+  .fx-snow span:nth-child(3) { left: 50%; }
+  .fx-snow span:nth-child(4) { left: 72%; }
+  .fx-snow span:nth-child(5) { left: 90%; }
+
+  .elemental-fx.play-lightning .fx-bolt {
+    animation: fx-bolt-strike 0.45s ease-out;
+  }
+  .elemental-fx.play-lightning .fx-flash {
+    background: radial-gradient(circle, rgba(180, 220, 255, 0.85), transparent 70%);
+    animation: fx-flash-pulse 0.35s ease-out;
+  }
+
+  .elemental-fx.play-tornado .fx-tornado {
+    animation: fx-tornado-spin 0.6s ease-in-out;
+  }
+  .elemental-fx.play-tornado .fx-flash {
+    background: radial-gradient(circle, rgba(200, 200, 210, 0.45), transparent 70%);
+    animation: fx-flash-pulse 0.6s ease-out;
+  }
+
+  .elemental-fx.play-fire .fx-fire {
+    animation: fx-fire-burst 0.5s ease-out;
+  }
+  .elemental-fx.play-fire .fx-flash {
+    background: radial-gradient(circle, rgba(255, 140, 60, 0.6), transparent 70%);
+    animation: fx-flash-pulse 0.45s ease-out;
+  }
+
+  .elemental-fx.play-freeze .fx-snow span {
+    animation: fx-snow-fall 0.7s ease-in;
+  }
+  .elemental-fx.play-freeze .fx-snow span:nth-child(2) { animation-delay: 0.05s; }
+  .elemental-fx.play-freeze .fx-snow span:nth-child(3) { animation-delay: 0.1s; }
+  .elemental-fx.play-freeze .fx-snow span:nth-child(4) { animation-delay: 0.05s; }
+  .elemental-fx.play-freeze .fx-snow span:nth-child(5) { animation-delay: 0.15s; }
+  .elemental-fx.play-freeze .fx-flash {
+    background: radial-gradient(circle, rgba(140, 220, 255, 0.65), transparent 70%);
+    animation: fx-flash-pulse 0.6s ease-out;
+  }
+
+  @keyframes fx-flash-pulse {
+    0% { opacity: 0; }
+    25% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  @keyframes fx-bolt-strike {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3) rotate(-18deg); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1.35) rotate(10deg); }
+    30% { opacity: 0.3; }
+    40% { opacity: 1; }
+    60% { opacity: 0.2; }
+    75% { opacity: 1; transform: translate(-50%, -50%) scale(1.05) rotate(-4deg); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9) rotate(0deg); }
+  }
+
+  @keyframes fx-tornado-spin {
+    0% { opacity: 0; transform: translate(-50%, 30px) scale(0.2) rotate(0deg); }
+    20% { opacity: 1; }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2) rotate(360deg); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(620deg); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8) rotate(720deg); }
+  }
+
+  @keyframes fx-fire-burst {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.2); }
+    30% { opacity: 1; transform: translateX(-50%) translateY(-6px) scale(1.15); }
+    60% { opacity: 1; transform: translateX(-50%) translateY(-14px) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-26px) scale(0.85); }
+  }
+
+  @keyframes fx-snow-fall {
+    0% { opacity: 0; transform: translateY(0); }
+    15% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(70px); }
+  }
+
   .combatant-label {
     font-size: 10px;
     color: var(--cyan);
@@ -1435,7 +1572,16 @@ question | option A | option B | option C | option D | 2"></textarea>
       <div class="vs-mark">VS</div>
       <div class="combatant">
         <div class="combatant-label" id="enemy-label">MONSTER</div>
-        <div class="combatant-emoji" id="enemy-emoji">👾</div>
+        <div class="enemy-emoji-wrap">
+          <div class="combatant-emoji" id="enemy-emoji">👾</div>
+          <div class="elemental-fx" id="elemental-fx">
+            <div class="fx-flash"></div>
+            <div class="fx-bolt">⚡</div>
+            <div class="fx-tornado">🌪️</div>
+            <div class="fx-fire">🔥</div>
+            <div class="fx-snow"><span>❄️</span><span>❄️</span><span>❄️</span><span>❄️</span><span>❄️</span></div>
+          </div>
+        </div>
         <div class="hp-bar-outer"><div class="hp-bar-inner enemy" id="enemy-hp-bar"></div></div>
         <div class="hp-text" id="enemy-hp-text">10/10</div>
       </div>
@@ -3404,6 +3550,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     renderBattleHp();
     hideComboPopup();
     document.getElementById('crack-overlay').classList.remove('show');
+    document.getElementById('elemental-fx').className = 'elemental-fx';
     updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
@@ -3445,6 +3592,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     renderBattleHp();
     hideComboPopup();
     document.getElementById('crack-overlay').classList.remove('show');
+    document.getElementById('elemental-fx').className = 'elemental-fx';
     updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
@@ -3489,6 +3637,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     renderBattleHp();
     hideComboPopup();
     document.getElementById('crack-overlay').classList.remove('show');
+    document.getElementById('elemental-fx').className = 'elemental-fx';
     updatePlayerBadge('battle');
     renderCurrentCard();
     showScreen('battle');
@@ -3639,6 +3788,16 @@ question | option A | option B | option C | option D | 2"></textarea>
     el.classList.add(cls);
   }
 
+  var ELEMENTAL_FX_TYPES = ['lightning', 'tornado', 'fire', 'freeze'];
+
+  function playElementalFx() {
+    var fx = document.getElementById('elemental-fx');
+    var type = ELEMENTAL_FX_TYPES[Math.floor(Math.random() * ELEMENTAL_FX_TYPES.length)];
+    fx.className = 'elemental-fx';
+    void fx.offsetWidth; // force reflow so the same type can replay back-to-back
+    fx.classList.add('play-' + type);
+  }
+
   function applyAnswerResult(correct) {
     var b = state.battle;
     var currentCard = b.queue[b.index];
@@ -3661,6 +3820,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       b.enemyHp -= dmg;
       damageFlash('enemy-emoji', 'shake');
       damageFlash('enemy-hp-bar', 'pop');
+      playElementalFx();
       setBattleLog(crit ?
         ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
         ('Direct hit! -' + dmg + ' HP to the monster!'));
