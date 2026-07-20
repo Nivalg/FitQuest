@@ -3812,7 +3812,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('ko-banner').classList.remove('show');
     document.getElementById('player-orbit-fx').classList.add('hidden');
     document.getElementById('player-orbit-fx').classList.remove('show');
-    document.getElementById('btn-battle-back').classList.toggle('hidden', !runGroupId);
+    document.getElementById('btn-battle-back').classList.remove('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
     openBattleScreen();
@@ -4015,7 +4015,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     box.classList.remove('answer-mode');
     document.getElementById('qa-label').textContent = 'QUESTION';
     document.getElementById('qa-text').innerHTML = escapeHtml(card.q);
-    document.getElementById('btn-delete-study-card').classList.toggle('hidden', !b.isMissedStudy);
+    document.getElementById('btn-delete-study-card').classList.remove('hidden');
 
     var revealBtn = document.getElementById('btn-reveal');
     var judgeRow = document.getElementById('judge-row');
@@ -4298,12 +4298,14 @@ question | option A | option B | option C | option D | 2"></textarea>
     setTimeout(renderCurrentCard, mastered ? 950 : 750);
   }
 
-  // Permanently deletes the card currently shown in missed-cards study mode -
-  // removes it from whichever deck actually owns it and from the collection's
-  // missed-cards list, then counts it as cleared same as mastering it.
+  // Permanently deletes the card currently shown, in any battle mode - removes
+  // it from whichever deck actually owns it, plus any missed-cards lists that
+  // reference it. In missed-cards study mode it counts as cleared, same as
+  // mastering it. In any other mode it's just skipped with no combat effect,
+  // and if it was the last card left to fight, the battle ends in victory.
   function deleteCurrentStudyCard() {
     var b = state.battle;
-    if (!b || !b.isMissedStudy || b.locked) return;
+    if (!b || b.locked) return;
     var currentCard = b.queue[b.index];
     if (!currentCard) return;
     if (!window.confirm('Delete this card? This cannot be undone.')) return;
@@ -4313,25 +4315,61 @@ question | option A | option B | option C | option D | 2"></textarea>
     });
     persist();
 
-    var group = state.groups.find(function (g) { return g.id === b.runGroupId; });
+    var group = b.runGroupId ? state.groups.find(function (g) { return g.id === b.runGroupId; }) : null;
     if (group) {
       var missedCards = getGroupMissedCards(group);
-      var idx = missedCards.findIndex(function (c) { return c.id === currentCard.id; });
-      if (idx !== -1) missedCards.splice(idx, 1);
-      saveGroups(state.groups);
+      var missedIdx = missedCards.findIndex(function (c) { return c.id === currentCard.id; });
+      if (missedIdx !== -1) {
+        missedCards.splice(missedIdx, 1);
+        saveGroups(state.groups);
+      }
     }
 
-    b.enemyHp = Math.max(0, b.enemyHp - 1);
+    if (b.runGroupId) {
+      var runState = getRunState(b.runGroupId);
+      if (runState) {
+        var tierIdx = runState.missedCardsThisTier.findIndex(function (c) { return c.id === currentCard.id; });
+        if (tierIdx !== -1) {
+          runState.missedCardsThisTier.splice(tierIdx, 1);
+          saveRuns(state.runs);
+        }
+      }
+    }
+
+    if (b.reviewCards) {
+      b.reviewCards = b.reviewCards.filter(function (c) { return c.id !== currentCard.id; });
+    }
+
+    if (b.isMissedStudy) {
+      b.enemyHp = Math.max(0, b.enemyHp - 1);
+    }
+
     b.index += 1;
     b.queue = b.queue.slice(0, b.index).concat(
       b.queue.slice(b.index).filter(function (c) { return c.id !== currentCard.id; })
     );
 
     setBattleLog('🗑 Card deleted for good.');
-    updatePlayerBadge('battle', group ? (group.xp || 0) : state.player.xp);
+    var cardGroup = findBattleXpGroup();
+    updatePlayerBadge('battle', cardGroup ? (cardGroup.xp || 0) : state.player.xp);
 
-    if (b.enemyHp <= 0) {
+    if (b.isMissedStudy && b.enemyHp <= 0) {
       playFinisherFx(function () { endBattle(true); });
+      return;
+    }
+
+    var nothingLeftToFight;
+    if (b.isMissedStudy) {
+      nothingLeftToFight = false; // handled above via enemyHp
+    } else if (b.isReview) {
+      nothingLeftToFight = b.index >= b.queue.length && !b.reviewCards.length;
+    } else {
+      var liveDeck = findDeck(b.deckId);
+      nothingLeftToFight = b.index >= b.queue.length && liveDeck && !liveDeck.cards.length;
+    }
+
+    if (nothingLeftToFight) {
+      endBattle(true);
       return;
     }
 
