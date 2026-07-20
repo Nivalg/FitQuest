@@ -763,7 +763,16 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 10px;
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    z-index: 150;
+    background: var(--bg);
+    padding: 16px 16px 12px;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.55);
   }
 
   .combatant {
@@ -1818,7 +1827,7 @@ question | option A | option B | option C | option D | 2"></textarea>
   <!-- BATTLE SCREEN -->
   <section id="screen-battle" class="screen hidden">
     <button class="btn-ghost btn-small hidden" id="btn-battle-back">← BACK</button>
-    <div class="battle-arena">
+    <div class="battle-arena" id="battle-arena">
       <div class="ko-banner hidden" id="ko-banner"><span class="ko-banner-text">✅ LEARNED!</span></div>
       <div class="combatant">
         <div class="combatant-label">YOU</div>
@@ -1858,6 +1867,7 @@ question | option A | option B | option C | option D | 2"></textarea>
         <div class="fx-proj fx-proj-snow">❄️</div>
       </div>
     </div>
+    <div id="battle-arena-spacer"></div>
 
     <div class="battle-log" id="battle-log">A wild monster blocks your path!</div>
 
@@ -3740,6 +3750,23 @@ question | option A | option B | option C | option D | 2"></textarea>
 
   // ---------- Battle ----------
 
+  // The wizard/monster arena is pinned to the top of the screen (position:
+  // fixed) so it never scrolls out of view while reading a long question.
+  // The spacer reserves the same height in normal flow so the battle log
+  // and question box don't start out hidden underneath it.
+  function openBattleScreen() {
+    showScreen('battle');
+    window.scrollTo(0, 0);
+    requestAnimationFrame(function () {
+      var arena = document.getElementById('battle-arena');
+      var spacer = document.getElementById('battle-arena-spacer');
+      if (arena && spacer) {
+        spacer.style.height = arena.offsetHeight + 'px';
+      }
+      window.scrollTo(0, 0);
+    });
+  }
+
   function startBattle(deckId, runOptions) {
     var deck = findDeck(deckId);
     var enemyMaxHp = deck.isBoss ?
@@ -3788,7 +3815,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('btn-battle-back').classList.toggle('hidden', !runGroupId);
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
-    showScreen('battle');
+    openBattleScreen();
   }
 
   function startReviewBattle(groupId, tierIndex) {
@@ -3834,10 +3861,10 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('ko-banner').classList.remove('show');
     document.getElementById('player-orbit-fx').classList.add('hidden');
     document.getElementById('player-orbit-fx').classList.remove('show');
-    document.getElementById('btn-battle-back').classList.add('hidden');
+    document.getElementById('btn-battle-back').classList.remove('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
-    showScreen('battle');
+    openBattleScreen();
   }
 
   // Missed-cards study mode: no HP risk at all, just an untimed loop through
@@ -3893,7 +3920,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('btn-battle-back').classList.remove('hidden');
     updatePlayerBadge('battle', battleXpBucketValue());
     renderCurrentCard();
-    showScreen('battle');
+    openBattleScreen();
   }
 
   function isComboMilestone(combo) {
