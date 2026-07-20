@@ -4172,28 +4172,6 @@ question | option A | option B | option C | option D | 2"></textarea>
     }, 1300);
   }
 
-  function playMasteryKoFx() {
-    var type = ELEMENTAL_FX_TYPES[Math.floor(Math.random() * ELEMENTAL_FX_TYPES.length)];
-
-    var layer = document.getElementById('projectile-layer');
-    layer.className = 'projectile-layer';
-    void layer.offsetWidth;
-    layer.classList.add('play-' + type);
-
-    setTimeout(function () {
-      renderEnemyHp();
-      damageFlash('enemy-emoji', 'shake');
-      damageFlash('enemy-hp-bar', 'pop');
-
-      var fx = document.getElementById('elemental-fx');
-      fx.className = 'elemental-fx';
-      void fx.offsetWidth;
-      fx.classList.add('play-' + type);
-
-      showKoBanner();
-    }, ELEMENTAL_FX_TRAVEL_MS[type]);
-  }
-
   // Finishing move for clearing an entire missed-cards list: all 4 elements
   // orbit the wizard for ~1s, then all launch at the enemy together.
   function playFinisherFx(onComplete) {
@@ -4249,22 +4227,23 @@ question | option A | option B | option C | option D | 2"></textarea>
           mastered = true;
           missedCards.splice(missedCards.indexOf(cardEntry), 1);
           b.enemyHp -= 1;
+          renderEnemyHp();
         }
         saveGroups(state.groups);
       }
 
+      // No per-answer attack animation in review - the only attack is the
+      // one-hit finisher move that plays once, when every card is cleared.
       var allCleared = mastered && b.enemyHp <= 0;
 
       if (allCleared) {
         setBattleLog('✨ Card learned! That was the last one - unleash the finisher!');
       } else if (mastered) {
-        playMasteryKoFx();
+        showKoBanner();
         setBattleLog('✅ Card learned! It\'s off your missed list for good.');
       } else if (cardEntry) {
-        playElementalFx();
         setBattleLog('✓ Correct! (' + cardEntry.correctStreak + '/3 in a row)');
       } else {
-        playElementalFx();
         setBattleLog('✓ Correct!');
       }
     } else {
