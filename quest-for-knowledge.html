@@ -4231,7 +4231,6 @@ question | option A | option B | option C | option D | 2"></textarea>
           mastered = true;
           missedCards.splice(missedCards.indexOf(cardEntry), 1);
           b.enemyHp -= 1;
-          renderEnemyHp();
         }
         saveGroups(state.groups);
       }
@@ -4241,8 +4240,12 @@ question | option A | option B | option C | option D | 2"></textarea>
       var allCleared = mastered && b.enemyHp <= 0;
 
       if (allCleared) {
+        // Don't render the HP bar yet - leave it showing full until the
+        // finisher's projectiles actually land (see playFinisherFx below),
+        // so the bar doesn't drop before the hit animation plays.
         setBattleLog('✨ Card learned! That was the last one - unleash the finisher!');
       } else if (mastered) {
+        renderEnemyHp();
         showKoBanner();
         setBattleLog('✅ Card learned! It\'s off your missed list for good.');
       } else if (cardEntry) {
