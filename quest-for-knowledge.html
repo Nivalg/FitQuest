@@ -1961,6 +1961,8 @@ question | option A | option B | option C | option D | 2"></textarea>
   var XP_VICTORY_BONUS = XP_LEVEL_BASE;
   var REVIEW_HEAL_AMOUNT = 3;
   var NOTES_HEAL_AMOUNT = 2;
+  var FINISHER_COMBO_MILESTONE = 25;
+  var FINISHER_COMBO_DAMAGE = 30;
   var LEVEL_TITLES = [
     { min: 1, title: 'Novice Wizard' },
     { min: 3, title: 'Apprentice Wizard' },
@@ -3922,13 +3924,15 @@ question | option A | option B | option C | option D | 2"></textarea>
   }
 
   function isComboMilestone(combo) {
-    return combo === 3 || (combo >= 10 && combo % 10 === 0);
+    return combo === 3 || combo === FINISHER_COMBO_MILESTONE || (combo >= 10 && combo % 10 === 0);
   }
 
   // Fixed crit damage on combo milestones - boss fights only (see applyAnswerResult).
   // 3-combo -> 3, 10-combo -> 5, 30-combo -> 10, scaling smoothly beyond that.
+  // The 25-combo milestone is the special finisher move instead of a normal crit.
   function comboCritDamage(combo) {
     if (combo === 3) return 3;
+    if (combo === FINISHER_COMBO_MILESTONE) return FINISHER_COMBO_DAMAGE;
     var tier = combo / 10;
     return Math.round(2.5 * (tier + 1));
   }
@@ -4378,13 +4382,18 @@ question | option A | option B | option C | option D | 2"></textarea>
       var battleDeck = b.isReview ? null : findDeck(b.deckId);
       var isBossBattle = !!(battleDeck && battleDeck.isBoss);
       var crit = milestone && isBossBattle;
+      var isFinisherCombo = crit && b.combo === FINISHER_COMBO_MILESTONE;
       if (crit) dmg = comboCritDamage(b.combo);
 
       b.enemyHp -= dmg;
-      playElementalFx(crit ? comboCritProjectileCount(b.combo) : 1);
-      setBattleLog(crit ?
-        ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
-        ('Direct hit! -' + dmg + ' HP to the monster!'));
+      if (isFinisherCombo) {
+        setBattleLog('🌟 COMBO x' + b.combo + '! FINISHER MOVE! -' + dmg + ' HP!');
+      } else {
+        playElementalFx(crit ? comboCritProjectileCount(b.combo) : 1);
+        setBattleLog(crit ?
+          ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
+          ('Direct hit! -' + dmg + ' HP to the monster!'));
+      }
 
       if (milestone) {
         var previousRecord = state.player.bestCombo || 0;
@@ -4449,6 +4458,17 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (!correct) renderEnemyHp();
     updatePlayerBadge('battle', cardGroup ? (cardGroup.xp || 0) : state.player.xp);
     b.index += 1;
+
+    if (isFinisherCombo) {
+      playFinisherFx(function () {
+        if (b.enemyHp <= 0) {
+          endBattle(true);
+        } else {
+          renderCurrentCard();
+        }
+      });
+      return;
+    }
 
     if (b.enemyHp <= 0) {
       setTimeout(function () { endBattle(true); }, 750);
@@ -4519,12 +4539,15 @@ question | option A | option B | option C | option D | 2"></textarea>
     xpBanner.classList.add('hidden');
     xpBanner.classList.remove('show');
 
+    retryBtn.classList.remove('hidden');
+
     var runGameOver = false;
     var runComplete = false;
 
     if (b.isMissedStudy) {
       // No HP risk in this mode, so the only way to reach here is mastering
-      // every card that was on the missed list.
+      // every card that was on the missed list - nothing left to study again,
+      // so there's no retry option, just head back.
       emojiEl.textContent = '🎉';
       titleEl.textContent = 'ALL MASTERED!';
       titleEl.className = 'result-title victory';
@@ -4532,7 +4555,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       msgEl.textContent = 'You mastered every card on this collection\'s missed list!';
 
       state.resultContext = { isMissedStudy: true, groupId: b.runGroupId };
-      retryBtn.textContent = '🔄 STUDY AGAIN';
+      retryBtn.classList.add('hidden');
       backBtn.textContent = '← BACK TO COLLECTION';
       renderDeckList();
       showScreen('result');
