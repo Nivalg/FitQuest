@@ -1963,6 +1963,14 @@ question | option A | option B | option C | option D | 2"></textarea>
   var NOTES_HEAL_AMOUNT = 2;
   var FINISHER_COMBO_MILESTONE = 25;
   var FINISHER_COMBO_DAMAGE = 30;
+  // Starting at combo 30, every +2 combo (30, 32, 34, 36...) triggers a
+  // "super move" - a bigger flurry than a normal crit but not the full
+  // finisher. The first one (exactly 30) hits as hard as the finisher; every
+  // repeat after that hits for a random amount in between.
+  var SUPER_MOVE_START_COMBO = 30;
+  var SUPER_MOVE_FIRST_DAMAGE = 30;
+  var SUPER_MOVE_DAMAGE_MIN = 20;
+  var SUPER_MOVE_DAMAGE_MAX = 25;
   var LEVEL_TITLES = [
     { min: 1, title: 'Novice Wizard' },
     { min: 3, title: 'Apprentice Wizard' },
@@ -2017,6 +2025,19 @@ question | option A | option B | option C | option D | 2"></textarea>
       var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
     }
     return a;
+  }
+
+  // Cards you've missed before show up more often - each card is entered into
+  // the shuffle once per past miss (capped so one bad card can't take over
+  // the whole deck), so the more you get it wrong, the more you'll see it.
+  var MISS_WEIGHT_CAP = 5;
+  function weightedShuffle(cards) {
+    var pool = [];
+    cards.forEach(function (card) {
+      var extra = Math.min(card.missCount || 0, MISS_WEIGHT_CAP);
+      for (var i = 0; i < 1 + extra; i++) pool.push(card);
+    });
+    return shuffle(pool);
   }
 
   function starsForHp(remainingHp, maxHp) {
@@ -3784,7 +3805,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     state.battle = {
       deckId: deckId,
-      queue: shuffle(deck.cards),
+      queue: weightedShuffle(deck.cards),
       index: 0,
       playerHp: startingHp,
       maxPlayerHp: maxPlayerHp,
@@ -3924,24 +3945,32 @@ question | option A | option B | option C | option D | 2"></textarea>
   }
 
   function isComboMilestone(combo) {
-    return combo === 3 || combo === FINISHER_COMBO_MILESTONE || (combo >= 10 && combo % 10 === 0);
+    if (combo === 3) return true;
+    if (combo === FINISHER_COMBO_MILESTONE) return true;
+    if (combo >= SUPER_MOVE_START_COMBO) return combo % 2 === 0;
+    return combo >= 10 && combo % 10 === 0;
   }
 
   // Fixed crit damage on combo milestones - boss fights only (see applyAnswerResult).
-  // 3-combo -> 3, 10-combo -> 5, 30-combo -> 10, scaling smoothly beyond that.
-  // The 25-combo milestone is the special finisher move instead of a normal crit.
+  // 3-combo -> 3, 10-combo -> 5, 20-combo -> 8. The 25-combo milestone is the
+  // special finisher move; 30+ (every +2) is the super move tier.
   function comboCritDamage(combo) {
     if (combo === 3) return 3;
     if (combo === FINISHER_COMBO_MILESTONE) return FINISHER_COMBO_DAMAGE;
+    if (combo === SUPER_MOVE_START_COMBO) return SUPER_MOVE_FIRST_DAMAGE;
+    if (combo >= SUPER_MOVE_START_COMBO) {
+      return SUPER_MOVE_DAMAGE_MIN + Math.floor(Math.random() * (SUPER_MOVE_DAMAGE_MAX - SUPER_MOVE_DAMAGE_MIN + 1));
+    }
     var tier = combo / 10;
     return Math.round(2.5 * (tier + 1));
   }
 
-  // Bigger combos launch a bigger flurry of projectiles for the crit hit.
+  // Bigger combos launch a bigger flurry of projectiles for the crit hit -
+  // super moves get the biggest flurry short of the full finisher sequence.
   function comboCritProjectileCount(combo) {
     if (combo === 3) return 2;
-    if (combo < 30) return 3;
-    return 4;
+    if (combo >= SUPER_MOVE_START_COMBO) return 5;
+    return 3;
   }
 
   function hideComboPopup() {
@@ -4005,7 +4034,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       } else {
         sourceCards = findDeck(b.deckId).cards;
       }
-      b.queue = shuffle(sourceCards);
+      b.queue = (b.isMissedStudy || b.isReview) ? shuffle(sourceCards) : weightedShuffle(sourceCards);
       b.index = 0;
       setBattleLog('The deck reshuffles! Keep fighting!');
     }
@@ -4388,14 +4417,18 @@ question | option A | option B | option C | option D | 2"></textarea>
       var isFinisherCombo = crit && b.combo === FINISHER_COMBO_MILESTONE;
       if (crit) dmg = comboCritDamage(b.combo);
 
+      var isSuperMove = crit && b.combo >= SUPER_MOVE_START_COMBO;
+
       b.enemyHp -= dmg;
       if (isFinisherCombo) {
         setBattleLog('🌟 COMBO x' + b.combo + '! FINISHER MOVE! -' + dmg + ' HP!');
       } else {
         playElementalFx(crit ? comboCritProjectileCount(b.combo) : 1);
-        setBattleLog(crit ?
-          ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
-          ('Direct hit! -' + dmg + ' HP to the monster!'));
+        setBattleLog(isSuperMove ?
+          ('💥 COMBO x' + b.combo + '! SUPER MOVE! -' + dmg + ' HP!') :
+          crit ?
+            ('🔥 COMBO x' + b.combo + '! CRITICAL HIT! -' + dmg + ' HP!') :
+            ('Direct hit! -' + dmg + ' HP to the monster!'));
       }
 
       if (milestone) {
@@ -4423,6 +4456,18 @@ question | option A | option B | option C | option D | 2"></textarea>
       damageFlash('player-emoji', 'shake');
       damageFlash('player-hp-bar', 'pop');
       setBattleLog('Ouch! You take -' + dmg + ' HP!');
+
+      // Track misses on the card itself so it shows up more often in future
+      // shuffles of this deck (see weightedShuffle) - the more you miss it,
+      // the more you'll see it.
+      if (!b.isReview) {
+        var deckForMiss = findDeck(b.deckId);
+        var missedDeckCard = deckForMiss && deckForMiss.cards.find(function (c) { return c.id === currentCard.id; });
+        if (missedDeckCard) {
+          missedDeckCard.missCount = (missedDeckCard.missCount || 0) + 1;
+          persist();
+        }
+      }
 
       if (b.runGroupId && !b.isReview) {
         var runStateForMiss = getRunState(b.runGroupId);
