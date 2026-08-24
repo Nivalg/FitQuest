@@ -789,8 +789,12 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated dip machine to overload the triceps and chest.",
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["triceps"],
+    builds: {
+      armStrength: 60,
+      chestStrength: 20,
+      stamina: 20
+    },
+    subCategories: ["triceps", "chest"],
     image: "/machine_seated_dips.png?v=1"
   },
   {
@@ -887,13 +891,13 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     name: "Dips",
     pillar: "bodyweight",
     formType: "B",
-    description: "Deep parallel bars pressing that blasts triceps.",
+    description: "Deep parallel bars pressing that blasts triceps and chest.",
     builds: {
       armStrength: 50,
-      stamina: 30,
-      chestStrength: 20
+      chestStrength: 30,
+      stamina: 20
     },
-    subCategories: ["triceps"],
+    subCategories: ["triceps", "chest"],
     link: "https://liftmanual.com/dips/"
   },
   {

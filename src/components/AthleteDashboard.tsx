@@ -32,6 +32,7 @@ import { motion } from "motion/react";
 import MuscleVolumeVisualizer from "./MuscleVolumeVisualizer";
 import BodyStatusMap from "./BodyStatusMap";
 import { getDailyQuests, getAchievements } from "../utils/quests";
+import { EXERCISE_DATABASE } from "../exercises";
 
 const YOUTUBE_CHANNEL_LINK = "https://youtube.com/channel/UCwr35GfgTWfafg9qt6RQkMQ";
 
@@ -628,6 +629,197 @@ export default function AthleteDashboard({
     return () => clearInterval(interval);
   }, [records]);
 
+  const balanceDistribution = React.useMemo(() => {
+    const dist = muscleDistribution || {};
+    const chest = dist.chestStrength || 0;
+    const back = dist.backStrength || 0;
+    const arms = (dist.biceps || 0) + (dist.triceps || 0) + (dist.shoulders || 0) + (dist.traps || 0);
+    const legs = (dist.quads || 0) + (dist.hamstrings || 0) + (dist.glutes || 0) + (dist.calves || 0);
+    const core = dist.coreStrength || 0;
+    const cardio = (dist.speed || 0) + (dist.stamina || 0);
+
+    const total = chest + back + arms + legs + core + cardio;
+    if (total === 0) {
+      return { chest: 0, back: 0, arms: 0, legs: 0, core: 0, cardio: 0 };
+    }
+    // Normalize to make sure they sum to exactly 100%
+    return {
+      chest: parseFloat(((chest / total) * 100).toFixed(1)),
+      back: parseFloat(((back / total) * 100).toFixed(1)),
+      arms: parseFloat(((arms / total) * 100).toFixed(1)),
+      legs: parseFloat(((legs / total) * 100).toFixed(1)),
+      core: parseFloat(((core / total) * 100).toFixed(1)),
+      cardio: parseFloat(((cardio / total) * 100).toFixed(1))
+    };
+  }, [muscleDistribution]);
+
+  const aiCoachInsights = React.useMemo(() => {
+    const list: { type: "warning" | "tip" | "success"; text: string }[] = [];
+    if (logs.length === 0) {
+      list.push({
+        type: "tip",
+        text: "Begin logging your workouts to receive training balance coaching and insights!"
+      });
+      return list;
+    }
+
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+
+    // Define groups by exercise config builds
+    const groupLastTrained: Record<string, number> = {
+      chest: 0,
+      back: 0,
+      arms: 0,
+      legs: 0,
+      core: 0,
+      cardio: 0
+    };
+
+    logs.forEach(log => {
+      if (!log.exerciseName) return;
+      const conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+      if (!conf) return;
+
+      const builds = conf.builds as any;
+      const logTime = new Date(log.timestamp).getTime();
+
+      if ((builds.chestStrength || 0) > 0) groupLastTrained.chest = Math.max(groupLastTrained.chest, logTime);
+      if ((builds.backStrength || 0) > 0) groupLastTrained.back = Math.max(groupLastTrained.back, logTime);
+      if ((builds.armStrength || 0) > 0) groupLastTrained.arms = Math.max(groupLastTrained.arms, logTime);
+      if ((builds.legStrength || 0) > 0) groupLastTrained.legs = Math.max(groupLastTrained.legs, logTime);
+      if ((builds.coreStrength || 0) > 0) groupLastTrained.core = Math.max(groupLastTrained.core, logTime);
+      if ((builds.speed || 0) > 0 || (builds.stamina || 0) > 0) groupLastTrained.cardio = Math.max(groupLastTrained.cardio, logTime);
+    });
+
+    const labels: Record<string, string> = {
+      chest: "Chest/Push",
+      back: "Back/Pull",
+      arms: "Arms & Shoulders",
+      legs: "Lower Body (Legs)",
+      core: "Core Stability",
+      cardio: "Cardio & Endurance"
+    };
+
+    // 1. Neglected Zones Check
+    Object.entries(groupLastTrained).forEach(([key, lastTime]) => {
+      const name = labels[key];
+      if (lastTime === 0) {
+        list.push({
+          type: "warning",
+          text: `You have never logged a ${name} workout! Consider scheduling a session for balance.`
+        });
+      } else {
+        const days = (now - lastTime) / oneDayMs;
+        if (days > 8) {
+          list.push({
+            type: "warning",
+            text: `It has been ${Math.floor(days)} days since your last ${name} workout. Don't neglect this muscle zone!`
+          });
+        }
+      }
+    });
+
+    // 2. Hyper-focused Zone Check
+    const dist = balanceDistribution;
+    if (dist.chest > 35) {
+      list.push({
+        type: "tip",
+        text: `Your Chest volume is high (${dist.chest}% of total volume). Balance it with Back/Pulling exercises to prevent shoulder issues.`
+      });
+    }
+    if (dist.legs > 40) {
+      list.push({
+        type: "tip",
+        text: `You are crushing leg days (${dist.legs}% of total volume)! Keep up the great lower-body foundation.`
+      });
+    }
+    if (dist.cardio < 8) {
+      list.push({
+        type: "warning",
+        text: `Cardio accounts for only ${dist.cardio}% of your workouts. Adding Treadmill Runs or Stairmaster sessions will increase your Stamina.`
+      });
+    }
+
+    // 3. Specific Exercise Overuse Check (bench press focus)
+    const exerciseCountLast14Days: Record<string, number> = {};
+    let recentLogsCount = 0;
+    logs.forEach(log => {
+      const ageDays = (now - new Date(log.timestamp).getTime()) / oneDayMs;
+      if (ageDays <= 14 && log.exerciseName) {
+        exerciseCountLast14Days[log.exerciseName] = (exerciseCountLast14Days[log.exerciseName] || 0) + 1;
+        recentLogsCount++;
+      }
+    });
+
+    Object.entries(exerciseCountLast14Days).forEach(([exName, count]) => {
+      if (recentLogsCount >= 5 && count / recentLogsCount > 0.45) {
+        list.push({
+          type: "tip",
+          text: `Bench Press/workout overuse alert: "${exName}" represents ${Math.round((count / recentLogsCount) * 100)}% of your recent sets. Try variations (like incline dumbbell or push-ups) to vary load.`
+        });
+      }
+    });
+
+    // If balanced
+    if (list.filter(i => i.type === "warning").length === 0) {
+      list.push({
+        type: "success",
+        text: "Outstanding training balance! Your body split has no critical gaps or neglected zones."
+      });
+    }
+
+    return list;
+  }, [logs, balanceDistribution]);
+
+  const groupedLogHistory = React.useMemo(() => {
+    // 1. Sort logs chronologically (descending)
+    const sorted = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    // 2. Group by Date, then by Exercise Name
+    const groups: { date: string; dateMs: number; exercises: Record<string, FitnessLog[]> }[] = [];
+
+    sorted.forEach(log => {
+      const dateObj = new Date(log.timestamp);
+      const dateStr = dateObj.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+      
+      let dateGroup = groups.find(g => g.date === dateStr);
+      if (!dateGroup) {
+        dateGroup = { date: dateStr, dateMs: dateObj.getTime(), exercises: {} };
+        groups.push(dateGroup);
+      }
+
+      const exName = log.exerciseName || "General Workout";
+      if (!dateGroup.exercises[exName]) {
+        dateGroup.exercises[exName] = [];
+      }
+      dateGroup.exercises[exName].push(log);
+    });
+
+    // 3. Format into a simpler structure for rendering
+    return groups.map(g => ({
+      date: g.date,
+      dateMs: g.dateMs,
+      items: Object.entries(g.exercises).map(([exName, sets]) => {
+        const exInfo = EXERCISE_DATABASE.find(e => e.name.toLowerCase() === exName.toLowerCase());
+        return {
+          exerciseName: exName,
+          pillar: exInfo?.pillar || "general",
+          sets: [...sets].reverse() // Sort sets chronologically (ascending for that day's progression)
+        };
+      })
+    }));
+  }, [logs]);
+
+  const formatDateHeader = (dateStr: string) => {
+    const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    
+    if (dateStr === today) return "TODAY";
+    if (dateStr === yesterday) return "YESTERDAY";
+    return dateStr.toUpperCase();
+  };
+
   const statKeys = [
     "chestStrength",
     "backStrength",
@@ -1077,648 +1269,171 @@ export default function AthleteDashboard({
           transition={{ duration: 0.2 }}
           className="space-y-6"
         >
-          <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes shimmer-bar-sweep {
-              0% {
-                background-position: 200% 0;
-              }
-              100% {
-                background-position: -200% 0;
-              }
-            }
-            .shimmer-steel-bar {
-              background: linear-gradient(115deg, #3E4A5A 32%, #C9D6E8 50%, #3E4A5A 68%) !important;
-              background-size: 200% 100% !important;
-              animation: shimmer-bar-sweep 2.8s linear infinite !important;
-            }
-            @keyframes twinkle-sparkle {
-              0% {
-                transform: scale(0) rotate(0deg);
-                opacity: 0;
-              }
-              30% {
-                transform: scale(1.2) rotate(45deg);
-                opacity: 1;
-              }
-              70% {
-                transform: scale(1) rotate(90deg);
-                opacity: 0.8;
-              }
-              100% {
-                transform: scale(0) rotate(135deg);
-                opacity: 0;
-              }
-            }
-            .sparkle-element {
-              transform-origin: center;
-              animation: twinkle-sparkle 0.6s ease-out forwards;
-            }
-            @keyframes holo-flicker {
-              0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
-                opacity: 0.99;
-              }
-              20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
-                opacity: 0.94;
-              }
-            }
-            .holo-panel {
-              background-color: #0A1220 !important;
-              border: 1px solid rgba(79, 195, 247, 0.35) !important;
-              box-shadow: 0 0 20px rgba(79, 195, 247, 0.12), inset 0 0 15px rgba(79, 195, 247, 0.05) !important;
-              position: relative;
-              animation: holo-flicker 6s infinite;
-            }
-            .holo-panel::before {
-              content: " ";
-              display: block;
-              position: absolute;
-              top: 0; left: 0; bottom: 0; right: 0;
-              background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-              background-size: 100% 3px;
-              z-index: 10;
-              pointer-events: none;
-              opacity: 0.3;
-            }
-            .holo-text {
-              color: #C8E6F5 !important;
-              text-shadow: 0 0 5px rgba(79, 195, 247, 0.75) !important;
-            }
-            .holo-glow-fill {
-              background-color: #C8E6F5 !important;
-              background-image: linear-gradient(to right, #4FC3F7, #C8E6F5) !important;
-              box-shadow: 0 0 8px rgba(79, 195, 247, 0.85) !important;
-            }
-            .holo-btn {
-              background: transparent !important;
-              border: 1px solid rgba(79, 195, 247, 0.18) !important;
-              transition: all 0.15s ease-in-out;
-            }
-            .holo-btn:hover {
-              border-color: rgba(79, 195, 247, 0.5) !important;
-              box-shadow: 0 0 10px rgba(79, 195, 247, 0.18) !important;
-              background: rgba(79, 195, 247, 0.02) !important;
-            }
-            .holo-btn svg {
-              color: #C8E6F5 !important;
-              filter: drop-shadow(0 0 3px rgba(79, 195, 247, 0.7)) !important;
-            }
-            @keyframes slide-down {
-              from {
-                opacity: 0;
-                transform: translateY(-5px);
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
-            .animate-slide-down {
-              animation: slide-down 0.2s ease-out forwards;
-            }
-          ` }} />
-
-          {/* Centered Level Header - Moved on top of Physique HUD */}
-          <div className="flex items-center justify-center py-4 border-b border-[#4FC3F7]/15 w-full gap-4 mb-4">
-            <span 
-              className="text-[28px] font-press-start holo-text font-black select-none tracking-widest"
-              style={{
-                textShadow: "-1px -1px 0 #C8E6F5, 1px -1px 0 #C8E6F5, -1px 1px 0 #C8E6F5, 1px 1px 0 #C8E6F5, 0 0 8px rgba(79, 195, 247, 0.8)"
-              }}
-            >
-              LEVEL
-            </span>
-            <span 
-              className="text-[28px] font-press-start holo-text font-black select-none tracking-tighter"
-              style={{
-                textShadow: "-1px -1px 0 #C8E6F5, 1px -1px 0 #C8E6F5, -1px 1px 0 #C8E6F5, 1px 1px 0 #C8E6F5, 0 0 8px rgba(79, 195, 247, 0.8)"
-              }}
-            >
-              {Math.ceil(displayedAverageLevel)}
-            </span>
-          </div>
-
-          {/* THE CORE GAME STATS HUD LIST - SOLO LEVELING STATUS STYLE */}
+          {/* A. TRAINING INSIGHTS & BALANCE COACH */}
           <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="text-center border-b border-slate-800 pb-2">
-              <span className="text-[8.5px] font-press-start text-cyan-400 tracking-widest block uppercase">
-                ATHLETE PERFORMANCE STRENGTH MATRIX
-              </span>
-            </div>
-
-            {(() => {
-              const chestVal = getDisplayedStatLevel("chestStrength");
-              const backVal = getDisplayedStatLevel("backStrength");
-              const coreVal = getDisplayedStatLevel("coreStrength");
-              const speedVal = getDisplayedStatLevel("speed");
-
-              const renderHoloRow = (icon: React.ReactNode, label: string, val: number) => {
-                return (
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-800/40">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="text-cyan-400 w-3.5 h-3.5 flex items-center justify-center shrink-0">
-                        {icon}
-                      </div>
-                      <span className="text-[8px] font-press-start tracking-wider text-slate-200 uppercase font-bold">
-                        {label}:
-                      </span>
-                    </div>
-                    <span className="text-[11.5px] font-press-start holo-text font-black">
-                      {Math.ceil(val)}
-                    </span>
-                  </div>
-                );
-              };
-
-              return (
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-                  {renderHoloRow(<Dumbbell className="w-3.5 h-3.5 text-cyan-400" />, "CHEST", chestVal)}
-                  {renderHoloRow(<Shield className="w-3.5 h-3.5 text-cyan-400" />, "BACK", backVal)}
-
-                  {renderHoloRow(<Zap className="w-3.5 h-3.5 text-cyan-400" />, "BICEPS", subCategoryLevels.biceps)}
-                  {renderHoloRow(<Zap className="w-3.5 h-3.5 text-cyan-400" />, "TRICEPS", subCategoryLevels.triceps)}
-
-                  {renderHoloRow(<Activity className="w-3.5 h-3.5 text-cyan-400" />, "QUADS", subCategoryLevels.quads)}
-                  {renderHoloRow(<Activity className="w-3.5 h-3.5 text-cyan-400" />, "HAMSTRINGS", subCategoryLevels.hamstrings)}
-
-                  {renderHoloRow(<Trophy className="w-3.5 h-3.5 text-cyan-400" />, "SHOULDERS", subCategoryLevels.shoulders)}
-                  {renderHoloRow(<Trophy className="w-3.5 h-3.5 text-cyan-400" />, "TRAPS", subCategoryLevels.traps)}
-
-                  {renderHoloRow(<Flame className="w-3.5 h-3.5 text-cyan-400" />, "GLUTES", subCategoryLevels.glutes)}
-                  {renderHoloRow(<Flame className="w-3.5 h-3.5 text-cyan-400" />, "CALVES", subCategoryLevels.calves)}
-
-                  {renderHoloRow(<Heart className="w-3.5 h-3.5 text-cyan-400" />, "CORE", coreVal)}
-                  {renderHoloRow(<Zap className="w-3.5 h-3.5 text-cyan-400" />, "SPEED", speedVal)}
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Stats Page Muscle Map HUD */}
-          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            {/* Header & FRONT / BACK capsule */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
               <div>
-                <span className="text-[8px] font-press-start text-cyan-400 tracking-widest block uppercase mb-1">
-                  PHYSIQUE LEVEL HUD
+                <span className="text-[9px] font-press-start text-cyan-400 tracking-wider block uppercase">
+                  🤖 AI BALANCE COACH
                 </span>
-                <p className="text-[8px] text-slate-400 font-mono leading-relaxed">
-                  Click any muscle region or list item to view contributing exercises and details.
+                <p className="text-[8px] text-slate-400 font-mono mt-1">
+                  Actionable insights based on your recent training volume logs.
                 </p>
               </div>
-
-              {/* FRONT / BACK TOGGLE CAPSULE */}
-              <div className="bg-[#0D0D0E] border border-slate-800 p-1 rounded-xl flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHudViewSide("front");
-                    setSelectedHudMuscle("chest");
-                  }}
-                  style={{ minHeight: "30px", minWidth: "75px" }}
-                  className={`px-3 py-1 rounded-lg text-[8px] font-press-start tracking-wider transition-all duration-200 cursor-pointer ${
-                    hudViewSide === "front"
-                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-bold"
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  FRONT
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHudViewSide("back");
-                    setSelectedHudMuscle("back");
-                  }}
-                  style={{ minHeight: "30px", minWidth: "75px" }}
-                  className={`px-3 py-1 rounded-lg text-[8px] font-press-start tracking-wider transition-all duration-200 cursor-pointer ${
-                    hudViewSide === "back"
-                      ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-bold"
-                      : "text-slate-500 hover:text-slate-300"
-                  }`}
-                >
-                  BACK
-                </button>
-              </div>
+              <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
             </div>
 
-            {/* 2-COLUMN SPLIT: LEFT SIDE CHARACTER, RIGHT SIDE MUSCLE BUTTONS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-              {/* Left Column: Character Diagram */}
-              <div className="relative w-full max-w-[290px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto sm:mx-0">
-                <svg
-                  viewBox={hudViewSide === "front" ? "21 0 488 585" : "424 0 488 585"}
-                  className="w-full h-full select-none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  shapeRendering="crispEdges"
-                >
-                  <defs>
-                    <linearGradient id="steel-glint" x1="0%" y1="0%" x2="100%" y2="50%">
-                      <stop offset="0%" stopColor="#3E4A5A" />
-                      <stop offset="42%" stopColor="#3E4A5A" />
-                      <stop offset="50%" stopColor="#C9D6E8" stopOpacity="0.35" />
-                      <stop offset="58%" stopColor="#3E4A5A" />
-                      <stop offset="100%" stopColor="#3E4A5A" />
-                      {activeSubTab === "stats" && (
-                        <>
-                          <animate 
-                            attributeName="x1" 
-                            from="-100%" 
-                            to="100%" 
-                            dur="2.8s" 
-                            repeatCount="indefinite" 
-                          />
-                          <animate 
-                            attributeName="x2" 
-                            from="0%" 
-                            to="200%" 
-                            dur="2.8s" 
-                            repeatCount="indefinite" 
-                          />
-                        </>
-                      )}
-                    </linearGradient>
-
-                    {["chest", "back", "core", "biceps", "triceps", "shoulders", "traps", "quads", "hamstrings", "glutes", "calves"].map(m => {
-                      const paths = pixelMusclePaths.filter(p => p.muscle === m);
-                      return (
-                        <clipPath id={`clip-${m}`} key={`clip-${m}`}>
-                          {paths.map((p, idx) => (
-                            <path d={p.d} key={idx} />
-                          ))}
-                        </clipPath>
-                      );
-                    })}
-
-                    <clipPath id="side-clip">
-                      <rect
-                        x={hudViewSide === "front" ? "0" : "455"}
-                        y="0"
-                        width={hudViewSide === "front" ? "455" : "521"}
-                        height="585"
-                      />
-                    </clipPath>
-                  </defs>
-
-                  {/* Layer 1: Base image */}
-                  <image
-                    href="/muscle_map.png"
-                    x="0"
-                    y="0"
-                    width="976"
-                    height="585"
-                    preserveAspectRatio="none"
-                    clipPath="url(#side-clip)"
-                  />
-
-                  {/* Layer 2: Color overlays for ALL muscles based on level */}
-                  {pixelMusclePaths.map((path, idx) => {
-                    const color = getMuscleColor(path.muscle);
-                    const isSelected = path.muscle === selectedHudMuscle;
-                    return (
-                      <path
-                        key={`${path.id}-${idx}-stats-hud`}
-                        d={path.d}
-                        fill={color}
-                        opacity={isSelected ? 1 : 0.7}
-                        style={{
-                          filter: isSelected
-                            ? "drop-shadow(0 0 6px rgba(200, 230, 245, 0.9))"
-                            : "drop-shadow(0 0 4px rgba(34, 211, 238, 0.85))"
-                        }}
-                        className="cursor-pointer hover:opacity-90 transition-all duration-150"
-                        onClick={() => handleMuscleTap(path.muscle)}
-                      />
-                    );
-                  })}
-
-                  {/* Layer 3: Gold Twinkle Sparkle overlays */}
-                  {sparkles.map(s => {
-                    if (!s.active) return null;
-                    return (
-                      <g key={s.id} clipPath={`url(#clip-${s.muscleGroup})`} className="pointer-events-none">
-                        <g transform={`translate(${s.x}, ${s.y})`}>
-                          <path
-                            d="M 0,-5 L 1.2,-1.2 L 5,0 L 1.2,1.2 L 0,5 L -1.2,1.2 L -5,0 L -1.2,-1.2 Z"
-                            fill="#FFF3C4"
-                          >
-                            <animateTransform
-                              attributeName="transform"
-                              type="scale"
-                              values="0; 1; 1; 0"
-                              keyTimes="0; 0.3; 0.7; 1"
-                              dur="0.6s"
-                              repeatCount="1"
-                            />
-                            <animateTransform
-                              attributeName="transform"
-                              type="rotate"
-                              values="0; 45; 90; 135"
-                              keyTimes="0; 0.3; 0.7; 1"
-                              dur="0.6s"
-                              repeatCount="1"
-                              additive="sum"
-                            />
-                            <animate
-                              attributeName="opacity"
-                              values="0; 1; 0.8; 0"
-                              keyTimes="0; 0.3; 0.7; 1"
-                              dur="0.6s"
-                              repeatCount="1"
-                            />
-                          </path>
-                        </g>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-
-              {/* Right Column: Muscle Group Quick Buttons */}
-              <div className="space-y-2">
-                <span className="text-[7.5px] font-press-start text-slate-500 uppercase block mb-1">
-                  {hudViewSide === "front" ? "FRONT MUSCLE GROUPS" : "BACK MUSCLE GROUPS"}
-                </span>
-
-                <div className="grid grid-cols-1 gap-2">
-                  {(hudViewSide === "front" ? [
-                    { key: "chest", label: "CHEST", level: getDisplayedStatLevel("chestStrength") },
-                    { key: "shoulders", label: "SHOULDERS", level: subCategoryLevels.shoulders },
-                    { key: "biceps", label: "BICEPS", level: subCategoryLevels.biceps },
-                    { key: "core", label: "CORE", level: getDisplayedStatLevel("coreStrength") },
-                    { key: "quads", label: "QUADS", level: subCategoryLevels.quads },
-                    { key: "speed", label: "SPEED / AGILITY", level: getDisplayedStatLevel("speed") },
-                  ] : [
-                    { key: "traps", label: "TRAPS", level: subCategoryLevels.traps },
-                    { key: "back", label: "UPPER / LATS BACK", level: getDisplayedStatLevel("backStrength") },
-                    { key: "triceps", label: "TRICEPS", level: subCategoryLevels.triceps },
-                    { key: "glutes", label: "GLUTES", level: subCategoryLevels.glutes },
-                    { key: "hamstrings", label: "HAMSTRINGS", level: subCategoryLevels.hamstrings },
-                    { key: "calves", label: "CALVES", level: subCategoryLevels.calves },
-                  ]).map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => handleMuscleTap(item.key)}
-                      style={{ minHeight: "36px" }}
-                      className={`w-full border rounded-xl px-3.5 py-2 flex items-center gap-2.5 text-left transition group cursor-pointer ${
-                        item.key === selectedHudMuscle
-                          ? "bg-cyan-950/40 border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.25)]"
-                          : "bg-[#0D0D0E] hover:bg-[#1C212B] border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <span
-                        className={`w-2.5 h-2.5 rounded-sm border shrink-0 ${
-                          item.key === selectedHudMuscle
-                            ? "bg-cyan-400 border-cyan-300 shadow-[0_0_6px_#06b6d4]"
-                            : "bg-cyan-900/60 border-slate-700"
-                        }`}
-                      />
-                      <span className={`text-[8.5px] font-press-start uppercase ${
-                        item.key === selectedHudMuscle ? "text-cyan-300 font-extrabold" : "text-slate-200 group-hover:text-cyan-300"
-                      }`}>
-                        {item.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <div className="space-y-2.5">
+              {aiCoachInsights.map((insight, idx) => {
+                let borderStyle = "border-slate-850 bg-[#0D0D0E]";
+                let icon = "💡";
+                if (insight.type === "warning") {
+                  borderStyle = "border-amber-500/30 bg-amber-955/5 text-amber-300";
+                  icon = "⚠️";
+                } else if (insight.type === "success") {
+                  borderStyle = "border-emerald-500/30 bg-emerald-955/5 text-emerald-300";
+                  icon = "✅";
+                }
+                return (
+                  <div key={idx} className={`p-3 border rounded-xl flex items-start gap-2.5 text-[9px] font-mono leading-relaxed transition ${borderStyle}`}>
+                    <span className="text-xs shrink-0 select-none">{icon}</span>
+                    <span>{insight.text}</span>
+                  </div>
+                );
+              })}
             </div>
-
-            {/* Dynamic Muscle Description Card (Replaces old color legend) */}
-            {(() => {
-              const MUSCLE_DESCRIPTIONS: Record<string, { label: string; desc: string; level: number }> = {
-                chest: {
-                  label: "CHEST (PECTORALIS MAJOR)",
-                  desc: "Primary upper body pushing muscle powering bench press, incline press, and push-ups. Essential for chest width and upper body pressing power.",
-                  level: getDisplayedStatLevel("chestStrength")
-                },
-                shoulders: {
-                  label: "SHOULDERS (DELTOIDS)",
-                  desc: "Anterior, lateral, and rear deltoid heads powering overhead presses, lateral raises, and arm stabilization.",
-                  level: subCategoryLevels.shoulders
-                },
-                biceps: {
-                  label: "BICEPS BRACHII",
-                  desc: "Front arm pulling muscles powering curls, chin-ups, and pulling lockouts. Responsible for arm flex strength.",
-                  level: subCategoryLevels.biceps
-                },
-                core: {
-                  label: "CORE (ABS & OBLIQUES)",
-                  desc: "Central trunk stability engine powering planks, leg raises, rotational strength, and spine stabilization under heavy loads.",
-                  level: getDisplayedStatLevel("coreStrength")
-                },
-                quads: {
-                  label: "QUADRICEPS",
-                  desc: "Powerful front thigh muscles driving squat extension, leg press, lunges, and sprinting acceleration.",
-                  level: subCategoryLevels.quads
-                },
-                speed: {
-                  label: "SPEED & AGILITY",
-                  desc: "Cardiovascular pacing and neuromuscular velocity governing sprint speed, treadmill endurance, and footwork agility.",
-                  level: getDisplayedStatLevel("speed")
-                },
-                traps: {
-                  label: "TRAPEZIUS",
-                  desc: "Upper back and neck posture stabilizers engaged during heavy shrugs, deadlifts, and upright rows.",
-                  level: subCategoryLevels.traps
-                },
-                back: {
-                  label: "BACK (LATS & RHOMBOIDS)",
-                  desc: "Major upper body pulling muscles powering rows, pull-ups, and lat pulldowns for a wide V-taper frame.",
-                  level: getDisplayedStatLevel("backStrength")
-                },
-                triceps: {
-                  label: "TRICEPS BRACHII",
-                  desc: "Three-headed posterior arm muscle driving elbow extension and lockout power on bench press and dips.",
-                  level: subCategoryLevels.triceps
-                },
-                glutes: {
-                  label: "GLUTES (POSTERIOR CHAIN)",
-                  desc: "Strongest muscle group in the body powering hip extension, hip thrusts, deadlifts, and explosive jumping.",
-                  level: subCategoryLevels.glutes
-                },
-                hamstrings: {
-                  label: "HAMSTRINGS",
-                  desc: "Posterior thigh flexors driving leg curls, Romanian deadlifts, sprint deceleration, and knee stability.",
-                  level: subCategoryLevels.hamstrings
-                },
-                calves: {
-                  label: "CALVES (GASTROC & SOLEUS)",
-                  desc: "Lower leg spring flexors responsible for ankle stability, vertical jump height, and running stride drive.",
-                  level: subCategoryLevels.calves
-                }
-              };
-
-              const currentDetail = MUSCLE_DESCRIPTIONS[selectedHudMuscle] || MUSCLE_DESCRIPTIONS.chest;
-              const currentLevel = Math.ceil(currentDetail.level);
-              
-              const getAthleticAssessment = (lvl: number) => {
-                if (lvl <= 10) {
-                  return {
-                    rank: "UNRANKED / NOVICE",
-                    percentile: "15th Percentile (Below Average)",
-                    summary: "Beginning conditioning. Focus on establishing form consistency and baseline strength.",
-                    badgeColor: "bg-slate-900 border-slate-700 text-slate-400"
-                  };
-                } else if (lvl <= 30) {
-                  return {
-                    rank: "BEGINNER ATHLETE",
-                    percentile: "35th Percentile (Developing)",
-                    summary: "Developing foundational strength and muscle adaptation.",
-                    badgeColor: "bg-amber-950/40 border-amber-500/50 text-amber-400"
-                  };
-                } else if (lvl <= 50) {
-                  return {
-                    rank: "INTERMEDIATE ATHLETE",
-                    percentile: "50th Percentile (Average)",
-                    summary: "Solid average athletic level! Healthy physical foundation and consistent capacity.",
-                    badgeColor: "bg-blue-950/40 border-blue-400/50 text-blue-300"
-                  };
-                } else if (lvl <= 70) {
-                  return {
-                    rank: "ADVANCED ATHLETE",
-                    percentile: "70th Percentile (Above Average)",
-                    summary: "Above average performance! Impressive strength and muscle development.",
-                    badgeColor: "bg-purple-950/40 border-purple-400/60 text-purple-300"
-                  };
-                } else if (lvl <= 89) {
-                  return {
-                    rank: "ELITE ATHLETE",
-                    percentile: "88th Percentile (Elite Tier)",
-                    summary: "You are ELITE! Top-tier physical strength, high power output, and exceptional rank.",
-                    badgeColor: "bg-amber-950/50 border-amber-400/70 text-amber-300"
-                  };
-                } else if (lvl <= 99) {
-                  return {
-                    rank: "MASTER TIER",
-                    percentile: "96th Percentile (Near Pinnacle)",
-                    summary: "Near pinnacle physical status! Superior muscle development and volume tolerance.",
-                    badgeColor: "bg-cyan-950/50 border-cyan-400/80 text-cyan-300"
-                  };
-                } else {
-                  return {
-                    rank: "S-RANK LEGEND",
-                    percentile: "99th Percentile (World Class)",
-                    summary: "S-Rank Pinnacle! Top 1% (99th Percentile) with legendary steel conditioning.",
-                    badgeColor: "bg-emerald-950/60 border-emerald-400 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.3)]"
-                  };
-                }
-              };
-
-              const assessment = getAthleticAssessment(currentLevel);
-
-              return (
-                <div className="bg-[#0D0D0E] border-2 border-cyan-500/40 rounded-xl p-4 space-y-3 relative overflow-hidden transition-all duration-300">
-                  <div className="absolute top-0 right-0 w-28 h-28 bg-cyan-500/10 rounded-full blur-xl pointer-events-none" />
-                  
-                  {/* Title & Level Header */}
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
-                      <span className="text-[9.5px] font-press-start text-cyan-300 uppercase tracking-wide">
-                        {currentDetail.label}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-mono font-bold text-cyan-400">
-                      Level {currentLevel}
-                    </span>
-                  </div>
-
-                  {/* Athletic Performance Rank & Percentile Pill */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pt-0.5">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[8px] font-press-start tracking-wider uppercase ${assessment.badgeColor}`}>
-                      🏆 {assessment.rank}
-                    </span>
-                    <span className="text-[8.5px] font-mono text-cyan-400/90 font-semibold">
-                      {assessment.percentile}
-                    </span>
-                  </div>
-
-                  {/* Assessment Summary */}
-                  <p className="text-[9px] font-mono text-slate-300 leading-relaxed bg-[#12161F] p-2.5 rounded-lg border border-slate-800">
-                    "{assessment.summary}"
-                  </p>
-
-                  {/* Muscle Function Description */}
-                  <p className="text-[8.5px] font-mono text-slate-450 leading-normal italic">
-                    {currentDetail.desc}
-                  </p>
-
-                  {/* Modal Trigger */}
-                  <button
-                    type="button"
-                    onClick={() => handleOpenStatModal(selectedHudMuscle)}
-                    className="text-[8px] font-press-start text-cyan-400 hover:text-cyan-300 underline uppercase tracking-wider block pt-1 cursor-pointer"
-                  >
-                    VIEW CONTRIBUTING EXERCISES & DETAILS →
-                  </button>
-                </div>
-              );
-            })()}
           </div>
 
-
-          {/* PERSONAL RECORD DYNAMIC CAROUSEL TICKER - PLACED JUST BELOW IT */}
-          {records.length > 0 ? (
-            <div className="space-y-3">
-              <div className="bg-[#161B22] border-2 border-cyan-500/50 rounded-2xl p-5 shadow-[0_0_20px_rgba(6,182,212,0.15)] relative overflow-hidden h-[120px] flex flex-col justify-center animate-fade-in">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-full blur-xl pointer-events-none" />
-                
-                <div className="flex items-center gap-4">
-                  <div className="text-3xl shrink-0 p-2.5 bg-[#0D0D0E] border border-slate-800 rounded-xl">
-                    {records[activeRecordIndex].icon}
-                  </div>
-                  
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping shrink-0" />
-                      <span className="text-[8px] font-press-start text-cyan-400 tracking-widest block uppercase">
-                        PERSONAL RECORD SHIELD
-                      </span>
-                    </div>
-                    <h3 className="text-[10px] font-press-start text-white truncate uppercase tracking-wider block mt-1">
-                      {records[activeRecordIndex].title}
-                    </h3>
-                    <p className="text-xs font-mono font-black text-emerald-400 block tracking-wide mt-1">
-                      {records[activeRecordIndex].val}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Pagination Dots at bottom center */}
-                {records.length > 1 && (
-                  <div className="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
-                    {records.map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`h-1 rounded-full transition-all duration-300 ${
-                          i === activeRecordIndex ? "w-4 bg-cyan-400" : "w-1.5 bg-slate-850"
-                        }`} 
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* SEE ALL RECORDS BUTTON */}
-              <button
-                onClick={() => setIsAllRecordsOpen(true)}
-                style={{ minHeight: "36px" }}
-                className="w-full bg-[#161B22]/90 hover:bg-[#1C232E] border-2 border-slate-800 hover:border-cyan-500/40 text-cyan-400 hover:text-cyan-300 rounded-xl text-[9px] font-press-start tracking-wider transition flex items-center justify-center gap-2 cursor-pointer duration-150 active:scale-[0.98] shadow-sm uppercase"
-              >
-                🏆 SEE ALL RECORDS
-              </button>
-            </div>
-          ) : (
-            <div className="bg-[#161B22] border-2 border-dashed border-slate-800 rounded-2xl p-5 shadow-inner text-center">
-              <h3 className="text-xs font-press-start text-slate-500 tracking-wider">
-                🛡️ CHARACTER RECORD SHIELD
-              </h3>
-              <p className="text-[10px] text-slate-400 font-mono mt-3 leading-relaxed">
-                No personal records logged yet. Begin logging exercises under the EXERCISE tab to unlock rotating achievements here!
+          {/* B. TRAINING BALANCE CHARTS (VOLUME DISTRIBUTION) */}
+          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="border-b border-slate-800 pb-3">
+              <span className="text-[9px] font-press-start text-cyan-400 tracking-wider block uppercase">
+                📊 TRAINING BALANCE METERS
+              </span>
+              <p className="text-[8px] text-slate-400 font-mono mt-1">
+                Workout volume splits by muscle zone. Keep them balanced!
               </p>
             </div>
-          )}
+
+            <div className="space-y-4.5 pt-1">
+              {[
+                { key: "chest", label: "CHEST / PUSH", pct: balanceDistribution.chest, color: "from-cyan-500 to-blue-500", desc: "Pecs, push-ups, pressing volume" },
+                { key: "back", label: "BACK / PULL", pct: balanceDistribution.back, color: "from-emerald-500 to-teal-500", desc: "Lats, rows, pull-ups, deadlifts" },
+                { key: "arms", label: "ARMS & SHOULDERS", pct: balanceDistribution.arms, color: "from-purple-500 to-indigo-500", desc: "Biceps, triceps, shoulders, traps" },
+                { key: "legs", label: "LOWER BODY / LEGS", pct: balanceDistribution.legs, color: "from-orange-500 to-amber-500", desc: "Quads, hamstrings, glutes, calves" },
+                { key: "core", label: "CORE STABILITY", pct: balanceDistribution.core, color: "from-pink-500 to-rose-500", desc: "Abs, obliques, stabilizer sets" },
+                { key: "cardio", label: "CARDIO & STAMINA", pct: balanceDistribution.cardio, color: "from-red-500 to-orange-500", desc: "Runs, treadmill jog, stairmaster, speed" }
+              ].map((group) => (
+                <div key={group.key} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-[8.5px] font-press-start">
+                    <span className="text-slate-200">{group.label}</span>
+                    <span className="text-cyan-400">{group.pct}%</span>
+                  </div>
+                  {/* Custom Progress Bar */}
+                  <div className="w-full bg-[#0D0D0E] border border-slate-800 rounded-full h-3 overflow-hidden p-0.5">
+                    <div
+                      className={`bg-gradient-to-r ${group.color} h-full rounded-full transition-all duration-500 ease-out`}
+                      style={{ width: `${group.pct}%` }}
+                    />
+                  </div>
+                  <span className="text-[7.5px] font-mono text-slate-500 block uppercase">
+                    {group.desc}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* C. CHRONOLOGICAL WORKOUT HISTORY FEED */}
+          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+              <div>
+                <span className="text-[9px] font-press-start text-cyan-400 tracking-wider block uppercase">
+                  📜 WORKOUT HISTORY LOG
+                </span>
+                <p className="text-[8px] text-slate-400 font-mono mt-1">
+                  Chronological history of completed sets and exercises.
+                </p>
+              </div>
+              <History className="w-4 h-4 text-cyan-400" />
+            </div>
+
+            <div className="space-y-5 pt-1 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
+              {groupedLogHistory.map((group, groupIdx) => (
+                <div key={groupIdx} className="space-y-3">
+                  {/* Date Header */}
+                  <div className="flex items-center gap-2 border-b border-slate-850 pb-1">
+                    <span className="text-[8.5px] font-press-start text-slate-400 tracking-wider font-bold">
+                      {formatDateHeader(group.date)}
+                    </span>
+                    <div className="flex-1 h-[1px] bg-slate-850" />
+                  </div>
+
+                  {/* Exercises on that Day */}
+                  <div className="space-y-2.5">
+                    {group.items.map((item, itemIdx) => (
+                      <div key={itemIdx} className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3.5 space-y-2.5">
+                        {/* Exercise title & category tag */}
+                        <div className="flex items-center justify-between border-b border-slate-900 pb-1.5 gap-2">
+                          <span className="text-[9px] font-press-start text-white tracking-wide uppercase truncate">
+                            {item.exerciseName}
+                          </span>
+                          <span className="text-[7px] font-press-start text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded-md uppercase shrink-0">
+                            {item.pillar}
+                          </span>
+                        </div>
+
+                        {/* Sets listed */}
+                        <div className="space-y-1.5">
+                          {item.sets.map((set, setIdx) => {
+                            const reps = set.reps || 0;
+                            const weight = set.weight || 0;
+                            const distance = set.distance || 0;
+                            const mins = set.minutes || 0;
+                            const secs = set.seconds || 0;
+                            const floors = set.floors || 0;
+
+                            let detailStr = "";
+                            if (weight > 0 || reps > 0) {
+                              detailStr = `${weight} LBS x ${reps} REPS`;
+                            } else if (distance > 0) {
+                              detailStr = `${distance.toFixed(2)} MILES (${mins}m ${secs}s)`;
+                            } else if (floors > 0) {
+                              detailStr = `${floors} FLOORS (${mins}m ${secs}s)`;
+                            } else if (mins > 0 || secs > 0) {
+                              detailStr = `${mins}m ${secs}s`;
+                            } else if (set.newValue) {
+                              detailStr = set.newValue;
+                            }
+
+                            const xpGained = set.xpAwarded || 10;
+
+                            return (
+                              <div key={setIdx} className="flex justify-between items-center text-[9px] font-mono">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-slate-500 uppercase">SET {setIdx + 1}:</span>
+                                  <span className="text-slate-200 font-bold">{detailStr}</span>
+                                </div>
+                                <span className="text-emerald-400 font-bold shrink-0">+{xpGained} XP</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {groupedLogHistory.length === 0 && (
+                <div className="text-center py-10 text-slate-500 font-mono text-[9px] uppercase border border-dashed border-slate-800 rounded-2xl">
+                  No logged workouts found.
+                  <br />
+                  Log some exercises on the EXERCISE tab to fill your history feed!
+                </div>
+              )}
+            </div>
+          </div>
         </motion.div>
       )}
 

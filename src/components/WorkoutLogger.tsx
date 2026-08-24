@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { EXERCISE_DATABASE, CATEGORIES, getAllExercises, saveCustomExercise, deleteCustomExercise, getCustomExercises } from "../exercises";
 import { ExerciseInfo, ExercisePillar, AthleteProfile, FitnessLog } from "../types";
-import { evaluateAthletePerformance } from "../utils/fitnessMath";
+import { evaluateAthletePerformance, calculateSubCategoryLevels } from "../utils/fitnessMath";
+import { pixelMusclePaths } from "../data/pixelMusclePaths";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronLeft,
@@ -23,7 +24,9 @@ import {
   Save,
   Sparkles,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Trophy,
+  Heart
 } from "lucide-react";
 
 interface WorkoutLoggerProps {
@@ -52,6 +55,22 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const [expandedGroup, setExpandedGroup] = useState<"arms" | "legs" | null>(null);
   const [restSeconds, setRestSeconds] = useState<number>(0);
   const [frameIndex, setFrameIndex] = useState<number>(0);
+
+  // Anatomy targeting HUD view states
+  const [hudViewSide, setHudViewSide] = useState<"front" | "back">("front");
+  const [selectedHudMuscle, setSelectedHudMuscle] = useState<string>("chest");
+  const [activeSubTab, setActiveSubTab] = useState<"exercises" | "workouts">("exercises");
+
+  const getMuscleColor = (muscleKey: string) => {
+    if (muscleKey === selectedHudMuscle) {
+      return "url(#steel-glint-logger)";
+    }
+    return "#22D3EE";
+  };
+
+  const handleMuscleTap = (muscle: string) => {
+    setSelectedHudMuscle(muscle);
+  };
 
   // Custom Workout Routines and Recents states
   const [routines, setRoutines] = useState<{ name: string; exercises: string[] }[]>(() => {
@@ -137,6 +156,10 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const performance = evaluateAthletePerformance(logs, profile.bodyWeight);
   const weeklyVolume = performance.weeklyVolume;
   const weeklySubVolume = performance.weeklySubVolume;
+
+  const subCategoryLevels = React.useMemo(() => {
+    return calculateSubCategoryLevels(logs, profile.bodyWeight, performance.statLevels);
+  }, [logs, profile.bodyWeight, performance.statLevels]);
 
   const statConfig = {
     chestStrength: { label: "Chest", colorHex: "#22d3ee" },
@@ -440,6 +463,57 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     setCurrentView("form");
   };
 
+  const getExercisesForMuscle = (muscle: string) => {
+    return getAllExercises().filter(ex => {
+      const nameLower = ex.name.toLowerCase().trim();
+      
+      switch (muscle) {
+        case "chest":
+          return !!ex.builds.chestStrength || ex.subCategories?.includes("chest");
+        case "back":
+          return !!ex.builds.backStrength || ex.subCategories?.includes("back");
+        case "core":
+          return !!ex.builds.coreStrength || ex.subCategories?.includes("core");
+        case "speed":
+          const speedNames = [
+            "treadmill run / jog",
+            "box jumps",
+            "jump rope",
+            "bicycle",
+            "elliptical",
+            "squat jumps",
+            "hiking",
+            "power clean",
+            "barbell squat",
+            "dumbbell lunges",
+            "kettlebell swings",
+            "walking"
+          ];
+          return speedNames.includes(nameLower) || !!ex.builds.speed;
+        case "shoulders":
+          return ex.subCategories?.includes("shoulders");
+        case "biceps":
+          return ex.subCategories?.includes("biceps");
+        case "triceps":
+          return ex.subCategories?.includes("triceps");
+        case "traps":
+          return ex.subCategories?.includes("traps");
+        case "quads":
+          return ex.subCategories?.includes("quads");
+        case "hamstrings":
+          return ex.subCategories?.includes("hamstrings");
+        case "glutes":
+          return ex.subCategories?.includes("glutes");
+        case "calves":
+          return ex.subCategories?.includes("calves");
+        case "forearms":
+          return ex.subCategories?.includes("forearms") || nameLower.includes("forearm") || nameLower.includes("wrist");
+        default:
+          return false;
+      }
+    });
+  };
+
   const getExercisesForFocusGroup = (focusId: string) => {
     const list = EXERCISE_DATABASE.filter(ex => {
       const nameLower = ex.name.toLowerCase().trim();
@@ -716,6 +790,40 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
             </p>
           </div>
 
+          {/* Centered Capsule Sub-Navigation */}
+          <div className="flex justify-center pb-2">
+            <div className="bg-[#161B22] border border-slate-800 p-1 rounded-full flex items-center relative shadow-lg shadow-cyan-950/10">
+              {[
+                { id: "exercises", label: "EXERCISES" },
+                { id: "workouts", label: "WORKOUTS" }
+              ].map((tab) => {
+                const isActive = activeSubTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveSubTab(tab.id as any)}
+                    style={{ minHeight: "36px" }}
+                    className={`px-4 py-1.5 rounded-full text-[9px] font-press-start tracking-wider transition-colors duration-200 relative cursor-pointer ${
+                      isActive
+                        ? "text-cyan-300 font-extrabold"
+                        : "text-slate-500 hover:text-slate-350"
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeSubTabIndicatorLogger"
+                        className="absolute inset-0 bg-gradient-to-r from-cyan-950/90 via-cyan-900/40 to-slate-900 border border-cyan-400/50 rounded-full shadow-[0_0_12px_rgba(6,182,212,0.25)] z-0"
+                        transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                      />
+                    )}
+                    <span className="relative z-10">{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* A. ACTIVE WORKOUT ROUTINE STATUS BANNER */}
           {activeRoutine && (
             <div className="p-4 bg-cyan-950/15 border border-cyan-500/30 rounded-2xl space-y-3 shadow-lg shadow-cyan-950/5 animate-fade-in">
@@ -743,7 +851,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                       key={name}
                       type="button"
                       onClick={() => handleSelectExercise(ex, "categories")}
-                      className="px-3 py-2 bg-[#0D0D0E] border border-slate-800 hover:border-cyan-400/40 text-slate-350 hover:text-white rounded-xl text-[9px] font-press-start tracking-wide cursor-pointer transition shrink-0"
+                      className="px-3 py-2 bg-[#0D0D0E] border border-slate-800 hover:border-cyan-400/40 text-slate-355 hover:text-white rounded-xl text-[9px] font-press-start tracking-wide cursor-pointer transition shrink-0"
                     >
                       {ex.name}
                     </button>
@@ -753,264 +861,427 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
             </div>
           )}
 
-          {/* B. QUICK-LOG RECENTS BAR */}
-          {recents.length > 0 && (
-            <div className="space-y-2">
-              <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
-                ⚡️ QUICK-LOG RECENTS
-              </span>
-              <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none w-full">
-                {recents.map((ex) => (
-                  <button
-                    key={ex.name}
-                    type="button"
-                    onClick={() => handleSelectExercise(ex, "categories")}
-                    className="px-3.5 py-2.5 bg-[#12161A] border border-slate-850 hover:border-cyan-500/40 rounded-xl text-[9px] font-press-start text-white tracking-wide cursor-pointer transition shrink-0"
-                  >
-                    {ex.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* C. CUSTOM WORKOUT ROUTINES LIST */}
-          <div className="bg-[#12161A] border border-slate-855 p-4.5 rounded-2xl space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-850/80 pb-2.5">
-              <span className="text-[9px] font-press-start text-cyan-300 uppercase tracking-wider">
-                📋 CUSTOM WORKOUT ROUTINES
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setNewRoutineName("");
-                  setSelectedExerciseNames([]);
-                  setRoutineSearchQuery("");
-                  setCurrentView("create-routine");
-                }}
-                className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-400/30 hover:border-cyan-400 text-cyan-300 rounded-lg text-[8px] font-press-start flex items-center gap-1 cursor-pointer transition active:scale-95"
-              >
-                <Plus className="w-2.5 h-2.5" /> CREATE
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              {routines.map((routine) => {
-                const isActive = activeRoutine?.name === routine.name;
-                return (
-                  <div
-                    key={routine.name}
-                    onClick={() => setActiveRoutine(routine)}
-                    className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition ${
-                      isActive
-                        ? "border-cyan-400 bg-cyan-950/10"
-                        : "border-slate-850 bg-[#161B22]/40 hover:border-slate-700"
-                    }`}
-                  >
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-press-start text-white tracking-wide block">
-                        {routine.name.toUpperCase()}
-                      </span>
-                      <span className="text-[8px] font-mono text-slate-500 block uppercase">
-                        {routine.exercises.length} Exercises: {routine.exercises.slice(0, 3).join(", ")}{routine.exercises.length > 3 ? "..." : ""}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {!isActive ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveRoutine(routine);
-                          }}
-                          className="p-1.5 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-cyan-400 rounded-lg cursor-pointer transition"
-                          title="Start Workout"
-                        >
-                          <Play className="w-3 h-3 fill-current" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveRoutine(null);
-                          }}
-                          className="p-1.5 bg-cyan-950/30 border border-cyan-400 text-cyan-300 rounded-lg cursor-pointer transition"
-                          title="Stop Workout"
-                        >
-                          <Square className="w-3 h-3 fill-current" />
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteRoutine(routine.name, e)}
-                        className="p-1.5 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-red-400 rounded-lg cursor-pointer transition"
-                        title="Delete Routine"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
+          {activeSubTab === "exercises" && (
+            <motion.div
+              key="exercises-subtab"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-6"
+            >
+              {/* D. ANATOMY TARGETING HUD */}
+              <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+                {/* Header & FRONT / BACK capsule */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div>
+                    <span className="text-[8px] font-press-start text-cyan-400 tracking-widest block uppercase mb-1">
+                      ANATOMY TARGETING HUD
+                    </span>
+                    <p className="text-[8px] text-slate-400 font-mono leading-relaxed">
+                      Click any muscle region or list item to view and log exercises.
+                    </p>
                   </div>
-                );
-              })}
-              {routines.length === 0 && (
-                <div className="text-center py-4 text-slate-500 font-mono text-[9px] uppercase">
-                  No routines saved. Create one to get started!
+
+                  {/* FRONT / BACK TOGGLE CAPSULE */}
+                  <div className="bg-[#0D0D0E] border border-slate-800 p-1 rounded-xl flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHudViewSide("front");
+                        setSelectedHudMuscle("chest");
+                      }}
+                      style={{ minHeight: "30px", minWidth: "75px" }}
+                      className={`px-3 py-1 rounded-lg text-[8px] font-press-start tracking-wider transition-all duration-200 cursor-pointer ${
+                        hudViewSide === "front"
+                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-bold"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      FRONT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHudViewSide("back");
+                        setSelectedHudMuscle("back");
+                      }}
+                      style={{ minHeight: "30px", minWidth: "75px" }}
+                      className={`px-3 py-1 rounded-lg text-[8px] font-press-start tracking-wider transition-all duration-200 cursor-pointer ${
+                        hudViewSide === "back"
+                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-bold"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      BACK
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* D. TARGET TRAINING ZONES */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between border-b border-slate-850/80 pb-2">
-              <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
-                🎯 TARGET ZONES
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomExName("");
-                  setCustomExImageUrl("");
-                  setCustomExImagePreview(null);
-                  setCurrentView("create-exercise");
-                }}
-                className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-400/40 hover:border-cyan-400 text-cyan-300 rounded-lg text-[8px] font-press-start flex items-center gap-1 cursor-pointer transition active:scale-95"
-              >
-                <Plus className="w-2.5 h-2.5 text-cyan-400" /> ADD CUSTOM EXERCISE
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {focusGroups.map((group, index) => {
-                const isTop = index === 0; // Stamina
-                const isSubGroup = group.id === "arms" || group.id === "legs";
-                const isExpanded = expandedGroup === group.id;
+                {/* 2-COLUMN SPLIT: LEFT SIDE CHARACTER, RIGHT SIDE MUSCLE BUTTONS */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                  {/* Left Column: Character Diagram */}
+                  <div className="relative w-full max-w-[290px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto sm:mx-0">
+                    <svg
+                      viewBox={hudViewSide === "front" ? "21 0 488 585" : "424 0 488 585"}
+                      className="w-full h-full select-none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      shapeRendering="crispEdges"
+                    >
+                      <defs>
+                        <linearGradient id="steel-glint-logger" x1="0%" y1="0%" x2="100%" y2="50%">
+                          <stop offset="0%" stopColor="#3E4A5A" />
+                          <stop offset="42%" stopColor="#3E4A5A" />
+                          <stop offset="50%" stopColor="#C9D6E8" stopOpacity="0.35" />
+                          <stop offset="58%" stopColor="#3E4A5A" />
+                          <stop offset="100%" stopColor="#3E4A5A" />
+                          <animate 
+                            attributeName="x1" 
+                            from="-100%" 
+                            to="100%" 
+                            dur="2.8s" 
+                            repeatCount="indefinite" 
+                          />
+                          <animate 
+                            attributeName="x2" 
+                            from="0%" 
+                            to="200%" 
+                            dur="2.8s" 
+                            repeatCount="indefinite" 
+                          />
+                        </linearGradient>
 
-                return (
-                  <button
-                    key={group.id}
-                    id={`focus-${group.id}`}
-                    style={{ minHeight: "72px" }}
-                    onClick={() => {
-                      if (isSubGroup) {
-                        setExpandedGroup(prev => (prev === group.id ? null : (group.id as "arms" | "legs")));
-                      } else {
-                        setExpandedGroup(null);
-                        setSelectedCategory({ id: `focus_${group.id}`, name: group.name });
-                        setSelectedSubCategory("all");
-                        setActiveFilter("weights");
-                        setCurrentView("exercises");
-                      }
-                    }}
-                    className={`p-3.5 border-2 rounded-2xl flex items-center gap-3 text-left transition duration-150 cursor-pointer ${group.style} ${
-                      isTop ? "col-span-2 shadow-lg shadow-purple-950/20" : ""
-                    } ${isExpanded ? "border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.3)]" : ""}`}
-                  >
-                    <div className="p-2.5 bg-[#0D0D0E] border border-slate-800 rounded-xl shrink-0">
-                      {group.icon}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10.5px] font-press-start text-white tracking-wider block truncate">
-                          {group.name.toUpperCase()}
-                        </span>
-                        {isTop && (
-                          <span className="text-[7.5px] font-press-start text-purple-400 border border-purple-500/40 px-2 py-0.5 rounded-md uppercase shrink-0">
-                            FULL CONDITIONING
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[8.5px] font-mono text-slate-450 mt-0.5 block leading-tight">
-                        {group.desc}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+                        {["chest", "back", "core", "biceps", "triceps", "shoulders", "traps", "quads", "hamstrings", "glutes", "calves", "forearms"].map(m => {
+                          const paths = pixelMusclePaths.filter(p => p.muscle === m);
+                          return (
+                            <clipPath id={`clip-logger-${m}`} key={`clip-logger-${m}`}>
+                              {paths.map((p, idx) => (
+                                <path d={p.d} key={idx} />
+                              ))}
+                            </clipPath>
+                          );
+                        })}
 
-              {/* POP-OUT SUB-MUSCLE DRAWER FOR ARMS & LEGS */}
-              <AnimatePresence>
-                {expandedGroup && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="col-span-2 bg-[#12161A] border-2 border-cyan-500/50 p-4 rounded-2xl space-y-3 shadow-xl overflow-hidden"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                      <span className="text-[9px] font-press-start text-cyan-300 uppercase tracking-widest flex items-center gap-2">
-                        <span className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
-                        SELECT {expandedGroup.toUpperCase()} ISOLATION ZONE
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedGroup(null)}
-                        className="text-[8px] font-press-start text-slate-500 hover:text-slate-300 uppercase cursor-pointer"
-                      >
-                        CLOSE ✕
-                      </button>
-                    </div>
+                        <clipPath id="side-clip-logger">
+                          <rect
+                            x={hudViewSide === "front" ? "0" : "455"}
+                            y="0"
+                            width={hudViewSide === "front" ? "455" : "521"}
+                            height="585"
+                          />
+                        </clipPath>
+                      </defs>
 
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {(expandedGroup === "arms"
-                        ? [
-                            { id: "biceps", label: "BICEPS", desc: "Front arms" },
-                            { id: "triceps", label: "TRICEPS", desc: "Back arms" },
-                            { id: "shoulders", label: "SHOULDERS", desc: "Deltoids" },
-                            { id: "traps", label: "TRAPS", desc: "Upper back" }
-                          ]
-                        : [
-                            { id: "quads", label: "QUADS", desc: "Front thighs" },
-                            { id: "hamstrings", label: "HAMSTRINGS", desc: "Back thighs" },
-                            { id: "glutes", label: "GLUTES", desc: "Hip power" },
-                            { id: "calves", label: "CALVES", desc: "Lower legs" }
-                          ]
-                      ).map((sub) => (
+                      {/* Layer 1: Base image */}
+                      <image
+                        href="/muscle_map.png"
+                        x="0"
+                        y="0"
+                        width="976"
+                        height="585"
+                        preserveAspectRatio="none"
+                        clipPath="url(#side-clip-logger)"
+                      />
+
+                      {/* Layer 2: Color overlays for ALL muscles based on level */}
+                      {pixelMusclePaths.map((path, idx) => {
+                        const color = getMuscleColor(path.muscle);
+                        const isSelected = path.muscle === selectedHudMuscle;
+                        return (
+                          <path
+                            key={`${path.id}-${idx}-logger-hud`}
+                            d={path.d}
+                            fill={color}
+                            opacity={isSelected ? 1 : 0.7}
+                            style={{
+                              filter: isSelected
+                                ? "drop-shadow(0 0 6px rgba(200, 230, 245, 0.9))"
+                                : "drop-shadow(0 0 4px rgba(34, 211, 238, 0.85))"
+                            }}
+                            className="cursor-pointer hover:opacity-90 transition-all duration-150"
+                            onClick={() => handleMuscleTap(path.muscle)}
+                          />
+                        );
+                      })}
+                    </svg>
+                  </div>
+
+                  {/* Right Column: Muscle Group Quick Buttons */}
+                  <div className="space-y-2">
+                    <span className="text-[7.5px] font-press-start text-slate-500 uppercase block mb-1">
+                      {hudViewSide === "front" ? "FRONT MUSCLE GROUPS" : "BACK MUSCLE GROUPS"}
+                    </span>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      {(hudViewSide === "front" ? [
+                        { key: "chest", label: "CHEST" },
+                        { key: "shoulders", label: "SHOULDERS" },
+                        { key: "biceps", label: "BICEPS" },
+                        { key: "core", label: "CORE" },
+                        { key: "quads", label: "QUADS" },
+                        { key: "speed", label: "SPEED / AGILITY" },
+                      ] : [
+                        { key: "traps", label: "TRAPS" },
+                        { key: "back", label: "UPPER / LATS BACK" },
+                        { key: "triceps", label: "TRICEPS" },
+                        { key: "glutes", label: "GLUTES" },
+                        { key: "hamstrings", label: "HAMSTRINGS" },
+                        { key: "calves", label: "CALVES" },
+                      ]).map((item) => (
                         <button
-                          key={sub.id}
+                          key={item.key}
                           type="button"
-                          onClick={() => {
-                            setSelectedCategory({ id: `focus_${expandedGroup}`, name: expandedGroup === "arms" ? "Arms" : "Legs" });
-                            setSelectedSubCategory(sub.id);
-                            setActiveFilter("weights");
-                            setCurrentView("exercises");
-                            setExpandedGroup(null);
-                          }}
-                          className="p-3 bg-[#0D0D0E] border border-slate-800 hover:border-cyan-400 rounded-xl text-left transition group cursor-pointer"
+                          onClick={() => handleMuscleTap(item.key)}
+                          style={{ minHeight: "36px" }}
+                          className={`w-full border rounded-xl px-3.5 py-2 flex items-center gap-2.5 text-left transition group cursor-pointer ${
+                            item.key === selectedHudMuscle
+                              ? "bg-cyan-950/40 border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.25)]"
+                              : "bg-[#0D0D0E] hover:bg-[#1C212B] border-slate-800 hover:border-slate-700"
+                          }`}
                         >
-                          <span className="text-[9px] font-press-start text-white group-hover:text-cyan-300 block uppercase">
-                            {sub.label}
-                          </span>
-                          <span className="text-[8px] font-mono text-slate-500 block mt-0.5">
-                            {sub.desc}
+                          <span
+                            className={`w-2.5 h-2.5 rounded-sm border shrink-0 ${
+                              item.key === selectedHudMuscle
+                                ? "bg-cyan-400 border-cyan-300 shadow-[0_0_6px_#06b6d4]"
+                                : "bg-cyan-900/60 border-slate-700"
+                            }`}
+                          />
+                          <span className={`text-[8.5px] font-press-start uppercase flex-1 ${
+                            item.key === selectedHudMuscle ? "text-cyan-300 font-extrabold" : "text-slate-200 group-hover:text-cyan-300"
+                          }`}>
+                            {item.label}
                           </span>
                         </button>
                       ))}
-
-                      {/* ALL EXERCISES BUTTON */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedCategory({ id: `focus_${expandedGroup}`, name: expandedGroup === "arms" ? "Arms" : "Legs" });
-                          setSelectedSubCategory("all");
-                          setActiveFilter("weights");
-                          setCurrentView("exercises");
-                          setExpandedGroup(null);
-                        }}
-                        className="col-span-2 p-2.5 bg-cyan-950/20 border border-cyan-500/40 hover:border-cyan-400 text-center rounded-xl transition cursor-pointer"
-                      >
-                        <span className="text-[8.5px] font-press-start text-cyan-300 uppercase">
-                          VIEW ALL {expandedGroup.toUpperCase()} EXERCISES →
-                        </span>
-                      </button>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
+                  </div>
+                </div>
+
+                {/* Custom Exercise Creator and Header */}
+                <div className="flex items-center justify-between border-t border-slate-800 pt-4">
+                  <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
+                    ⚙️ FILTER BY EQUIPMENT
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomExName("");
+                      setCustomExImageUrl("");
+                      setCustomExImagePreview(null);
+                      setCurrentView("create-exercise");
+                    }}
+                    className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-400/40 hover:border-cyan-400 text-cyan-300 rounded-lg text-[8px] font-press-start flex items-center gap-1 cursor-pointer transition active:scale-95"
+                  >
+                    <Plus className="w-2.5 h-2.5 text-cyan-400" /> ADD CUSTOM EXERCISE
+                  </button>
+                </div>
+
+                {/* 🎛️ EQUIPMENT TYPE FILTERS */}
+                <div className="flex items-center justify-between gap-3 w-full">
+                  {[
+                    { id: "bodyweight", label: "BODYWEIGHT" },
+                    { id: "machines", label: "MACHINE" },
+                    { id: "weights", label: "FREE WEIGHTS" }
+                  ].map((filter) => {
+                    const isActive = activeFilter === filter.id;
+                    return (
+                      <button
+                        key={filter.id}
+                        type="button"
+                        onClick={() => handleToggleFilter(filter.id as any)}
+                        style={{ minHeight: "42px" }}
+                        className={`flex-1 text-center px-4 py-2 text-[10px] font-mono font-black rounded-xl cursor-pointer transition active:scale-95 border-2 ${
+                          isActive 
+                            ? "bg-cyan-500/10 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
+                            : "bg-[#161B22]/40 border-slate-850 text-slate-500 hover:text-slate-400"
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Exercises Grid */}
+                <div className="space-y-2 pt-2">
+                  <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
+                    ⚔️ AVAILABLE EXERCISES ({selectedHudMuscle.toUpperCase()})
+                  </span>
+                  <div className="grid grid-cols-1 gap-3">
+                    {(() => {
+                      const activeExercises = getExercisesForMuscle(selectedHudMuscle);
+                      const filteredExercises = activeExercises.filter(ex => {
+                        const eqType = getExerciseEquipmentType(ex.pillar, ex.name);
+                        return eqType === activeFilter;
+                      });
+
+                      return (
+                        <>
+                          {filteredExercises.map((ex) => {
+                            const isCustom = getCustomExercises().some(c => c.name.toLowerCase() === ex.name.toLowerCase());
+                            return (
+                              <div key={ex.name} className="relative group">
+                                <button
+                                  id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
+                                  onClick={() => handleSelectExercise(ex, "categories")}
+                                  style={{ minHeight: "56px" }}
+                                  className="w-full p-3 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer"
+                                >
+                                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                    <span className="text-[9px] font-press-start text-white group-hover:text-cyan-300 uppercase leading-snug">
+                                      {ex.name}
+                                    </span>
+                                  </div>
+                                  <span className="text-[7.5px] font-mono text-slate-450 uppercase font-bold tracking-wide">
+                                    {getBuildsDescription(ex)}
+                                  </span>
+                                </button>
+                                
+                                {isCustom && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteCustomEx(ex.name, e)}
+                                    className="absolute -top-1 -right-1 w-5 h-5 bg-[#0D0D0E] border border-slate-800 hover:border-red-500 text-slate-400 hover:text-red-400 rounded-lg flex items-center justify-center cursor-pointer transition active:scale-90"
+                                    title="Delete Custom Exercise"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {filteredExercises.length === 0 && (
+                            <div className="col-span-2 text-center py-6 text-slate-500 border border-dashed border-slate-850 rounded-2xl font-mono text-[9px] uppercase">
+                              No {activeFilter} exercises found for this muscle zone.
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeSubTab === "workouts" && (
+            <motion.div
+              key="workouts-subtab"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.15 }}
+              className="space-y-6"
+            >
+              {/* B. QUICK-LOG RECENTS BAR */}
+              {recents.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
+                    ⚡️ QUICK-LOG RECENTS
+                  </span>
+                  <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none w-full">
+                    {recents.map((ex) => (
+                      <button
+                        key={ex.name}
+                        type="button"
+                        onClick={() => handleSelectExercise(ex, "categories")}
+                        className="px-3.5 py-2.5 bg-[#12161A] border border-slate-850 hover:border-cyan-500/40 rounded-xl text-[9px] font-press-start text-white tracking-wide cursor-pointer transition shrink-0"
+                      >
+                        {ex.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* C. CUSTOM WORKOUT ROUTINES LIST */}
+              <div className="bg-[#12161A] border border-slate-855 p-4.5 rounded-2xl space-y-4 shadow-xl">
+                <div className="flex items-center justify-between border-b border-slate-850/80 pb-2.5">
+                  <span className="text-[9px] font-press-start text-cyan-300 uppercase tracking-wider">
+                    📋 CUSTOM WORKOUT ROUTINES
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewRoutineName("");
+                      setSelectedExerciseNames([]);
+                      setRoutineSearchQuery("");
+                      setCurrentView("create-routine");
+                    }}
+                    className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-400/30 hover:border-cyan-400 text-cyan-300 rounded-lg text-[8px] font-press-start flex items-center gap-1 cursor-pointer transition active:scale-95"
+                  >
+                    <Plus className="w-2.5 h-2.5" /> CREATE
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {routines.map((routine) => {
+                    const isActive = activeRoutine?.name === routine.name;
+                    return (
+                      <div
+                        key={routine.name}
+                        onClick={() => setActiveRoutine(routine)}
+                        className={`p-3 border rounded-xl flex items-center justify-between cursor-pointer transition ${
+                          isActive
+                            ? "border-cyan-400 bg-cyan-950/10"
+                            : "border-slate-855 bg-[#161B22]/40 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-press-start text-white tracking-wide block">
+                            {routine.name.toUpperCase()}
+                          </span>
+                          <span className="text-[8px] font-mono text-slate-500 block uppercase">
+                            {routine.exercises.length} Exercises: {routine.exercises.slice(0, 3).join(", ")}{routine.exercises.length > 3 ? "..." : ""}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {!isActive ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveRoutine(routine);
+                              }}
+                              className="p-1.5 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-cyan-400 rounded-lg cursor-pointer transition"
+                              title="Start Workout"
+                            >
+                              <Play className="w-3 h-3 fill-current" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveRoutine(null);
+                              }}
+                              className="p-1.5 bg-cyan-950/30 border border-cyan-400 text-cyan-300 rounded-lg cursor-pointer transition"
+                              title="Stop Workout"
+                            >
+                              <Square className="w-3 h-3 fill-current" />
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteRoutine(routine.name, e)}
+                            className="p-1.5 bg-[#0D0D0E] border border-slate-800 text-slate-400 hover:text-red-400 rounded-lg cursor-pointer transition"
+                            title="Delete Routine"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {routines.length === 0 && (
+                    <div className="text-center py-4 text-slate-500 font-mono text-[9px] uppercase">
+                      No routines saved. Create one to get started!
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       )}
 
