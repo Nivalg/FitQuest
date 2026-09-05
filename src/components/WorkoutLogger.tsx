@@ -879,10 +879,15 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   </div>
                 </div>
 
-                {/* 2-COLUMN SPLIT: LEFT SIDE CHARACTER, RIGHT SIDE MUSCLE BUTTONS */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
-                  {/* Left Column: Character Diagram */}
-                  <div className="relative w-full max-w-[290px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto sm:mx-0">
+                {/* CENTERED CHARACTER DIAGRAM WITH TOP-RIGHT BADGE & BOTTOM CARDIO BUTTON */}
+                <div className="flex flex-col items-center justify-center space-y-3 w-full">
+                  {/* Character Diagram Image */}
+                  <div className="relative w-full max-w-[290px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto">
+                    {/* Top-Right Highlighted Muscle Label Badge */}
+                    <div className="absolute top-2 right-2 bg-slate-950/90 border border-cyan-400/80 px-2 py-0.5 rounded-lg text-cyan-300 font-press-start text-[7.5px] uppercase tracking-wider shadow-[0_0_10px_rgba(6,182,212,0.3)] z-20 pointer-events-none">
+                      {selectedHudMuscle.toUpperCase()}
+                    </div>
+
                     <svg
                       viewBox={hudViewSide === "front" ? "21 0 488 585" : "424 0 488 585"}
                       className="w-full h-full select-none"
@@ -967,55 +972,19 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                     </svg>
                   </div>
 
-                  {/* Right Column: Muscle Group Quick Buttons */}
-                  <div className="space-y-2">
-                    <span className="text-[7.5px] font-press-start text-slate-500 uppercase block mb-1">
-                      {hudViewSide === "front" ? "FRONT MUSCLE GROUPS" : "BACK MUSCLE GROUPS"}
-                    </span>
-
-                    <div className="grid grid-cols-1 gap-2">
-                      {(hudViewSide === "front" ? [
-                        { key: "chest", label: "CHEST" },
-                        { key: "shoulders", label: "SHOULDERS" },
-                        { key: "biceps", label: "BICEPS" },
-                        { key: "core", label: "CORE" },
-                        { key: "quads", label: "QUADS" },
-                        { key: "speed", label: "SPEED / AGILITY" },
-                      ] : [
-                        { key: "traps", label: "TRAPS" },
-                        { key: "back", label: "UPPER / LATS BACK" },
-                        { key: "triceps", label: "TRICEPS" },
-                        { key: "glutes", label: "GLUTES" },
-                        { key: "hamstrings", label: "HAMSTRINGS" },
-                        { key: "calves", label: "CALVES" },
-                      ]).map((item) => (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() => handleMuscleTap(item.key)}
-                          style={{ minHeight: "36px" }}
-                          className={`w-full border rounded-xl px-3.5 py-2 flex items-center gap-2.5 text-left transition group cursor-pointer ${
-                            item.key === selectedHudMuscle
-                              ? "bg-cyan-950/40 border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.25)]"
-                              : "bg-[#0D0D0E] hover:bg-[#1C212B] border-slate-800 hover:border-slate-700"
-                          }`}
-                        >
-                          <span
-                            className={`w-2.5 h-2.5 rounded-sm border shrink-0 ${
-                              item.key === selectedHudMuscle
-                                ? "bg-cyan-400 border-cyan-300 shadow-[0_0_6px_#06b6d4]"
-                                : "bg-cyan-900/60 border-slate-700"
-                            }`}
-                          />
-                          <span className={`text-[8.5px] font-press-start uppercase flex-1 ${
-                            item.key === selectedHudMuscle ? "text-cyan-300 font-extrabold" : "text-slate-200 group-hover:text-cyan-300"
-                          }`}>
-                            {item.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {/* Cardio Button Below Image */}
+                  <button
+                    type="button"
+                    onClick={() => handleMuscleTap("cardio")}
+                    style={{ minHeight: "44px" }}
+                    className={`w-full max-w-[290px] border-2 rounded-xl px-4 py-2.5 flex items-center justify-center gap-2 font-press-start text-xs uppercase cursor-pointer transition active:scale-95 ${
+                      selectedHudMuscle === "cardio"
+                        ? "bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold"
+                        : "bg-[#12161A] hover:bg-[#161B22] border-slate-850 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Flame className="w-4 h-4 text-cyan-400" /> CARDIO
+                  </button>
                 </div>
 
                 {/* Custom Exercise Creator and Header */}

@@ -71,6 +71,8 @@ export default function App() {
           legStrengthXP: Number(parsed.legStrengthXP) || 0,
           coreStrength: Number(parsed.coreStrength) || 0,
           coreStrengthXP: Number(parsed.coreStrengthXP) || 0,
+          cardio: Number(parsed.cardio) || Number(parsed.stamina) || 0,
+          cardioXP: Number(parsed.cardioXP) || Number(parsed.staminaXP) || 0,
           speed: Number(parsed.speed) || 0,
           speedXP: Number(parsed.speedXP) || 0,
           stamina: Number(parsed.stamina) || 0,

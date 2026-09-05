@@ -1406,6 +1406,7 @@ export function evaluateAthletePerformance(
       armStrength: 0.00,
       legStrength: 0.00,
       coreStrength: 0.00,
+      cardio: 0.00,
       speed: 0.00,
       stamina: 0.00,
       cardioStamina: 0.00
@@ -1416,6 +1417,7 @@ export function evaluateAthletePerformance(
       armStrength: 0,
       legStrength: 0,
       coreStrength: 0,
+      cardio: 0,
       speed: 0,
       stamina: 0,
       cardioStamina: 0
@@ -1436,6 +1438,7 @@ export function evaluateAthletePerformance(
       armStrength: 0,
       legStrength: 0,
       coreStrength: 0,
+      cardio: 0,
       speed: 0,
       stamina: 0
     },
@@ -1455,6 +1458,7 @@ export function evaluateAthletePerformance(
       armStrength: 0,
       legStrength: 0,
       coreStrength: 0,
+      cardio: 0,
       speed: 0,
       stamina: 0
     },
@@ -1823,12 +1827,6 @@ export function evaluateAthletePerformance(
       const pct = builds[stat] || 0;
       if (pct > 0) {
         let addedProgress = progress * (pct / 100);
-
-        // Speed progress is easier to build via free weights
-        const dbEx = getAllExercises().find(e => e.name.toLowerCase() === conf.name.toLowerCase());
-        if (stat === "speed" && dbEx?.pillar === "weights") {
-          addedProgress *= 2.5;
-        }
 
         // Core progress builds 2.5x slower (scaled by 0.40) to prevent instant max-outs from indirect exercises
         if (stat === "coreStrength") {

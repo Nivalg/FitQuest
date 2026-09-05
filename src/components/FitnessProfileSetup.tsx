@@ -35,6 +35,8 @@ export default function FitnessProfileSetup({ onSetupComplete }: FitnessProfileS
       legStrengthXP: 0,
       coreStrength: 0,
       coreStrengthXP: 0,
+      cardio: 0,
+      cardioXP: 0,
       speed: 0,
       speedXP: 0,
       stamina: 0,
