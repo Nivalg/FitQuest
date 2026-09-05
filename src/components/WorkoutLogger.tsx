@@ -71,6 +71,11 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
   const handleMuscleTap = (muscle: string) => {
     setSelectedHudMuscle(muscle);
+    if (muscle === "cardio") {
+      setActiveFilter("cardio");
+    } else if (activeFilter === "cardio") {
+      setActiveFilter("bodyweight");
+    }
   };
 
   // Custom Workout Routines and Recents states
@@ -151,7 +156,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   }, [selectedExercise]);
 
   // Equipment selection filters
-  const [activeFilter, setActiveFilter] = useState<"weights" | "machines" | "bodyweight">("weights");
+  const [activeFilter, setActiveFilter] = useState<"weights" | "machines" | "bodyweight" | "cardio">("bodyweight");
 
   // Dynamic weekly stimulus progress calculations
   const performance = evaluateAthletePerformance(logs, profile.bodyWeight);
@@ -215,26 +220,18 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     );
   };
 
-  const handleToggleFilter = (filter: "weights" | "machines" | "bodyweight") => {
+  const handleToggleFilter = (filter: "weights" | "machines" | "bodyweight" | "cardio") => {
     setActiveFilter(filter);
+    if (filter === "cardio") {
+      setSelectedHudMuscle("cardio");
+    }
   };
 
-  const getExerciseEquipmentType = (pillar: string, name: string): "weights" | "machines" | "bodyweight" => {
+  const getExerciseEquipmentType = (pillar: string, name: string): "weights" | "machines" | "bodyweight" | "cardio" => {
+    if (pillar === "cardio") return "cardio";
     if (pillar === "weights") return "weights";
     if (pillar === "machines") return "machines";
     if (pillar === "bodyweight") return "bodyweight";
-    if (pillar === "cardio") {
-      const nameLower = name.toLowerCase();
-      if (
-        nameLower.includes("rope") ||
-        nameLower.includes("jump") ||
-        nameLower.includes("sprint") ||
-        nameLower.includes("hiking")
-      ) {
-        return "bodyweight";
-      }
-      return "machines";
-    }
     return "bodyweight";
   };
 
@@ -469,6 +466,8 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       const nameLower = ex.name.toLowerCase().trim();
       
       switch (muscle) {
+        case "cardio":
+          return ex.pillar === "cardio" || !!ex.builds.cardio || !!ex.builds.stamina || !!ex.builds.speed || ex.subCategories?.includes("cardio");
         case "chest":
           return !!ex.builds.chestStrength || ex.subCategories?.includes("chest");
         case "back":
@@ -476,21 +475,8 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
         case "core":
           return !!ex.builds.coreStrength || ex.subCategories?.includes("core");
         case "speed":
-          const speedNames = [
-            "treadmill run / jog",
-            "box jumps",
-            "jump rope",
-            "bicycle",
-            "elliptical",
-            "squat jumps",
-            "hiking",
-            "power clean",
-            "barbell squat",
-            "dumbbell lunges",
-            "kettlebell swings",
-            "walking"
-          ];
-          return speedNames.includes(nameLower) || !!ex.builds.speed;
+        case "stamina":
+          return ex.pillar === "cardio" || !!ex.builds.cardio || !!ex.builds.speed || !!ex.builds.stamina;
         case "shoulders":
           return ex.subCategories?.includes("shoulders");
         case "biceps":
@@ -1042,6 +1028,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                     {(() => {
                       const activeExercises = getExercisesForMuscle(selectedHudMuscle);
                       const filteredExercises = activeExercises.filter(ex => {
+                        if (selectedHudMuscle === "cardio" || activeFilter === "cardio") {
+                          return true;
+                        }
                         const eqType = getExerciseEquipmentType(ex.pillar, ex.name);
                         return eqType === activeFilter;
                       });
