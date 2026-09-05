@@ -27,11 +27,10 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
     "armStrength",
     "legStrength",
     "coreStrength",
-    "speed",
-    "stamina"
+    "cardio"
   ] as const;
 
-  const statConfig = {
+  const statConfig: Record<string, { label: string; colorHex: string; colorClass: string; accentBg: string; icon: React.ReactNode; desc: string }> = {
     chestStrength: {
       label: "Chest Progress",
       colorHex: "#22d3ee",
@@ -72,21 +71,13 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
       icon: <Target className="w-4 h-4 text-amber-400" />,
       desc: "Hanging raises, ab roller, & plank sets."
     },
-    speed: {
-      label: "Speed Progress",
+    cardio: {
+      label: "Cardio Progress",
       colorHex: "#f43f5e",
       colorClass: "text-rose-400",
       accentBg: "bg-rose-500/10",
       icon: <Flame className="w-4 h-4 text-rose-400" />,
-      desc: "High-intensity running velocity/sprinter sets."
-    },
-    stamina: {
-      label: "Stamina Progress",
-      colorHex: "#c084fc",
-      colorClass: "text-purple-400",
-      accentBg: "bg-purple-500/10",
-      icon: <Clock className="w-4 h-4 text-purple-400" />,
-      desc: "Endurance jogs, cardio trails, & stamina loads."
+      desc: "Running, cycling, stairmaster, jump rope, & outdoor trails."
     }
   };
 
@@ -106,9 +97,9 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
     legStrength: ["glutes", "quads", "hamstrings", "calves"]
   };
 
-  // Helper to map percent to visual radius (0% to 120% scale)
+  // Helper to map percent to visual radius (0% to 120% scale on 6-axis hexagon)
   const getCoordinatesForPercent = (index: number, percent: number) => {
-    const angle = (2 * Math.PI * index) / 7 - Math.PI / 2;
+    const angle = (2 * Math.PI * index) / 6 - Math.PI / 2;
     const clampedVal = Math.max(0, Math.min(120, percent));
     const dist = (clampedVal / 120) * 105; // 105px is maximum visual radius
     const x = 170 + dist * Math.cos(angle);
@@ -117,7 +108,7 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
   };
 
   const currentVal = weeklyVolume[selectedKey] || 0;
-  const currentConfig = statConfig[selectedKey];
+  const currentConfig = statConfig[selectedKey] || statConfig.chestStrength;
 
   return (
     <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 animate-fade-in relative overflow-hidden">
@@ -141,9 +132,9 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
           viewBox="0 0 340 340"
           className="w-full max-w-[310px] aspect-square select-none overflow-visible"
         >
-          {/* Concentric regular heptagons representing thresholds */}
-          {[20, 50, 100, 120].map((threshold, idx) => {
-            const points = Array.from({ length: 7 }, (_, i) => {
+          {/* Concentric regular hexagons representing thresholds */}
+          {[20, 50, 100, 120].map((threshold) => {
+            const points = Array.from({ length: 6 }, (_, i) => {
               const { x, y } = getCoordinatesForPercent(i, threshold);
               return `${x},${y}`;
             }).join(" ");
@@ -218,7 +209,7 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
                 cx={x}
                 cy={y}
                 r={isSelected ? "5.5" : "4"}
-                fill={isSelected ? "#22D3EE" : statConfig[key].colorHex}
+                fill={isSelected ? "#22D3EE" : (statConfig[key]?.colorHex || "#22d3ee")}
                 className="stroke-[#0D0D0E] stroke-2 cursor-pointer transition-all duration-150"
                 onClick={() => setSelectedKey(key)}
               />
@@ -228,18 +219,16 @@ export default function MuscleVolumeVisualizer({ weeklyVolume, weeklySubVolume }
           {/* Interactive labels and percentages */}
           {statKeys.map((key, i) => {
             const val = weeklyVolume[key] || 0;
-            const config = statConfig[key];
-            const angle = (2 * Math.PI * i) / 7 - Math.PI / 2;
+            const config = statConfig[key] || statConfig.chestStrength;
+            const angle = (2 * Math.PI * i) / 6 - Math.PI / 2;
             const dist = 126; // position labels outside the 120% boundary
             const lx = 170 + dist * Math.cos(angle);
             const ly = 170 + dist * Math.sin(angle);
 
-            // alignment rules based on cosine
             let textAnchor = "middle";
             if (Math.cos(angle) > 0.15) textAnchor = "start";
             else if (Math.cos(angle) < -0.15) textAnchor = "end";
 
-            // alignment vertical rules to avoid overlap
             const yOffset = Math.sin(angle) < -0.85 ? -3 : Math.sin(angle) > 0.85 ? 12 : 4;
             const isSelected = selectedKey === key;
 

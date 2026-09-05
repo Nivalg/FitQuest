@@ -9,6 +9,7 @@ import {
   evaluateAthletePerformance, 
   runStateDecayEngine 
 } from "./utils/fitnessMath";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Trophy,
   Dumbbell,
@@ -22,8 +23,15 @@ export default function App() {
   const [logs, setLogs] = useState<FitnessLog[]>([]);
   const [activeTab, setActiveTab] = useState<"dashboard" | "log" | "calendar">("dashboard");
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [celebrationPopup, setCelebrationPopup] = useState<{
+    title: string;
+    subtitle: string;
+    icon: string;
+    value: string;
+  } | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const toastTimeoutRef = useRef<any>(null);
+  const celebrationTimeoutRef = useRef<any>(null);
 
   // Initialize state from LocalStorage on mount and run the Decay Engine
   useEffect(() => {
@@ -255,63 +263,43 @@ export default function App() {
 
     const updatedLogs = [...logs, newLog];
     
-    // Evaluate calibration before and after the new set to announce stat surges
-    const prevStats = evaluateAthletePerformance(logs, profile.bodyWeight).statLevels;
-    
     // Trigger save (which automatically runs the decay engine)
     saveLogs(updatedLogs);
 
-    const postStats = evaluateAthletePerformance(updatedLogs, profile.bodyWeight).statLevels;
+    // Calculate current set estimated 1RM or max rep celebration popup
+    let title = "GOOD JOB!";
+    let value = "SET RECORDED!";
+    let subtitle = `LOGGED ${params.exerciseName.toUpperCase()}`;
+    let icon = "🏆";
 
-    const levelUpsTriggered: string[] = [];
-    const statKeys = [
-      "chestStrength",
-      "backStrength",
-      "armStrength",
-      "legStrength",
-      "coreStrength",
-      "speed",
-      "stamina"
-    ] as const;
-
-    statKeys.forEach(statKey => {
-      const oldVal = prevStats[statKey] !== undefined ? prevStats[statKey] : 0;
-      const newVal = postStats[statKey] !== undefined ? postStats[statKey] : 0;
-      // Trigger whenever the integer portion increases (level up!)
-      if (Math.floor(newVal) > Math.floor(oldVal)) {
-        const friendlyName = statKey
-          .replace("Strength", "")
-          .replace("speed", "Speed")
-          .replace("stamina", "Stamina")
-          .trim()
-          .replace(/^\w/, c => c.toUpperCase());
-        levelUpsTriggered.push(`Level Up! ${friendlyName} Level ${Math.floor(newVal)}`);
-      }
-    });
-
-    // Calculate current set estimated 1RM for weight-and-rep exercises
-    let current1RMText = "";
     if (exercise.formType === "A" && params.weight && params.reps) {
       const w = params.weight;
       const r = params.reps;
       const current1RM = r <= 1 ? w : w * (1 + r / 30);
-      current1RMText = `Est. 1RM: ${Math.round(current1RM)} lbs`;
+      title = "ESTIMATED 1 REP MAX";
+      value = `${Math.round(current1RM)} LBS`;
+      subtitle = `GOOD JOB! ${r} REPS @ ${w} LBS`;
+      icon = "🔥";
+    } else if (exercise.formType === "B" && params.reps) {
+      title = "HIGHEST MAX REP!";
+      value = `${params.reps} REPS`;
+      subtitle = "GOOD JOB! SET COMPLETED!";
+      icon = "⚡";
+    } else if (params.minutes || params.distance) {
+      title = "GOOD JOB!";
+      value = "CARDIO RECORDED!";
+      subtitle = `${params.distance ? `${params.distance} MILES ` : ""}${params.minutes ? `${params.minutes} MINS` : ""}`;
+      icon = "🏃";
     }
 
-    if (levelUpsTriggered.length > 0) {
-      const levelUpMsg = levelUpsTriggered.join(" | ");
-      if (current1RMText) {
-        showToast(`⚡ ${levelUpMsg} (${current1RMText})`);
-      } else {
-        showToast(`⚡ ${levelUpMsg}`);
-      }
-    } else {
-      if (current1RMText) {
-        showToast(current1RMText);
-      } else {
-        showToast("Set Saved!");
-      }
+    if (celebrationTimeoutRef.current) {
+      clearTimeout(celebrationTimeoutRef.current);
     }
+    setCelebrationPopup({ title, value, subtitle, icon });
+    celebrationTimeoutRef.current = setTimeout(() => {
+      setCelebrationPopup(null);
+      celebrationTimeoutRef.current = null;
+    }, 2000);
   };
 
   const handleDeleteLog = (logId: string) => {
@@ -397,9 +385,33 @@ export default function App() {
         {/* Main Body */}
         <main className="px-4 mt-6 flex-1 relative z-10">
 
+          {/* 2-Second Animated 1RM & Performance Celebration Overlay Modal */}
+          <AnimatePresence>
+            {celebrationPopup && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.6, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: -20 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2.5rem)] max-w-[360px] z-50 bg-[#0D1117]/95 backdrop-blur-xl border-2 border-cyan-400 text-slate-100 py-6 px-6 rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.4)] flex flex-col items-center justify-center gap-3 text-center pointer-events-none"
+              >
+                <div className="text-4xl animate-bounce">{celebrationPopup.icon}</div>
+                <span className="text-[10px] font-press-start tracking-widest text-cyan-400 block uppercase">
+                  {celebrationPopup.title}
+                </span>
+                <div className="text-3xl font-mono font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-emerald-300 to-cyan-300 tracking-wider">
+                  {celebrationPopup.value}
+                </div>
+                <span className="text-[9px] font-press-start text-slate-300 block uppercase tracking-wide">
+                  {celebrationPopup.subtitle}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Dynamic Success Notification Toast */}
           {successToast && (
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[380px] z-55 bg-[#161B22]/95 backdrop-blur-md border-2 border-cyan-500 text-slate-100 py-5 px-6 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] flex flex-col items-center justify-center gap-2.5 transition-all animate-fade-in duration-200 text-center">
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[380px] z-50 bg-[#161B22]/95 backdrop-blur-md border-2 border-cyan-500 text-slate-100 py-5 px-6 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] flex flex-col items-center justify-center gap-2.5 transition-all animate-fade-in duration-200 text-center">
               <div className="w-3 h-3 bg-cyan-400 rounded-full animate-ping shrink-0 shadow-[0_0_10px_#06b6d4]" />
               <span className="text-[10px] font-press-start tracking-widest text-cyan-400 block uppercase">SYSTEM MESSAGE</span>
               <span className="text-xs font-mono font-bold leading-relaxed text-slate-200 mt-1 block w-full text-center">{successToast}</span>

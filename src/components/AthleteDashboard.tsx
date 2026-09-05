@@ -826,13 +826,12 @@ export default function AthleteDashboard({
     "armStrength",
     "legStrength",
     "coreStrength",
-    "speed",
-    "stamina"
+    "cardio"
   ] as const;
 
   // Calculate true multi-dimensional Level Index
   const totalLevels = statKeys.reduce((acc, key) => acc + (Number(performance.statLevels[key]) || 1.00), 0);
-  const averageLevelFloat = totalLevels / 7;
+  const averageLevelFloat = totalLevels / 6;
   const averageLevelDecimal = parseFloat(averageLevelFloat.toFixed(2));
   const averageXP = Math.round((averageLevelFloat % 1) * 100);
 
@@ -843,15 +842,14 @@ export default function AthleteDashboard({
       getDisplayedStatLevel("armStrength") +
       getDisplayedStatLevel("legStrength") +
       getDisplayedStatLevel("coreStrength") +
-      getDisplayedStatLevel("speed") +
-      getDisplayedStatLevel("stamina")
-    ) / 7;
+      getDisplayedStatLevel("cardio")
+    ) / 6;
   }, [devHUDOverrides, performance.statLevels, subCategoryLevels]);
 
   // Define tier level text of overall athlete
   const overallTier = getMetricTier(averageLevelFloat);
 
-  // 7 core strength stats with icons, labels, types and descriptions
+  // 6 core strength stats with icons, labels, types and descriptions
   const fitnessStatsList = [
     {
       key: "chestStrength",
@@ -904,24 +902,14 @@ export default function AthleteDashboard({
       icon: <Target className="w-5 h-5 text-amber-400" />
     },
     {
-      key: "speed",
-      label: "Speed",
-      desc: "Sprint pacing, high-speed velocity, and running cadence.",
+      key: "cardio",
+      label: "Cardio",
+      desc: "Global cardiorespiratory endurance, running, cycling, & stamina loads.",
       color: "from-rose-500 to-red-500",
       textColor: "text-rose-400",
       bgBorder: "border-rose-500/20",
       bgLight: "bg-rose-500/5",
       icon: <Zap className="w-5 h-5 text-rose-400" />
-    },
-    {
-      key: "stamina",
-      label: "Stamina",
-      desc: "Global cardiorespiratory endurance, high-rep machine capacity & bodyweight endurance.",
-      color: "from-purple-500 to-violet-500",
-      textColor: "text-purple-400",
-      bgBorder: "border-purple-500/20",
-      bgLight: "bg-purple-500/5",
-      icon: <Clock className="w-5 h-5 text-purple-400" />
     }
   ] as const;
 

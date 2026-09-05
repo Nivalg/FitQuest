@@ -1254,22 +1254,39 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     name: "Jump Rope",
     pillar: "cardio",
     formType: "C",
-    description: "Continuous rope jumping for stamina and light speed.",
+    description: "Continuous rope jumping for cardio condition and agility.",
     builds: {
-      stamina: 80,
-      speed: 20
+      cardio: 100
     }
   },
   {
     name: "Bicycle",
     pillar: "cardio",
     formType: "D",
-    description: "Cycling on a stationary or road bike for endurance and speed.",
+    description: "Cycling on a stationary or road bike (5 miles target = 100%).",
     builds: {
-      stamina: 50,
-      speed: 50
+      cardio: 100
     },
     image: "/bicycle.png?v=5"
+  },
+  {
+    name: "Outdoor Bicycle",
+    pillar: "cardio",
+    formType: "D",
+    description: "Outdoor cycling tracking distance and duration (5 miles = 100%).",
+    builds: {
+      cardio: 100
+    },
+    image: "/bicycle.png?v=5"
+  },
+  {
+    name: "Spin Bike",
+    pillar: "cardio",
+    formType: "D",
+    description: "High-energy indoor spinning workout (30 mins = 100%).",
+    builds: {
+      cardio: 100
+    }
   },
   {
     name: "Elliptical",
@@ -1277,8 +1294,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "D",
     description: "Low-impact gliding on the elliptical trainer.",
     builds: {
-      stamina: 50,
-      speed: 50
+      cardio: 100
     },
     image: "/elliptical.png?v=5"
   },
@@ -1288,7 +1304,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "D",
     description: "Rowing ergometer workout tracking distance and time.",
     builds: {
-      stamina: 70,
+      cardio: 70,
       backStrength: 30
     },
     image: "/rowing_machine.png?v=5"
@@ -1299,11 +1315,40 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "F",
     description: "Navigate outdoor trails tracking duration, distance, and difficulty level.",
     builds: {
-      stamina: 40,
-      legStrength: 30,
-      speed: 30
+      cardio: 70,
+      legStrength: 30
     },
     image: "/hiking.png?v=1"
+  },
+  {
+    name: "Outdoor Running",
+    pillar: "cardio",
+    formType: "D",
+    description: "Outdoor running tracking miles and time (2 miles = 100%).",
+    builds: {
+      cardio: 100
+    },
+    image: "/treadmill.png?v=5"
+  },
+  {
+    name: "HIIT Cardio Circuit",
+    pillar: "cardio",
+    formType: "C",
+    description: "High-intensity interval cardio training for time.",
+    builds: {
+      cardio: 100
+    }
+  },
+  {
+    name: "Stair Climbing",
+    pillar: "cardio",
+    formType: "E",
+    description: "Climbing stairs or stairmaster (50 floors target = 100%).",
+    builds: {
+      cardio: 80,
+      legStrength: 20
+    },
+    image: "/stairmaster.png?v=5"
   }
 ];
 

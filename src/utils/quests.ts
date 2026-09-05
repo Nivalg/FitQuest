@@ -128,8 +128,7 @@ export function getAchievements(logs: FitnessLog[], profile: AthleteProfile | nu
     profile?.armStrength || 0,
     profile?.legStrength || 0,
     profile?.coreStrength || 0,
-    profile?.speed || 0,
-    profile?.stamina || 0
+    profile?.cardio || profile?.speed || profile?.stamina || 0
   ];
   const maxStatLevel = Math.max(0, ...statsList);
 

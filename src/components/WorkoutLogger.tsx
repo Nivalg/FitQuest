@@ -3,6 +3,7 @@ import { EXERCISE_DATABASE, CATEGORIES, getAllExercises, saveCustomExercise, del
 import { ExerciseInfo, ExercisePillar, AthleteProfile, FitnessLog } from "../types";
 import { evaluateAthletePerformance, calculateSubCategoryLevels } from "../utils/fitnessMath";
 import { pixelMusclePaths } from "../data/pixelMusclePaths";
+import BodyStatusMap from "./BodyStatusMap";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronLeft,
@@ -97,7 +98,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   // Custom Exercise Creator Form states
   const [customExName, setCustomExName] = useState("");
   const [customExPillar, setCustomExPillar] = useState<ExercisePillar>("weights");
-  const [customExMuscle, setCustomExMuscle] = useState<string>("chest");
+  const [customExMuscles, setCustomExMuscles] = useState<string[]>(["chest"]);
   const [customExFormType, setCustomExFormType] = useState<"A" | "B" | "C" | "D">("A");
   const [customExImageUrl, setCustomExImageUrl] = useState("");
   const [customExImagePreview, setCustomExImagePreview] = useState<string | null>(null);
@@ -658,70 +659,30 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       alert("Please enter an exercise name!");
       return;
     }
+    if (customExMuscles.length === 0) {
+      alert("Please select at least one target muscle on the body map!");
+      return;
+    }
 
     let buildsDict: Record<string, number> = {};
-    let subCats: string[] | undefined = undefined;
+    let subCats: string[] = [];
 
-    switch (customExMuscle) {
-      case "chest":
-        buildsDict = { chestStrength: 80, armStrength: 20 };
-        subCats = ["chest"];
-        break;
-      case "back":
-        buildsDict = { backStrength: 80, armStrength: 20 };
-        subCats = ["back"];
-        break;
-      case "biceps":
-        buildsDict = { armStrength: 100 };
-        subCats = ["biceps"];
-        break;
-      case "triceps":
-        buildsDict = { armStrength: 100 };
-        subCats = ["triceps"];
-        break;
-      case "shoulders":
-        buildsDict = { armStrength: 100 };
-        subCats = ["shoulders"];
-        break;
-      case "traps":
-        buildsDict = { armStrength: 100 };
-        subCats = ["traps"];
-        break;
-      case "quads":
-        buildsDict = { legStrength: 80, speed: 20 };
-        subCats = ["quads"];
-        break;
-      case "hamstrings":
-        buildsDict = { legStrength: 80, backStrength: 20 };
-        subCats = ["hamstrings"];
-        break;
-      case "glutes":
-        buildsDict = { legStrength: 80, backStrength: 20 };
-        subCats = ["glutes"];
-        break;
-      case "calves":
-        buildsDict = { legStrength: 100 };
-        subCats = ["calves"];
-        break;
-      case "core":
-        buildsDict = { coreStrength: 90, stamina: 10 };
-        subCats = ["core"];
-        break;
-      case "speed":
-        buildsDict = { speed: 70, legStrength: 30 };
-        break;
-      case "stamina":
-        buildsDict = { stamina: 80, legStrength: 20 };
-        break;
-      default:
-        buildsDict = { chestStrength: 80, armStrength: 20 };
-    }
+    const weightPerMuscle = Math.round(100 / customExMuscles.length);
+    customExMuscles.forEach(m => {
+      subCats.push(m);
+      if (m === "chest") buildsDict.chestStrength = (buildsDict.chestStrength || 0) + weightPerMuscle;
+      else if (m === "back") buildsDict.backStrength = (buildsDict.backStrength || 0) + weightPerMuscle;
+      else if (m === "core") buildsDict.coreStrength = (buildsDict.coreStrength || 0) + weightPerMuscle;
+      else if (m === "cardio" || m === "speed" || m === "stamina") buildsDict.cardio = (buildsDict.cardio || 0) + weightPerMuscle;
+      else if (["quads", "hamstrings", "glutes", "calves"].includes(m)) buildsDict.legStrength = (buildsDict.legStrength || 0) + weightPerMuscle;
+      else buildsDict.armStrength = (buildsDict.armStrength || 0) + weightPerMuscle;
+    });
 
     const newExercise: ExerciseInfo = {
       name: customExName.trim(),
       pillar: customExPillar,
       formType: customExFormType,
-      description: `Custom ${customExPillar} exercise targeting ${customExMuscle}.`,
+      description: `Custom ${customExPillar} exercise targeting ${customExMuscles.join(", ")}.`,
       builds: buildsDict,
       subCategories: subCats,
       image: customExImageUrl.trim() || undefined
@@ -731,6 +692,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
     // Reset form
     setCustomExName("");
+    setCustomExMuscles(["chest"]);
     setCustomExImageUrl("");
     setCustomExImagePreview(null);
     
@@ -1080,7 +1042,8 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   {[
                     { id: "bodyweight", label: "BODYWEIGHT" },
                     { id: "machines", label: "MACHINE" },
-                    { id: "weights", label: "FREE WEIGHTS" }
+                    { id: "weights", label: "FREE WEIGHTS" },
+                    { id: "cardio", label: "CARDIO" }
                   ].map((filter) => {
                     const isActive = activeFilter === filter.id;
                     return (
@@ -2195,41 +2158,22 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               </div>
             </div>
 
-            {/* 3. TARGET MUSCLE FOCUS */}
+            {/* 3. TARGET MUSCLE FOCUS (INTERACTIVE ANATOMY MAP) */}
             <div className="space-y-2">
               <label className="text-[9px] font-press-start text-slate-400 uppercase block">
-                PRIMARY TARGET MUSCLE *
+                TARGET MUSCLE FOCUS (TAP BODY TO PICK MULTIPLE) *
               </label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {[
-                  { id: "chest", label: "CHEST" },
-                  { id: "back", label: "BACK" },
-                  { id: "biceps", label: "BICEPS" },
-                  { id: "triceps", label: "TRICEPS" },
-                  { id: "shoulders", label: "SHOULDERS" },
-                  { id: "traps", label: "TRAPS" },
-                  { id: "quads", label: "QUADS" },
-                  { id: "hamstrings", label: "HAMSTRINGS" },
-                  { id: "glutes", label: "GLUTES" },
-                  { id: "calves", label: "CALVES" },
-                  { id: "core", label: "CORE" },
-                  { id: "speed", label: "SPEED" },
-                  { id: "stamina", label: "STAMINA" }
-                ].map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setCustomExMuscle(m.id)}
-                    className={`p-2 rounded-xl border text-[8px] font-press-start cursor-pointer transition uppercase ${
-                      customExMuscle === m.id
-                        ? "bg-cyan-500/15 border-cyan-400 text-cyan-300 shadow-[0_0_8px_rgba(6,182,212,0.25)]"
-                        : "bg-[#0D0D0E] border-slate-800 text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
+              <BodyStatusMap
+                interactive={true}
+                selectedMuscles={customExMuscles}
+                onToggleMuscle={(m) => {
+                  setCustomExMuscles(prev =>
+                    prev.includes(m)
+                      ? (prev.length > 1 ? prev.filter(x => x !== m) : prev)
+                      : [...prev, m]
+                  );
+                }}
+              />
             </div>
 
             {/* 4. SET LOGGING TYPE */}

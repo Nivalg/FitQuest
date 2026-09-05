@@ -7,8 +7,9 @@ export interface StatLevels {
   armStrength: number;
   legStrength: number;
   coreStrength: number;
-  speed: number;
-  stamina: number;
+  cardio: number;
+  speed?: number; // fallback compatibility
+  stamina?: number; // fallback compatibility
   cardioStamina?: number; // fallback compatibility
 }
 
@@ -32,6 +33,7 @@ export interface ExerciseConfig {
     armStrength?: number;
     legStrength?: number;
     coreStrength?: number;
+    cardio?: number;
     speed?: number;
     stamina?: number;
   };
@@ -1230,107 +1232,36 @@ export function calculateScoreFromLog(
 
   let score = 0;
 
-  // Custom overriding rules for speed/stamina targeting cardio/bicycle/elliptical/rower/stairmaster
-  if (targetStat) {
-    const nameLower = resolvedName.toLowerCase();
+  // Custom rules for Cardio target evaluation (30 mins = 100%, 5 mi bike = 100%, 2 mi run = 100%, 50 floors = 100%)
+  if (targetStat === "cardio" || targetStat === "stamina" || targetStat === "speed") {
     const mins = m.minutes || 0;
     const secs = m.seconds || 0;
-    const totalSeconds = mins * 60 + secs;
+    const totalMinutes = mins + secs / 60;
     const dist = m.distance || 0;
     const floors = m.floors || 0;
-    
-    const isTreadmill = nameLower === "treadmill run / jog";
-    const isBicycle = nameLower === "bicycle";
-    const isElliptical = nameLower === "elliptical";
-    const isRower = nameLower === "rowing machine";
-    const isStairmaster = nameLower === "stairmaster";
-    const isWalking = nameLower === "walking";
-    
-    if (targetStat === "stamina") {
-      if (isTreadmill || isBicycle || isElliptical || isRower || isStairmaster || isWalking) {
-        if (totalSeconds <= 0) return 0;
-        
-        let avgSecs = 1800;   // 30 mins
-        let eliteSecs = 7200; // 120 mins (2 hours)
-        
-        if (isBicycle) {
-          avgSecs = 2700;    // 45 mins
-          eliteSecs = 10800; // 180 mins (3 hours)
-        }
-        
-        let intensityFactor = 1.0;
-        if (isWalking) {
-          if (dist > 0) {
-            const pace = totalSeconds / dist;
-            if (pace >= 1200) return 0.0; // slower than 20 min/mile
-          }
-          intensityFactor = 0.5;
-        } else if (isTreadmill) {
-          if (dist > 0) {
-            const pace = totalSeconds / dist;
-            if (pace >= 1200) return 0.0; // slower than 20 min/mile
-            if (pace < 600) intensityFactor = 1.3; // running (faster than 10 min/mile)
-            else intensityFactor = 1.0; // jogging
-          } else {
-            intensityFactor = 1.0;
-          }
-        } else if (isBicycle) {
-          if (dist > 0) {
-            const pace = totalSeconds / dist;
-            if (pace >= 360) return 0.0; // slower than 6 min/mile (10 mph)
-            if (pace < 240) intensityFactor = 1.0;
-            else intensityFactor = 0.8;
-          } else {
-            intensityFactor = 1.0;
-          }
-        } else if (isElliptical) {
-          if (dist > 0) {
-            const pace = totalSeconds / dist;
-            if (pace >= 1200) return 0.0;
-          }
-          intensityFactor = 0.9;
-        } else if (isStairmaster) {
-          if (floors > 0) {
-            const pace = totalSeconds / floors;
-            if (pace > 30) return 0.0; // slower than 2 floors/min
-          }
-          intensityFactor = 1.0;
-        }
-        
-        const scoreVal = ((totalSeconds - avgSecs) / (eliteSecs - avgSecs)) * 50 + 50;
-        const finalStaminaScore = scoreVal * intensityFactor;
-        return Math.max(0.00, Math.min(110.00, parseFloat(finalStaminaScore.toFixed(2))));
-      }
+
+    let timeScore = 0;
+    let distScore = 0;
+
+    if (totalMinutes > 0) {
+      timeScore = (totalMinutes / 30.0) * 100.0;
     }
-    else if (targetStat === "speed") {
-      if (isTreadmill || isBicycle || isElliptical || isRower || isStairmaster || isWalking) {
-        if (isStairmaster) {
-          if (floors <= 0 || totalSeconds <= 0) return 0;
-          const inputPaceSeconds = totalSeconds / floors;
-          const avgPace = 15;
-          const elitePace = 6;
-          const scoreVal = ((avgPace - inputPaceSeconds) / (avgPace - elitePace)) * 50 + 50;
-          return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
-        } else {
-          if (dist <= 0 || totalSeconds <= 0) return 0;
-          const inputPaceSeconds = totalSeconds / dist;
-          
-          let avgPace = scaledAvg;
-          let elitePace = scaledElite;
-          
-          if (isTreadmill) {
-            avgPace = 570; // 9:30 for Mile
-            elitePace = 330; // 5:30 for Mile
-            if (dist >= 2.5) {
-              avgPace = 1800 / 3.1; // 30:00 for 5K
-              elitePace = 1050 / 3.1; // 17:30 for 5K
-            }
-          }
-          
-          const scoreVal = ((avgPace - inputPaceSeconds) / (avgPace - elitePace)) * 50 + 50;
-          return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
-        }
-      }
+
+    const nameLower = resolvedName.toLowerCase();
+    if (nameLower.includes("bicycle") || nameLower.includes("bike") || nameLower.includes("cycling")) {
+      if (dist > 0) distScore = (dist / 5.0) * 100.0;
+    } else if (nameLower.includes("stair") || nameLower.includes("floor") || floors > 0) {
+      if (floors > 0) distScore = (floors / 50.0) * 100.0;
+      else if (dist > 0) distScore = (dist / 2.0) * 100.0;
+    } else if (nameLower.includes("walk")) {
+      if (dist > 0) distScore = (dist / 2.5) * 100.0;
+    } else {
+      if (dist > 0) distScore = (dist / 2.0) * 100.0;
+    }
+
+    const finalCardioScore = Math.max(timeScore, distScore);
+    if (finalCardioScore > 0) {
+      return Math.max(0.00, Math.min(110.00, parseFloat(finalCardioScore.toFixed(2))));
     }
   }
   
@@ -1757,7 +1688,7 @@ export function evaluateAthletePerformance(
   });
 
   // Calculate final Stat Levels
-  const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
+  const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "cardio"] as const;
 
   statNames.forEach(stat => {
     let offsetSum = 0;
@@ -1795,12 +1726,12 @@ export function evaluateAthletePerformance(
       } else {
         EXERCISE_CONFIGS.forEach(config => {
           const builds = config.builds as any;
-          const pct = builds[stat] || 0;
+          const pct = builds[stat] || builds.cardio || builds.stamina || builds.speed || 0;
           if (pct > 0) {
             const matchedLogs = exerciseLogs[config.name] || [];
             const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
               config.name,
-              stat,
+              "cardio",
               matchedLogs,
               now,
               bodyWeight,
@@ -1809,28 +1740,6 @@ export function evaluateAthletePerformance(
             offsetSum += statEffectiveLvl * (pct / 100);
           }
         });
-
-        if (stat === "stamina") {
-          let maxStaminaExerciseLvl = 0;
-          EXERCISE_CONFIGS.forEach(config => {
-            const builds = config.builds as any;
-            if (builds.stamina && builds.stamina > 0) {
-              const matchedLogs = exerciseLogs[config.name] || [];
-              const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
-                config.name,
-                "stamina",
-                matchedLogs,
-                now,
-                bodyWeight,
-                gender
-              );
-              if (statEffectiveLvl > maxStaminaExerciseLvl) {
-                maxStaminaExerciseLvl = statEffectiveLvl;
-              }
-            }
-          });
-          offsetSum = Math.min(offsetSum, maxStaminaExerciseLvl);
-        }
       }
     }
 
@@ -1838,18 +1747,6 @@ export function evaluateAthletePerformance(
 
     let finalLvl = clampedLvl;
     if (stat !== "armStrength" && stat !== "legStrength") {
-      let hasNonMachineLog = false;
-      EXERCISE_CONFIGS.forEach(config => {
-        const builds = config.builds as any;
-        if (builds[stat] > 0) {
-          const matchedLogs = exerciseLogs[config.name] || [];
-          const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
-          if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
-            hasNonMachineLog = true;
-          }
-        }
-      });
-
       if (finalLvl > 50) {
         if (finalLvl > 100) {
           finalLvl = 100.00 + 100.00 * (finalLvl - 100.00) / (finalLvl - 100.00 + 400.00);
@@ -1857,37 +1754,19 @@ export function evaluateAthletePerformance(
           finalLvl = 100.00 * finalLvl / (finalLvl + 50.00);
         }
       }
-      if (stat !== "speed" && stat !== "stamina") {
-        if (!hasNonMachineLog && finalLvl > 50.00) {
-          finalLvl = 50.00;
-        }
-      }
-
-      if (stat === "stamina") {
-        let qualifyingStaminaLogsCount = 0;
-        logs.forEach(l => {
-          if (!l.exerciseName) return;
-          const conf = getExerciseConfig(l.exerciseName);
-          if (conf && conf.builds && (conf.builds as any).stamina > 0) {
-            const score = calculateScoreFromLog(l, bodyWeight, "stamina", gender);
-            const pr = prByExercise[conf.name] || 0;
-            const isWorkingSet = pr > 0 ? (score / pr >= 0.60) : true;
-            
-            const ageDays = (now - new Date(l.timestamp).getTime()) / (1000 * 60 * 60 * 24);
-            if (isWorkingSet && ageDays <= 14 && score > 0) {
-              qualifyingStaminaLogsCount++;
-            }
-          }
-        });
-        
-        const consistencyMultiplier = Math.min(1.0, qualifyingStaminaLogsCount / 2.0);
-        finalLvl = finalLvl * consistencyMultiplier;
-      }
     }
 
     evaluation.statLevels[stat] = parseFloat(finalLvl.toFixed(2));
     evaluation.statXps[stat] = Math.round(finalLvl);
   });
+
+  // Backward compatibility mirrors
+  evaluation.statLevels.speed = evaluation.statLevels.cardio;
+  evaluation.statLevels.stamina = evaluation.statLevels.cardio;
+  evaluation.statLevels.cardioStamina = evaluation.statLevels.cardio;
+  evaluation.statXps.speed = evaluation.statXps.cardio;
+  evaluation.statXps.stamina = evaluation.statXps.cardio;
+  evaluation.statXps.cardioStamina = evaluation.statXps.cardio;
 
   // --- TIME-BASED STATE DECAY OVERRIDE ---
   if (typeof window !== "undefined" && window.localStorage) {

@@ -4,7 +4,7 @@ export interface AthleteProfile {
   bodyWeight: number; // in lbs
   gender?: "male" | "female";
   
-  // 7 profile stats: levels (start at 1.00 to 100.00) and sub-level index tracking
+  // 6 profile stats: levels (start at 1.00 to 100.00) and sub-level tracking
   chestStrength: number;
   chestStrengthXP: number;
   
@@ -20,13 +20,14 @@ export interface AthleteProfile {
   coreStrength: number;
   coreStrengthXP: number;
   
-  speed: number;
-  speedXP: number;
-  
-  stamina: number;
-  staminaXP: number;
+  cardio: number;
+  cardioXP: number;
 
-  // For absolute backward compatibility
+  // Fallbacks for backward compatibility
+  speed?: number;
+  speedXP?: number;
+  stamina?: number;
+  staminaXP?: number;
   cardioStamina?: number;
   cardioStaminaXP?: number;
 }
@@ -57,7 +58,7 @@ export interface FitnessLog {
 }
 
 export type ExercisePillar = "weights" | "machines" | "cardio" | "bodyweight";
-export type GameStat = "chestStrength" | "armStrength" | "legStrength" | "backStrength" | "coreStrength" | "cardioStamina";
+export type GameStat = "chestStrength" | "armStrength" | "legStrength" | "backStrength" | "coreStrength" | "cardio";
 
 export interface ExerciseInfo {
   name: string;
@@ -70,6 +71,7 @@ export interface ExerciseInfo {
     legStrength?: number;
     backStrength?: number;
     coreStrength?: number;
+    cardio?: number;
     speed?: number;
     stamina?: number;
     cardioStamina?: number;
