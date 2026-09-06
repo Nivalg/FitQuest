@@ -866,6 +866,18 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     link: "https://liftmanual.com/smith-machine-overhead-press/",
     image: "/smith_machine_overhead_press.png?v=1"
   },
+  {
+    name: "Back Extension",
+    pillar: "machines",
+    formType: "A",
+    description: "Hyperextension exercise on a 45-degree or horizontal bench to overload lower back and glutes.",
+    builds: {
+      backStrength: 50,
+      legStrength: 50
+    },
+    subCategories: ["back", "glutes"],
+    link: "https://liftmanual.com/back-extension/"
+  },
 
   // 3. BODYWEIGHT
   {
