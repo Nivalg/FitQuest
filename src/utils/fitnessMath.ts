@@ -987,6 +987,62 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     builds: { cardio: 100 }
   },
   {
+    name: "Treadmill Run / Jog",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Walking",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Sprint Intervals",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Stairmaster",
+    formType: "E",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Jump Rope",
+    formType: "C",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Bicycle",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Elliptical",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Rowing Machine",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
     name: "HIIT Cardio Circuit",
     formType: "C",
     baseline: 0,
@@ -1006,8 +1062,16 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
 // Algorithmic anchors representing average (score = 50) and elite (score = 100) real-world thresholds
 export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "seconds" | "paceSeconds" | "distanceVolume" | "floors"; avg: number; elite: number }> = {
   "Outdoor Running": { type: "paceSeconds", avg: 660, elite: 420 },
+  "Treadmill Run / Jog": { type: "paceSeconds", avg: 660, elite: 420 },
+  "Walking": { type: "paceSeconds", avg: 1200, elite: 900 },
+  "Sprint Intervals": { type: "paceSeconds", avg: 480, elite: 330 },
+  "Stairmaster": { type: "floors", avg: 40, elite: 120 },
+  "Jump Rope": { type: "seconds", avg: 600, elite: 1800 },
+  "Bicycle": { type: "paceSeconds", avg: 240, elite: 150 },
   "Outdoor Bicycle": { type: "paceSeconds", avg: 240, elite: 150 },
   "Spin Bike": { type: "seconds", avg: 600, elite: 1800 },
+  "Elliptical": { type: "seconds", avg: 900, elite: 2700 },
+  "Rowing Machine": { type: "seconds", avg: 600, elite: 1800 },
   "Stair Climbing": { type: "floors", avg: 40, elite: 120 },
   "HIIT Cardio Circuit": { type: "seconds", avg: 300, elite: 1200 },
   "Back Extension": { type: "weightRatio", avg: 0.3, elite: 1.0 },
@@ -1065,11 +1129,6 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Lunges": { type: "reps", avg: 20, elite: 50 },
   "Forward Lunges": { type: "reps", avg: 20, elite: 50 },
   "Plank": { type: "seconds", avg: 90, elite: 300 },
-  "Treadmill Run / Jog": { type: "paceSeconds", avg: 660, elite: 420 }, 
-  "Walking": { type: "paceSeconds", avg: 1080, elite: 720 }, 
-  "Sprint Intervals": { type: "distanceVolume", avg: 0.25, elite: 1.0 },
-  "Stairmaster": { type: "floors", avg: 40, elite: 120 },
-  "Jump Rope": { type: "seconds", avg: 180, elite: 600 },
   "Dumbbell Preacher Curl": { type: "weightRatio", avg: 0.25, elite: 0.5 },
   "Barbell Preacher Curl": { type: "weightRatio", avg: 0.35, elite: 0.7 },
   "Hammer Curl": { type: "weightRatio", avg: 0.25, elite: 0.5 },
@@ -1088,9 +1147,6 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Squat Jumps": { type: "reps", avg: 12, elite: 35 },
   "Jumping Jacks": { type: "reps", avg: 50, elite: 150 },
   "Burpees": { type: "reps", avg: 10, elite: 40 },
-  "Bicycle": { type: "paceSeconds", avg: 240, elite: 150 },
-  "Elliptical": { type: "paceSeconds", avg: 720, elite: 480 },
-  "Rowing Machine": { type: "paceSeconds", avg: 480, elite: 300 },
   "Barbell Front Squat": { type: "weightRatio", avg: 0.8, elite: 1.4 },
   "Dumbbell Russian Twist": { type: "weightRatio", avg: 0.2, elite: 0.4 },
   "Plate Russian Twist": { type: "weightRatio", avg: 0.15, elite: 0.35 },
@@ -1252,8 +1308,14 @@ export function calculateScoreFromLog(
     return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
   }
 
-  // Custom rules for Cardio target evaluation (30 mins = 100%, 5 mi bike = 100%, 2 mi run = 100%, 50 floors = 100%)
-  if (targetStat === "cardio" || targetStat === "stamina" || targetStat === "speed" || conf?.builds?.cardio) {
+  const dbEx = getAllExercises().find(e => e.name.toLowerCase() === resolvedName.toLowerCase());
+  const isCardioEx = targetStat === "cardio" || targetStat === "stamina" || targetStat === "speed" || 
+                     !!conf?.builds?.cardio || !!conf?.builds?.stamina || !!conf?.builds?.speed ||
+                     dbEx?.pillar === "cardio" || !!dbEx?.builds?.cardio || !!dbEx?.builds?.stamina || !!dbEx?.builds?.speed ||
+                     m.distance !== undefined || m.minutes !== undefined || m.floors !== undefined ||
+                     /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(resolvedName);
+
+  if (isCardioEx) {
     const mins = m.minutes || 0;
     const secs = m.seconds || 0;
     const totalMinutes = mins + secs / 60;
@@ -2668,6 +2730,7 @@ export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, 
     chestStrength: 0,
     backStrength: 0,
     coreStrength: 0,
+    cardio: 0,
     speed: 0,
     stamina: 0,
     biceps: 0,
@@ -2684,13 +2747,34 @@ export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, 
 
   logs.forEach(log => {
     if (!log.exerciseName) return;
-    const conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+    let conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+    if (!conf) {
+      const dbEx = getAllExercises().find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+      if (dbEx) {
+        conf = {
+          name: dbEx.name,
+          formType: dbEx.formType as any,
+          baseline: 0,
+          peak: 100,
+          builds: dbEx.builds as any,
+          subCategories: dbEx.subCategories
+        };
+      } else if (log.distance || log.minutes || log.floors || /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(log.exerciseName!)) {
+        conf = {
+          name: log.exerciseName!,
+          formType: "D",
+          baseline: 0,
+          peak: 100,
+          builds: { cardio: 100 }
+        };
+      }
+    }
     if (!conf) return;
 
     const builds = conf.builds as any;
     
-    // Chest, Back, Core, Speed, Stamina
-    const mainStats = ["chestStrength", "backStrength", "coreStrength", "speed", "stamina"] as const;
+    // Chest, Back, Core, Cardio, Speed, Stamina
+    const mainStats = ["chestStrength", "backStrength", "coreStrength", "cardio", "speed", "stamina"] as const;
     mainStats.forEach(stat => {
       const pct = builds[stat] || 0;
       if (pct > 0) {
@@ -2744,7 +2828,7 @@ export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, 
 
   const distribution: Record<string, number> = {};
   const allCategories = [
-    "chestStrength", "backStrength", "coreStrength", "speed", "stamina",
+    "chestStrength", "backStrength", "coreStrength", "cardio", "speed", "stamina",
     "biceps", "triceps", "shoulders", "traps",
     "quads", "hamstrings", "glutes", "calves"
   ] as const;

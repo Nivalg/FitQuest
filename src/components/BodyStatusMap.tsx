@@ -66,10 +66,15 @@ export default function BodyStatusMap({
       </div>
 
       <div className="relative w-full max-w-[340px] aspect-[976/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner">
-        {/* Top-Right Highlighted Muscle Label Badge */}
-        <div className="absolute top-2 right-2 bg-slate-950/90 border border-cyan-400/80 px-2.5 py-1 rounded-lg text-cyan-300 font-press-start text-[8px] uppercase tracking-wider shadow-[0_0_10px_rgba(6,182,212,0.3)] z-20 pointer-events-none max-w-[70%] truncate text-right">
-          {formattedSelected ? formattedSelected : (interactive ? "SELECT MUSCLE" : "HUD ACTIVE")}
-        </div>
+        {formattedSelected ? (
+          <div className="absolute top-2 right-2 bg-slate-950/90 border border-cyan-400/80 px-2.5 py-1 rounded-lg text-cyan-300 font-press-start text-[8px] uppercase tracking-wider shadow-[0_0_10px_rgba(6,182,212,0.3)] z-20 pointer-events-none max-w-[70%] truncate text-right">
+            {formattedSelected}
+          </div>
+        ) : interactive ? (
+          <div className="absolute top-2 right-2 bg-slate-950/90 border border-cyan-400/80 px-2.5 py-1 rounded-lg text-cyan-300 font-press-start text-[8px] uppercase tracking-wider shadow-[0_0_10px_rgba(6,182,212,0.3)] z-20 pointer-events-none max-w-[70%] truncate text-right">
+            SELECT MUSCLE
+          </div>
+        ) : null}
 
         <svg
           viewBox="0 0 976 585"

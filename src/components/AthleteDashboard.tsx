@@ -1,4 +1,5 @@
 import React from "react";
+import { getAllExercises } from "../exercises";
 import { AthleteProfile, FitnessLog } from "../types";
 import {
   evaluateAthletePerformance,
@@ -636,7 +637,7 @@ export default function AthleteDashboard({
     const arms = (dist.biceps || 0) + (dist.triceps || 0) + (dist.shoulders || 0) + (dist.traps || 0);
     const legs = (dist.quads || 0) + (dist.hamstrings || 0) + (dist.glutes || 0) + (dist.calves || 0);
     const core = dist.coreStrength || 0;
-    const cardio = (dist.speed || 0) + (dist.stamina || 0);
+    const cardio = (dist.speed || 0) + (dist.stamina || 0) + (dist.cardio || 0);
 
     const total = chest + back + arms + legs + core + cardio;
     if (total === 0) {
@@ -678,7 +679,28 @@ export default function AthleteDashboard({
 
     logs.forEach(log => {
       if (!log.exerciseName) return;
-      const conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+      let conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+      if (!conf) {
+        const dbEx = getAllExercises().find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+        if (dbEx) {
+          conf = {
+            name: dbEx.name,
+            formType: dbEx.formType as any,
+            baseline: 0,
+            peak: 100,
+            builds: dbEx.builds as any,
+            subCategories: dbEx.subCategories
+          };
+        } else if (log.distance || log.minutes || log.floors || /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(log.exerciseName!)) {
+          conf = {
+            name: log.exerciseName!,
+            formType: "D",
+            baseline: 0,
+            peak: 100,
+            builds: { cardio: 100 }
+          };
+        }
+      }
       if (!conf) return;
 
       const builds = conf.builds as any;
@@ -689,7 +711,7 @@ export default function AthleteDashboard({
       if ((builds.armStrength || 0) > 0) groupLastTrained.arms = Math.max(groupLastTrained.arms, logTime);
       if ((builds.legStrength || 0) > 0) groupLastTrained.legs = Math.max(groupLastTrained.legs, logTime);
       if ((builds.coreStrength || 0) > 0) groupLastTrained.core = Math.max(groupLastTrained.core, logTime);
-      if ((builds.speed || 0) > 0 || (builds.stamina || 0) > 0) groupLastTrained.cardio = Math.max(groupLastTrained.cardio, logTime);
+      if ((builds.speed || 0) > 0 || (builds.stamina || 0) > 0 || (builds.cardio || 0) > 0) groupLastTrained.cardio = Math.max(groupLastTrained.cardio, logTime);
     });
 
     const labels: Record<string, string> = {
