@@ -1043,22 +1043,37 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                         <>
                           {displayExercises.map((ex) => {
                             const isCustom = getCustomExercises().some(c => c.name.toLowerCase() === ex.name.toLowerCase());
+                            const thumbnailSrc = ex.images?.[0] || ex.image;
                             return (
                               <div key={ex.name} className="relative group">
                                 <button
                                   id={`exercise-${ex.name.replace(/\s+/g, "-").toLowerCase()}`}
                                   onClick={() => handleSelectExercise(ex, "categories")}
-                                  style={{ minHeight: "56px" }}
-                                  className="w-full p-3 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-center transition flex flex-col items-center justify-center gap-1 cursor-pointer"
+                                  style={{ minHeight: "64px" }}
+                                  className="w-full p-3 bg-[#12161A] border-2 border-slate-850 hover:border-cyan-500/40 hover:bg-[#161B22]/60 rounded-xl text-left transition flex items-center gap-3.5 cursor-pointer group"
                                 >
-                                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                    <span className="text-[9px] font-press-start text-white group-hover:text-cyan-300 uppercase leading-snug">
+                                  {thumbnailSrc ? (
+                                    <div className="w-12 h-12 bg-black rounded-lg border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center p-0.5">
+                                      <img
+                                        src={thumbnailSrc}
+                                        alt={ex.name}
+                                        className="w-full h-full object-contain"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-12 h-12 bg-cyan-950/30 rounded-lg border border-slate-800 flex items-center justify-center shrink-0">
+                                      <Dumbbell className="w-5 h-5 text-cyan-400" />
+                                    </div>
+                                  )}
+
+                                  <div className="flex flex-col items-start justify-center flex-1 min-w-0">
+                                    <span className="text-[9.5px] font-press-start text-white group-hover:text-cyan-300 uppercase leading-snug truncate">
                                       {ex.name}
                                     </span>
+                                    <span className="text-[7.5px] font-mono text-slate-450 uppercase font-bold tracking-wide mt-1">
+                                      {getBuildsDescription(ex)}
+                                    </span>
                                   </div>
-                                  <span className="text-[7.5px] font-mono text-slate-450 uppercase font-bold tracking-wide">
-                                    {getBuildsDescription(ex)}
-                                  </span>
                                 </button>
                                 
                                 {isCustom && (
@@ -1385,6 +1400,23 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* EXERCISE DEMONSTRATION IMAGE / ANIMATION DISPLAY CARD */}
+          {(selectedExercise.images?.length || selectedExercise.image) && (
+            <div className="bg-black border-2 border-slate-850 rounded-2xl p-3 flex flex-col items-center justify-center overflow-hidden shadow-inner relative max-w-sm mx-auto w-full">
+              <div className="relative w-full max-h-48 aspect-video flex items-center justify-center">
+                <img
+                  src={
+                    selectedExercise.images && selectedExercise.images.length > 0
+                      ? selectedExercise.images[frameIndex % selectedExercise.images.length]
+                      : selectedExercise.image
+                  }
+                  alt={selectedExercise.name}
+                  className="max-h-48 w-auto object-contain rounded-lg shadow-lg"
+                />
               </div>
             </div>
           )}
