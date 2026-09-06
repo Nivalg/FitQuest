@@ -949,19 +949,59 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     formType: "F",
     baseline: 0,
     peak: 100,
-    builds: { stamina: 40, legStrength: 30, speed: 30 }
+    builds: { cardio: 100 }
   },
   {
     name: "Bodyweight Volume Stamina",
     formType: "E",
     baseline: 0,
     peak: 100,
-    builds: { stamina: 40 }
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Outdoor Running",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Outdoor Bicycle",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Spin Bike",
+    formType: "D",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Stair Climbing",
+    formType: "E",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
+  },
+  {
+    name: "HIIT Cardio Circuit",
+    formType: "C",
+    baseline: 0,
+    peak: 100,
+    builds: { cardio: 100 }
   }
 ];
 
 // Algorithmic anchors representing average (score = 50) and elite (score = 100) real-world thresholds
 export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "seconds" | "paceSeconds" | "distanceVolume" | "floors"; avg: number; elite: number }> = {
+  "Outdoor Running": { type: "paceSeconds", avg: 660, elite: 420 },
+  "Outdoor Bicycle": { type: "paceSeconds", avg: 240, elite: 150 },
+  "Spin Bike": { type: "seconds", avg: 600, elite: 1800 },
+  "Stair Climbing": { type: "floors", avg: 40, elite: 120 },
+  "HIIT Cardio Circuit": { type: "seconds", avg: 300, elite: 1200 },
   "Bench Press": { type: "weightRatio", avg: 0.9, elite: 1.9 },
   "Barbell Squat": { type: "weightRatio", avg: 1.2, elite: 2.4 },
   "Power Clean": { type: "weightRatio", avg: 0.6, elite: 1.25 },
@@ -1203,37 +1243,8 @@ export function calculateScoreFromLog(
     return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
   }
 
-  const anchor = SCALING_ANCHORS[resolvedName];
-  if (!anchor) return 0;
-
-  // Scale anchor by gender if it's a strength/core stat
-  let scaledAvg = anchor.avg;
-  let scaledElite = anchor.elite;
-  
-  if (gender === "female") {
-    let scale = 1.0;
-    if (targetStat === "legStrength") {
-      scale = 0.80; // 80% for lower body
-    } else if (targetStat === "chestStrength" || targetStat === "backStrength" || targetStat === "armStrength") {
-      scale = 0.65; // 65% for upper body
-    } else if (targetStat === "coreStrength") {
-      scale = 0.85; // 85% for core
-    } else {
-      if (conf) {
-        const builds = conf.builds as any;
-        if (builds.legStrength) scale = 0.80;
-        else if (builds.chestStrength || builds.backStrength || builds.armStrength) scale = 0.65;
-        else if (builds.coreStrength) scale = 0.85;
-      }
-    }
-    scaledAvg = anchor.avg * scale;
-    scaledElite = anchor.elite * scale;
-  }
-
-  let score = 0;
-
   // Custom rules for Cardio target evaluation (30 mins = 100%, 5 mi bike = 100%, 2 mi run = 100%, 50 floors = 100%)
-  if (targetStat === "cardio" || targetStat === "stamina" || targetStat === "speed") {
+  if (targetStat === "cardio" || targetStat === "stamina" || targetStat === "speed" || conf?.builds?.cardio) {
     const mins = m.minutes || 0;
     const secs = m.seconds || 0;
     const totalMinutes = mins + secs / 60;
@@ -1264,6 +1275,35 @@ export function calculateScoreFromLog(
       return Math.max(0.00, Math.min(110.00, parseFloat(finalCardioScore.toFixed(2))));
     }
   }
+
+  const anchor = SCALING_ANCHORS[resolvedName];
+  if (!anchor) return 0;
+
+  // Scale anchor by gender if it's a strength/core stat
+  let scaledAvg = anchor.avg;
+  let scaledElite = anchor.elite;
+  
+  if (gender === "female") {
+    let scale = 1.0;
+    if (targetStat === "legStrength") {
+      scale = 0.80; // 80% for lower body
+    } else if (targetStat === "chestStrength" || targetStat === "backStrength" || targetStat === "armStrength") {
+      scale = 0.65; // 65% for upper body
+    } else if (targetStat === "coreStrength") {
+      scale = 0.85; // 85% for core
+    } else {
+      if (conf) {
+        const builds = conf.builds as any;
+        if (builds.legStrength) scale = 0.80;
+        else if (builds.chestStrength || builds.backStrength || builds.armStrength) scale = 0.65;
+        else if (builds.coreStrength) scale = 0.85;
+      }
+    }
+    scaledAvg = anchor.avg * scale;
+    scaledElite = anchor.elite * scale;
+  }
+
+  let score = 0;
   
   if (anchor.type === "weightRatio") {
     let weight = m.weight || 0;

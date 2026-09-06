@@ -168,6 +168,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     legStrength: { label: "Legs", colorHex: "#34d399" },
     armStrength: { label: "Arms", colorHex: "#f472b6" },
     coreStrength: { label: "Core", colorHex: "#fbbf24" },
+    cardio: { label: "Cardio", colorHex: "#06b6d4" },
     speed: { label: "Speed", colorHex: "#f43f5e" },
     stamina: { label: "Stamina", colorHex: "#c084fc" }
   };
@@ -952,6 +953,20 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                       })}
                     </svg>
                   </div>
+
+                  {/* Cardio Button Below Image */}
+                  <button
+                    type="button"
+                    onClick={() => handleMuscleTap("cardio")}
+                    style={{ minHeight: "44px" }}
+                    className={`w-full max-w-[290px] border-2 rounded-xl px-4 py-2.5 flex items-center justify-center gap-2 font-press-start text-xs uppercase cursor-pointer transition active:scale-95 ${
+                      selectedHudMuscle === "cardio"
+                        ? "bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold"
+                        : "bg-[#12161A] hover:bg-[#161B22] border-slate-850 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Flame className="w-4 h-4 text-cyan-400" /> CARDIO
+                  </button>
                 </div>
 
                 {/* Custom Exercise Creator and Header */}
@@ -978,8 +993,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   {[
                     { id: "bodyweight", label: "BODYWEIGHT" },
                     { id: "machines", label: "MACHINE" },
-                    { id: "weights", label: "FREE WEIGHTS" },
-                    { id: "cardio", label: "CARDIO" }
+                    { id: "weights", label: "FREE WEIGHTS" }
                   ].map((filter) => {
                     const isActive = activeFilter === filter.id;
                     return (
@@ -1397,9 +1411,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               });
             }
 
-            // 2. Gather all builds keys that are main muscles (excluding generic arms/legs parents, speed, stamina)
+            // 2. Gather all builds keys that are main muscles (excluding generic arms/legs parents)
             const buildsKeys = Object.keys(selectedExercise.builds || {});
-            const muscleKeys = ["chestStrength", "backStrength", "coreStrength"];
+            const muscleKeys = ["chestStrength", "backStrength", "coreStrength", "cardio", "stamina", "speed"];
             
             buildsKeys.forEach((key) => {
               const value = (selectedExercise.builds as any)[key] || 0;
