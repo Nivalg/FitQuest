@@ -470,7 +470,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       
       switch (muscle) {
         case "cardio":
-          return ex.pillar === "cardio" || !!ex.builds.cardio || !!ex.builds.stamina || !!ex.builds.speed || ex.subCategories?.includes("cardio");
+          return ex.pillar === "cardio" || !!ex.builds.cardio || ex.subCategories?.includes("cardio");
         case "chest":
           return !!ex.builds.chestStrength || ex.subCategories?.includes("chest");
         case "back":
