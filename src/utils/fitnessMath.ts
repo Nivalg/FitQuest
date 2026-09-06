@@ -992,6 +992,14 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     baseline: 0,
     peak: 100,
     builds: { cardio: 100 }
+  },
+  {
+    name: "Back Extension",
+    formType: "A",
+    baseline: 0,
+    peak: 250,
+    builds: { backStrength: 50, legStrength: 50 },
+    subCategories: ["back", "glutes"]
   }
 ];
 
@@ -1002,6 +1010,7 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Spin Bike": { type: "seconds", avg: 600, elite: 1800 },
   "Stair Climbing": { type: "floors", avg: 40, elite: 120 },
   "HIIT Cardio Circuit": { type: "seconds", avg: 300, elite: 1200 },
+  "Back Extension": { type: "weightRatio", avg: 0.3, elite: 1.0 },
   "Bench Press": { type: "weightRatio", avg: 0.9, elite: 1.9 },
   "Barbell Squat": { type: "weightRatio", avg: 1.2, elite: 2.4 },
   "Power Clean": { type: "weightRatio", avg: 0.6, elite: 1.25 },

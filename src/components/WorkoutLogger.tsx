@@ -482,7 +482,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
         case "traps":
           return ex.subCategories?.includes("traps") || nameLower.includes("shrug") || nameLower.includes("upright row");
         case "quads":
-          return ex.subCategories?.includes("quads") || nameLower.includes("squat") || nameLower.includes("leg press") || nameLower.includes("extension") || nameLower.includes("lunge");
+          return ex.subCategories?.includes("quads") || nameLower.includes("squat") || nameLower.includes("leg press") || nameLower.includes("leg extension") || nameLower.includes("quad extension") || nameLower.includes("lunge");
         case "hamstrings":
           return ex.subCategories?.includes("hamstrings") || nameLower.includes("hamstring") || nameLower.includes("romanian") || nameLower.includes("good morning") || nameLower.includes("stiff leg");
         case "glutes":
