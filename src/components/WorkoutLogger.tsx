@@ -472,32 +472,32 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
         case "cardio":
           return ex.pillar === "cardio" || !!ex.builds.cardio || ex.subCategories?.includes("cardio");
         case "chest":
-          return !!ex.builds.chestStrength || ex.subCategories?.includes("chest");
+          return !!ex.builds.chestStrength || ex.subCategories?.includes("chest") || nameLower.includes("push") || nameLower.includes("bench") || nameLower.includes("fly") || nameLower.includes("pec");
         case "back":
-          return !!ex.builds.backStrength || ex.subCategories?.includes("back");
+          return !!ex.builds.backStrength || ex.subCategories?.includes("back") || nameLower.includes("row") || nameLower.includes("pulldown") || nameLower.includes("pull-up") || nameLower.includes("pullup") || nameLower.includes("deadlift") || nameLower.includes("superman");
         case "core":
-          return !!ex.builds.coreStrength || ex.subCategories?.includes("core");
+          return !!ex.builds.coreStrength || ex.subCategories?.includes("core") || nameLower.includes("plank") || nameLower.includes("crunch") || nameLower.includes("sit-up") || nameLower.includes("twist") || nameLower.includes("ab");
         case "speed":
         case "stamina":
           return ex.pillar === "cardio" || !!ex.builds.cardio || !!ex.builds.speed || !!ex.builds.stamina;
         case "shoulders":
-          return ex.subCategories?.includes("shoulders");
+          return ex.subCategories?.includes("shoulders") || nameLower.includes("overhead press") || nameLower.includes("lateral raise") || nameLower.includes("front raise") || nameLower.includes("deltoid") || nameLower.includes("pike");
         case "biceps":
-          return ex.subCategories?.includes("biceps");
+          return ex.subCategories?.includes("biceps") || nameLower.includes("bicep") || nameLower.includes("curl") || nameLower.includes("chin-up");
         case "triceps":
-          return ex.subCategories?.includes("triceps");
+          return ex.subCategories?.includes("triceps") || nameLower.includes("tricep") || nameLower.includes("pushdown") || nameLower.includes("skull") || nameLower.includes("dip");
         case "traps":
-          return ex.subCategories?.includes("traps");
+          return ex.subCategories?.includes("traps") || nameLower.includes("shrug") || nameLower.includes("upright row");
         case "quads":
-          return ex.subCategories?.includes("quads");
+          return ex.subCategories?.includes("quads") || nameLower.includes("squat") || nameLower.includes("leg press") || nameLower.includes("extension") || nameLower.includes("lunge");
         case "hamstrings":
-          return ex.subCategories?.includes("hamstrings");
+          return ex.subCategories?.includes("hamstrings") || nameLower.includes("hamstring") || nameLower.includes("romanian") || nameLower.includes("good morning") || nameLower.includes("stiff leg");
         case "glutes":
-          return ex.subCategories?.includes("glutes");
+          return ex.subCategories?.includes("glutes") || nameLower.includes("glute") || nameLower.includes("hip thrust") || nameLower.includes("abduction") || nameLower.includes("kickback");
         case "calves":
-          return ex.subCategories?.includes("calves");
+          return ex.subCategories?.includes("calves") || nameLower.includes("calf") || nameLower.includes("calves");
         case "forearms":
-          return ex.subCategories?.includes("forearms") || nameLower.includes("forearm") || nameLower.includes("wrist");
+          return ex.subCategories?.includes("forearms") || nameLower.includes("forearm") || nameLower.includes("wrist") || nameLower.includes("grip");
         default:
           return false;
       }
@@ -1037,9 +1037,11 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                         return eqType === activeFilter;
                       });
 
+                      const displayExercises = (filteredExercises.length > 0) ? filteredExercises : activeExercises;
+
                       return (
                         <>
-                          {filteredExercises.map((ex) => {
+                          {displayExercises.map((ex) => {
                             const isCustom = getCustomExercises().some(c => c.name.toLowerCase() === ex.name.toLowerCase());
                             return (
                               <div key={ex.name} className="relative group">
@@ -1072,9 +1074,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                               </div>
                             );
                           })}
-                          {filteredExercises.length === 0 && (
+                          {displayExercises.length === 0 && (
                             <div className="col-span-2 text-center py-6 text-slate-500 border border-dashed border-slate-850 rounded-2xl font-mono text-[9px] uppercase">
-                              No {activeFilter} exercises found for this muscle zone.
+                              No exercises found for this muscle zone.
                             </div>
                           )}
                         </>
