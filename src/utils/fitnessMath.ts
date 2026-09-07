@@ -1233,6 +1233,13 @@ export function parseLogMetrics(log: FitnessLog): LogMetrics {
     return metrics;
   }
 
+  const timeMatch = valStr.match(/(\d+)m\s*(\d+)s/i);
+  if (timeMatch) {
+    metrics.minutes = parseInt(timeMatch[1]) || 0;
+    metrics.seconds = parseInt(timeMatch[2]) || 0;
+    return metrics;
+  }
+
   const holdMatch = valStr.match(/(\d+)m\s*(\d+)s\s*hold/i);
   if (holdMatch) {
     metrics.minutes = parseInt(holdMatch[1]) || 0;
@@ -1921,7 +1928,7 @@ export function evaluateAthletePerformance(
   logs.forEach(log => {
     if (!log.exerciseName) return;
     const elapsedMs = now - new Date(log.timestamp).getTime();
-    if (elapsedMs > oneWeekMs || elapsedMs < 0) return;
+    if (elapsedMs > oneWeekMs || elapsedMs < -300000) return;
 
     let conf = getExerciseConfig(log.exerciseName);
     if (!conf) {
@@ -2091,7 +2098,7 @@ export function evaluateAthletePerformance(
   logs.forEach(log => {
     if (!log.exerciseName) return;
     const elapsedMs = now - new Date(log.timestamp).getTime();
-    if (elapsedMs > seventyTwoHoursMs || elapsedMs < 0) return;
+    if (elapsedMs > seventyTwoHoursMs || elapsedMs < -300000) return;
 
     const conf = getExerciseConfig(log.exerciseName);
     if (!conf) return;

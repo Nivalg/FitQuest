@@ -236,7 +236,11 @@ export default function App() {
     } else if (exercise.formType === "C") {
       valueDisplay = `${params.minutes}m ${params.seconds}s hold`;
     } else if (exercise.formType === "D") {
-      valueDisplay = `${params.distance} miles in ${params.minutes}m ${params.seconds}s`;
+      if (params.distance !== undefined && !isNaN(params.distance) && params.distance > 0) {
+        valueDisplay = `${params.distance} miles in ${params.minutes || 0}m ${params.seconds || 0}s`;
+      } else {
+        valueDisplay = `${params.minutes || 0}m ${params.seconds || 0}s`;
+      }
     } else if (exercise.formType === "E") {
       valueDisplay = `${params.floors} floors in ${params.minutes} mins`;
     } else if (exercise.formType === "F") {
