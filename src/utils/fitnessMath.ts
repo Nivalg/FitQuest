@@ -1190,10 +1190,12 @@ export function getExerciseConfig(name: string): ExerciseConfig | undefined {
   const norm = (name || "").toLowerCase().trim();
   if (!norm) return undefined;
 
+  const exact = EXERCISE_CONFIGS.find(conf => conf.name.toLowerCase().trim() === norm);
+  if (exact) return exact;
+
   return EXERCISE_CONFIGS.find(conf => {
     const configNameLower = conf.name.toLowerCase();
-    return configNameLower === norm || 
-           configNameLower.includes(norm) || 
+    return configNameLower.includes(norm) || 
            norm.includes(configNameLower);
   });
 }
@@ -2422,10 +2424,10 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
     }
   }
 
-  const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
+  const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "cardio", "speed", "stamina"] as const;
   
   statNames.forEach(stat => {
-    const sCalc = baseStats[stat] || 0;
+    const sCalc = (stat === "speed" || stat === "stamina") ? (baseStats.cardio || 0) : (baseStats[stat] || 0);
     const existing = decayStats[stat];
 
     // Find the newest timestamp of any logged exercise that builds this stat
@@ -2435,10 +2437,12 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
 
     logs.forEach(log => {
       if (!log.exerciseName) return;
-      const conf = getExerciseConfig(log.exerciseName);
+      let conf = getExerciseConfig(log.exerciseName);
       if (!conf) return;
       const builds = conf.builds as any;
-      if (builds[stat] && builds[stat] > 0) {
+      const isMatch = (builds[stat] && builds[stat] > 0) || 
+                      ((stat === "cardio" || stat === "speed" || stat === "stamina") && (builds.cardio || builds.stamina || builds.speed || log.distance || log.minutes));
+      if (isMatch) {
         const logTime = new Date(log.timestamp).getTime();
         const logWeight = log.weight || 0;
         if (logTime > newestLogTimestamp) {

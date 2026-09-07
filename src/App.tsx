@@ -106,12 +106,14 @@ export default function App() {
     legStrengthXP: performanceEvaluation.statXps.legStrength,
     coreStrength: dynamicStats.coreStrength,
     coreStrengthXP: performanceEvaluation.statXps.coreStrength,
-    speed: dynamicStats.speed,
-    speedXP: performanceEvaluation.statXps.speed,
-    stamina: dynamicStats.stamina,
-    staminaXP: performanceEvaluation.statXps.stamina,
-    cardioStamina: dynamicStats.stamina,
-    cardioStaminaXP: performanceEvaluation.statXps.stamina,
+    cardio: dynamicStats.cardio,
+    cardioXP: performanceEvaluation.statXps.cardio,
+    speed: dynamicStats.cardio,
+    speedXP: performanceEvaluation.statXps.cardio,
+    stamina: dynamicStats.cardio,
+    staminaXP: performanceEvaluation.statXps.cardio,
+    cardioStamina: dynamicStats.cardio,
+    cardioStaminaXP: performanceEvaluation.statXps.cardio,
   } : null;
 
   // Sync profile details to storage
@@ -150,12 +152,14 @@ export default function App() {
         legStrengthXP: perf.statXps.legStrength,
         coreStrength: dStats.coreStrength,
         coreStrengthXP: perf.statXps.coreStrength,
-        speed: dStats.speed,
-        speedXP: perf.statXps.speed,
-        stamina: dStats.stamina,
-        staminaXP: perf.statXps.stamina,
-        cardioStamina: dStats.stamina,
-        cardioStaminaXP: perf.statXps.stamina,
+        cardio: dStats.cardio,
+        cardioXP: perf.statXps.cardio,
+        speed: dStats.cardio,
+        speedXP: perf.statXps.cardio,
+        stamina: dStats.cardio,
+        staminaXP: perf.statXps.cardio,
+        cardioStamina: dStats.cardio,
+        cardioStaminaXP: perf.statXps.cardio,
       };
       localStorage.setItem("fitquest_profile", JSON.stringify(alignedProfile));
     }
