@@ -1226,8 +1226,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "D",
     description: "High-cadence run or jog tracking distance and pace.",
     builds: {
-      stamina: 80,
-      speed: 20
+      cardio: 100
     },
     image: "/treadmill_jog.png?v=5"
   },
@@ -1237,8 +1236,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "D",
     description: "Steady outdoor or treadmill walking to build foundational stamina and active recovery.",
     builds: {
-      stamina: 70,
-      speed: 30
+      cardio: 100
     }
   },
   {
@@ -1247,8 +1245,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "D",
     description: "High-intensity sprint bursts to push speed.",
     builds: {
-      stamina: 70,
-      legStrength: 30
+      cardio: 100
     }
   },
   {
@@ -1257,8 +1254,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     formType: "E",
     description: "Continuous vertical climbing to test quad endurance.",
     builds: {
-      stamina: 60,
-      legStrength: 40
+      cardio: 100
     },
     image: "/stairmaster.png?v=5"
   },

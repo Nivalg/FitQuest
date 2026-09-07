@@ -394,14 +394,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     if (exercise.builds.legStrength) parts.push("Leg");
     if (exercise.builds.armStrength) parts.push("Arm");
     if (exercise.builds.coreStrength) parts.push("Core");
-    if (exercise.builds.stamina) parts.push("Stamina");
-    if (exercise.builds.speed) parts.push("Speed");
-    
-    // Legacy fallback compatibility
-    if (exercise.builds.cardioStamina && !parts.includes("Stamina")) {
-      parts.push("Stamina");
+    if (exercise.builds.cardio || exercise.builds.stamina || exercise.builds.speed || exercise.pillar === "cardio") {
+      parts.push("Cardio");
     }
-    
     return parts.join(" + ");
   };
 
@@ -1220,8 +1215,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                 chest: "chestStrength",
                 back: "backStrength",
                 core: "coreStrength",
-                speed: "speed",
-                stamina: "stamina"
+                speed: "cardio",
+                stamina: "cardio",
+                cardio: "cardio"
               };
               const statKey = statKeyMap[focusId];
               return statKey ? renderProgressBar(statKey, false) : null;
@@ -1411,17 +1407,36 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               });
             }
 
-            // 2. Gather all builds keys that are main muscles (excluding generic arms/legs parents)
+            // 2. Gather main muscle/cardio progress bars
             const buildsKeys = Object.keys(selectedExercise.builds || {});
-            const muscleKeys = ["chestStrength", "backStrength", "coreStrength", "cardio", "stamina", "speed"];
-            
-            buildsKeys.forEach((key) => {
-              const value = (selectedExercise.builds as any)[key] || 0;
-              if (value > 0 && muscleKeys.includes(key)) {
-                const bar = renderProgressBar(key, false);
-                if (bar) progressBarsToRender.push(bar);
-              }
-            });
+            const muscleKeys = ["chestStrength", "backStrength", "coreStrength", "cardio"];
+            const isCardioEx = selectedExercise.pillar === "cardio" || 
+                               !!(selectedExercise.builds as any).cardio || 
+                               !!(selectedExercise.builds as any).stamina || 
+                               !!(selectedExercise.builds as any).speed;
+
+            if (isCardioEx) {
+              const cardioBar = renderProgressBar("cardio", false);
+              if (cardioBar) progressBarsToRender.push(cardioBar);
+
+              buildsKeys.forEach((key) => {
+                if (key !== "cardio" && key !== "stamina" && key !== "speed" && muscleKeys.includes(key)) {
+                  const value = (selectedExercise.builds as any)[key] || 0;
+                  if (value > 0) {
+                    const bar = renderProgressBar(key, false);
+                    if (bar) progressBarsToRender.push(bar);
+                  }
+                }
+              });
+            } else {
+              buildsKeys.forEach((key) => {
+                const value = (selectedExercise.builds as any)[key] || 0;
+                if (value > 0 && muscleKeys.includes(key)) {
+                  const bar = renderProgressBar(key, false);
+                  if (bar) progressBarsToRender.push(bar);
+                }
+              });
+            }
 
             if (progressBarsToRender.length === 0) return null;
 
