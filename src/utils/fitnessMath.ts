@@ -1912,26 +1912,63 @@ export function evaluateAthletePerformance(
     const elapsedMs = now - new Date(log.timestamp).getTime();
     if (elapsedMs > oneWeekMs || elapsedMs < 0) return;
 
-    const conf = getExerciseConfig(log.exerciseName);
+    let conf = getExerciseConfig(log.exerciseName);
+    if (!conf) {
+      const dbEx = getAllExercises().find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
+      if (dbEx) {
+        conf = {
+          name: dbEx.name,
+          formType: dbEx.formType as any,
+          baseline: 0,
+          peak: 100,
+          builds: dbEx.builds as any,
+          subCategories: dbEx.subCategories
+        };
+      } else if (log.distance || log.minutes || log.floors || /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(log.exerciseName!)) {
+        conf = {
+          name: log.exerciseName!,
+          formType: "D",
+          baseline: 0,
+          peak: 100,
+          builds: { cardio: 100 }
+        };
+      }
+    }
     if (!conf) return;
 
     const evalItem = evaluation.logEvaluations[log.id];
     if (!evalItem) return;
 
-    // Intensity ratio R is dynamically calculated against historical peak capacity
-    const R = Math.max(0, Math.min(1.1, evalItem.ratio));
+    const dbEx = getAllExercises().find(c => c.name.toLowerCase() === conf.name.toLowerCase());
+    const isCardio = dbEx?.pillar === "cardio" || 
+                     !!(conf.builds as any)?.cardio || 
+                     !!(conf.builds as any)?.stamina || 
+                     !!(conf.builds as any)?.speed ||
+                     log.distance !== undefined ||
+                     log.minutes !== undefined ||
+                     log.floors !== undefined;
 
-    // Diminishing returns volume gatekeeper based on sets logged on same day
-    const currentSetNum = getSessionSetCount(log, logs);
-    let volumeModifier = 1.00;
-    if (currentSetNum === 1) volumeModifier = 0.10;
-    else if (currentSetNum === 2) volumeModifier = 0.35;
-    else if (currentSetNum === 3) volumeModifier = 0.65;
-    else if (currentSetNum === 4) volumeModifier = 0.85;
-    else volumeModifier = 1.00;
+    let progress = 0;
+    if (isCardio) {
+      // Cardio logs represent complete workout sessions - yield progress directly proportional to log score
+      const score = evalItem.score > 0 ? evalItem.score : 100;
+      progress = Math.max(10, Math.min(100, score));
+    } else {
+      // Intensity ratio R is dynamically calculated against historical peak capacity
+      const R = Math.max(0, Math.min(1.1, evalItem.ratio));
 
-    // Progress scales exponentially: R^3 * 25, gated by session volume modifier
-    const progress = Math.pow(R, 3) * 25 * volumeModifier;
+      // Diminishing returns volume gatekeeper based on sets logged on same day
+      const currentSetNum = getSessionSetCount(log, logs);
+      let volumeModifier = 1.00;
+      if (currentSetNum === 1) volumeModifier = 0.10;
+      else if (currentSetNum === 2) volumeModifier = 0.35;
+      else if (currentSetNum === 3) volumeModifier = 0.65;
+      else if (currentSetNum === 4) volumeModifier = 0.85;
+      else volumeModifier = 1.00;
+
+      // Progress scales exponentially: R^3 * 25, gated by session volume modifier
+      progress = Math.pow(R, 3) * 25 * volumeModifier;
+    }
 
     statNames.forEach(stat => {
       const builds = conf.builds as any;
@@ -1968,9 +2005,9 @@ export function evaluateAthletePerformance(
     });
 
     // If this is a run exercise of >= 5.0 miles or >= 60 minutes, fill speed and stamina all the way
-    const dbEx = getAllExercises().find(e => e.name.toLowerCase() === conf.name.toLowerCase());
     const isRun = conf.name === "Treadmill Run / Jog" || conf.name === "Sprint Intervals" || (dbEx?.pillar === "cardio" && (conf.name.toLowerCase().includes("run") || conf.name.toLowerCase().includes("sprint") || conf.name.toLowerCase().includes("jog")));
     if (isRun && ((log.distance && log.distance >= 5.0) || (log.minutes && log.minutes >= 60))) {
+      evaluation.weeklyVolume.cardio = 100.0;
       evaluation.weeklyVolume.speed = 100.0;
       evaluation.weeklyVolume.stamina = 100.0;
     }
