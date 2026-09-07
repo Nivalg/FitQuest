@@ -1325,20 +1325,31 @@ export function calculateScoreFromLog(
     let timeScore = 0;
     let distScore = 0;
 
+    const nameLower = resolvedName.toLowerCase();
+
     if (totalMinutes > 0) {
-      timeScore = (totalMinutes / 30.0) * 100.0;
+      if (nameLower.includes("walk") || nameLower.includes("hike")) {
+        // Walking/Hiking: 60 mins = 100% score (30 mins = 50%)
+        timeScore = (totalMinutes / 60.0) * 100.0;
+      } else if (nameLower.includes("bicycle") || nameLower.includes("bike") || nameLower.includes("cycling") || nameLower.includes("spin")) {
+        // Bicycling: 40 mins = 100% score (30 mins = 75%, 20 mins = 50%)
+        timeScore = (totalMinutes / 40.0) * 100.0;
+      } else {
+        // Running / HIIT / Stairmaster / General Cardio: 30 mins = 100% score (15 mins = 50%)
+        timeScore = (totalMinutes / 30.0) * 100.0;
+      }
     }
 
-    const nameLower = resolvedName.toLowerCase();
-    if (nameLower.includes("bicycle") || nameLower.includes("bike") || nameLower.includes("cycling")) {
-      if (dist > 0) distScore = (dist / 5.0) * 100.0;
-    } else if (nameLower.includes("stair") || nameLower.includes("floor") || floors > 0) {
-      if (floors > 0) distScore = (floors / 50.0) * 100.0;
-      else if (dist > 0) distScore = (dist / 2.0) * 100.0;
-    } else if (nameLower.includes("walk")) {
-      if (dist > 0) distScore = (dist / 2.5) * 100.0;
-    } else {
-      if (dist > 0) distScore = (dist / 2.0) * 100.0;
+    if (dist > 0) {
+      if (nameLower.includes("bicycle") || nameLower.includes("bike") || nameLower.includes("cycling")) {
+        distScore = (dist / 5.0) * 100.0;
+      } else if (nameLower.includes("walk")) {
+        distScore = (dist / 2.5) * 100.0;
+      } else {
+        distScore = (dist / 2.0) * 100.0;
+      }
+    } else if (floors > 0) {
+      distScore = (floors / 50.0) * 100.0;
     }
 
     const finalCardioScore = Math.max(timeScore, distScore);

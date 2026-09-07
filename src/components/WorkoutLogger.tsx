@@ -573,7 +573,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       reps: (selectedExercise.formType === "A" || selectedExercise.formType === "B") ? reps : undefined,
       minutes: (selectedExercise.formType === "C" || selectedExercise.formType === "D" || selectedExercise.formType === "E") ? minutes : (selectedExercise.formType === "F" ? (hours * 60 + minutes) : undefined),
       seconds: (selectedExercise.formType === "C" || selectedExercise.formType === "D" || selectedExercise.formType === "E" || selectedExercise.formType === "F") ? seconds : undefined,
-      distance: (selectedExercise.formType === "D" || selectedExercise.formType === "F") ? (parseFloat(distanceStr) || 1.0) : undefined,
+      distance: (selectedExercise.formType === "D" || selectedExercise.formType === "F") 
+        ? (distanceStr.trim() !== "" && !isNaN(parseFloat(distanceStr)) && parseFloat(distanceStr) > 0 ? parseFloat(distanceStr) : undefined) 
+        : undefined,
       floors: selectedExercise.formType === "E" ? floors : undefined,
       notes: notes.trim() || undefined
     });
@@ -1649,7 +1651,6 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                         onChange={(e) => setDistanceStr(e.target.value)}
                         onFocus={(e) => e.target.select()}
                         className="bg-[#12161A] border-2 border-slate-800 text-center font-bold text-3xl text-white w-32 py-2.5 rounded-xl outline-none focus:border-cyan-500 font-mono tracking-wide"
-                        required
                       />
                       <span className="text-xs font-mono text-slate-500 font-bold uppercase">Miles</span>
                     </div>
