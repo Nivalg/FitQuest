@@ -209,9 +209,18 @@
   .battle-bottom-bar {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: 10px;
     flex-shrink: 0;
   }
+
+  #btn-dont-know {
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: 0 4px 0 #a8890c;
+    flex-shrink: 0;
+  }
+  #btn-dont-know:active { transform: translateY(4px); box-shadow: 0 0 0 #a8890c; }
 
   #btn-delete-study-card {
     border-color: var(--magenta);
@@ -1910,6 +1919,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
       <div class="battle-bottom-bar">
         <button class="btn-ghost btn-small hidden" id="btn-battle-back">← BACK</button>
+        <button class="btn-ghost btn-small hidden" id="btn-dont-know">🤷</button>
         <button class="btn-ghost btn-small hidden" id="btn-delete-study-card">🗑 DELETE CARD</button>
       </div>
     </div>
@@ -4048,6 +4058,13 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('qa-text').innerHTML = escapeHtml(card.q);
     document.getElementById('btn-delete-study-card').classList.remove('hidden');
 
+    // "I don't know" isn't offered in missed-cards study mode - a miss there
+    // already carries no penalty beyond resetting the card's streak.
+    var dontKnowBtn = document.getElementById('btn-dont-know');
+    dontKnowBtn.classList.toggle('hidden', !!b.isMissedStudy);
+    dontKnowBtn.textContent = '🤷';
+    dontKnowBtn.setAttribute('data-phase', 'ask');
+
     var revealBtn = document.getElementById('btn-reveal');
     var judgeRow = document.getElementById('judge-row');
     var mcOptions = document.getElementById('mc-options');
@@ -4529,6 +4546,95 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     setTimeout(renderCurrentCard, 750);
   }
+
+  // "I don't know" - reveals the answer and marks the card as missed for
+  // review, but does no damage either way and doesn't touch the combo. The
+  // answer stays on screen (no timer) until the same button is tapped again
+  // to continue.
+  function applyDontKnowResult() {
+    var b = state.battle;
+    if (b.locked || b.revealed) return;
+    b.locked = true;
+
+    var currentCard = b.queue[b.index];
+    var cardGroup = findBattleXpGroup();
+
+    if (!b.isReview) {
+      var deckForSkip = findDeck(b.deckId);
+      var skippedDeckCard = deckForSkip && deckForSkip.cards.find(function (c) { return c.id === currentCard.id; });
+      if (skippedDeckCard) {
+        skippedDeckCard.missCount = (skippedDeckCard.missCount || 0) + 1;
+        persist();
+      }
+    }
+
+    if (b.runGroupId && !b.isReview) {
+      var runStateForSkip = getRunState(b.runGroupId);
+      if (runStateForSkip && !runStateForSkip.missedCardsThisTier.some(function (c) { return c.id === currentCard.id; })) {
+        runStateForSkip.missedCardsThisTier.push({
+          id: currentCard.id,
+          type: currentCard.type,
+          q: currentCard.q,
+          options: currentCard.options ? currentCard.options.slice() : undefined,
+          correctIndex: currentCard.correctIndex,
+          a: currentCard.a
+        });
+        saveRuns(state.runs);
+      }
+    }
+
+    if (cardGroup) {
+      var groupMissedCards = getGroupMissedCards(cardGroup);
+      if (!groupMissedCards.some(function (c) { return c.id === currentCard.id; })) {
+        groupMissedCards.push({
+          id: currentCard.id,
+          type: currentCard.type,
+          q: currentCard.q,
+          options: currentCard.options ? currentCard.options.slice() : undefined,
+          correctIndex: currentCard.correctIndex,
+          a: currentCard.a
+        });
+        saveGroups(state.groups);
+      }
+    }
+
+    b.index += 1;
+
+    var box = document.getElementById('question-box');
+    box.classList.add('answer-mode');
+    document.getElementById('qa-label').textContent = 'ANSWER';
+
+    if (currentCard.type === 'mc') {
+      document.getElementById('qa-text').innerHTML = '';
+      var allBtns = document.querySelectorAll('#mc-options button.btn-mc');
+      allBtns.forEach(function (otherBtn) {
+        otherBtn.disabled = true;
+        var otherIndex = parseInt(otherBtn.getAttribute('data-original-index'), 10);
+        otherBtn.classList.add(otherIndex === currentCard.correctIndex ? 'mc-correct' : 'mc-dim');
+      });
+    } else {
+      document.getElementById('qa-text').innerHTML = escapeHtml(currentCard.a);
+    }
+
+    document.getElementById('btn-reveal').classList.add('hidden');
+    document.getElementById('judge-row').classList.add('hidden');
+
+    setBattleLog('🤷 No worries - marked for review. Tap again to continue.');
+
+    var dontKnowBtn = document.getElementById('btn-dont-know');
+    dontKnowBtn.textContent = '▶ CONTINUE';
+    dontKnowBtn.setAttribute('data-phase', 'continue');
+  }
+
+  document.getElementById('btn-dont-know').addEventListener('click', function () {
+    var b = state.battle;
+    if (b.isMissedStudy) return;
+    if (this.getAttribute('data-phase') === 'continue') {
+      renderCurrentCard();
+      return;
+    }
+    applyDontKnowResult();
+  });
 
   document.getElementById('btn-got-it').addEventListener('click', function () {
     var b = state.battle;
