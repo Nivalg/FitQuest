@@ -213,14 +213,17 @@
     gap: 10px;
     flex-shrink: 0;
   }
+  .battle-bottom-bar button {
+    flex: 1;
+  }
 
   #btn-dont-know {
     border-color: var(--gold);
     color: var(--gold);
     box-shadow: 0 4px 0 #a8890c;
-    flex-shrink: 0;
   }
   #btn-dont-know:active { transform: translateY(4px); box-shadow: 0 0 0 #a8890c; }
+  #btn-dont-know.btn-dont-know-emoji { font-size: 22px; padding: 5px 10px; }
 
   #btn-delete-study-card {
     border-color: var(--magenta);
@@ -1919,7 +1922,7 @@ question | option A | option B | option C | option D | 2"></textarea>
 
       <div class="battle-bottom-bar">
         <button class="btn-ghost btn-small hidden" id="btn-battle-back">← BACK</button>
-        <button class="btn-ghost btn-small hidden" id="btn-dont-know">🤷</button>
+        <button class="btn-ghost btn-small hidden btn-dont-know-emoji" id="btn-dont-know">🤷</button>
         <button class="btn-ghost btn-small hidden" id="btn-delete-study-card">🗑 DELETE CARD</button>
       </div>
     </div>
@@ -4062,6 +4065,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     // already carries no penalty beyond resetting the card's streak.
     var dontKnowBtn = document.getElementById('btn-dont-know');
     dontKnowBtn.classList.toggle('hidden', !!b.isMissedStudy);
+    dontKnowBtn.classList.add('btn-dont-know-emoji');
     dontKnowBtn.textContent = '🤷';
     dontKnowBtn.setAttribute('data-phase', 'ask');
 
@@ -4600,12 +4604,10 @@ question | option A | option B | option C | option D | 2"></textarea>
 
     b.index += 1;
 
-    var box = document.getElementById('question-box');
-    box.classList.add('answer-mode');
-    document.getElementById('qa-label').textContent = 'ANSWER';
-
     if (currentCard.type === 'mc') {
-      document.getElementById('qa-text').innerHTML = '';
+      // Leave the question box showing the question as-is - the answer is
+      // conveyed by highlighting the correct option below, not by replacing
+      // the box's content.
       var allBtns = document.querySelectorAll('#mc-options button.btn-mc');
       allBtns.forEach(function (otherBtn) {
         otherBtn.disabled = true;
@@ -4613,6 +4615,9 @@ question | option A | option B | option C | option D | 2"></textarea>
         otherBtn.classList.add(otherIndex === currentCard.correctIndex ? 'mc-correct' : 'mc-dim');
       });
     } else {
+      var box = document.getElementById('question-box');
+      box.classList.add('answer-mode');
+      document.getElementById('qa-label').textContent = 'ANSWER';
       document.getElementById('qa-text').innerHTML = escapeHtml(currentCard.a);
     }
 
@@ -4622,6 +4627,7 @@ question | option A | option B | option C | option D | 2"></textarea>
     setBattleLog('🤷 No worries - marked for review. Tap again to continue.');
 
     var dontKnowBtn = document.getElementById('btn-dont-know');
+    dontKnowBtn.classList.remove('btn-dont-know-emoji');
     dontKnowBtn.textContent = '▶ CONTINUE';
     dontKnowBtn.setAttribute('data-phase', 'continue');
   }
