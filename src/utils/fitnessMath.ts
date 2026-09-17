@@ -2282,7 +2282,7 @@ export function getUndecayedStats(
     undecayedSubLevels[sub] = parseFloat(finalSubLvl.toFixed(2));
   });
 
-  const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "speed", "stamina"] as const;
+  const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "cardio"] as const;
   const baseStats: Record<string, number> = {};
 
   statNames.forEach(stat => {
@@ -2314,31 +2314,18 @@ export function getUndecayedStats(
       } else {
         EXERCISE_CONFIGS.forEach(config => {
           const builds = config.builds as any;
-          const pct = builds[stat] || 0;
+          const pct = builds[stat] || builds.cardio || builds.stamina || builds.speed || 0;
           if (pct > 0) {
             offsetSum += (peakLevels[config.name] || 0) * (pct / 100);
           }
         });
-
-        if (stat === "stamina") {
-          let maxStaminaExerciseLvl = 0;
-          EXERCISE_CONFIGS.forEach(config => {
-            const builds = config.builds as any;
-            if (builds.stamina && builds.stamina > 0) {
-              const peak = peakLevels[config.name] || 0;
-              if (peak > maxStaminaExerciseLvl) {
-                maxStaminaExerciseLvl = peak;
-              }
-            }
-          });
-          offsetSum = Math.min(offsetSum, maxStaminaExerciseLvl);
-        }
       }
 
       let hasNonMachineLog = false;
       EXERCISE_CONFIGS.forEach(config => {
         const builds = config.builds as any;
-        if (builds[stat] > 0) {
+        const isMatched = builds[stat] > 0 || (stat === "cardio" && (builds.cardio || builds.stamina || builds.speed));
+        if (isMatched) {
           const matchedLogs = exerciseLogs[config.name] || [];
           const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
           if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
@@ -2355,36 +2342,19 @@ export function getUndecayedStats(
           finalLvl = 100.00 * finalLvl / (finalLvl + 50.00);
         }
       }
-      if (stat !== "speed" && stat !== "stamina") {
+      if (stat !== "cardio") {
         if (!hasNonMachineLog && finalLvl > 50.00) {
           finalLvl = 50.00;
         }
-      }
-
-      if (stat === "stamina") {
-        let qualifyingStaminaLogsCount = 0;
-        logs.forEach(l => {
-          if (!l.exerciseName) return;
-          const conf = getExerciseConfig(l.exerciseName);
-          if (conf && conf.builds && (conf.builds as any).stamina > 0) {
-            const score = calculateScoreFromLog(l, bodyWeight, "stamina", gender);
-            const pr = prByExercise[conf.name] || 0;
-            const isWorkingSet = pr > 0 ? (score / pr >= 0.60) : true;
-            
-            const ageDays = (Date.now() - new Date(l.timestamp).getTime()) / (1000 * 60 * 60 * 24);
-            if (isWorkingSet && ageDays <= 14 && score > 0) {
-              qualifyingStaminaLogsCount++;
-            }
-          }
-        });
-        
-        const consistencyMultiplier = Math.min(1.0, qualifyingStaminaLogsCount / 2.0);
-        finalLvl = finalLvl * consistencyMultiplier;
       }
     }
 
     baseStats[stat] = parseFloat(finalLvl.toFixed(2));
   });
+
+  baseStats.speed = baseStats.cardio || 0;
+  baseStats.stamina = baseStats.cardio || 0;
+  baseStats.cardioStamina = baseStats.cardio || 0;
 
   return baseStats;
 }
