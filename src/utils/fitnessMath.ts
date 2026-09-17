@@ -669,56 +669,91 @@ export const EXERCISE_CONFIGS: ExerciseConfig[] = [
     formType: "D",
     baseline: 4.615,
     peak: 13.333,
-    builds: { stamina: 80, speed: 20 }
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Outdoor Running",
+    formType: "D",
+    baseline: 4.615,
+    peak: 13.333,
+    builds: { cardio: 100 }
   },
   {
     name: "Walking",
     formType: "D",
     baseline: 2.0,
     peak: 5.0,
-    builds: { stamina: 70, speed: 30 }
+    builds: { cardio: 100 }
   },
   {
     name: "Sprint Intervals",
     formType: "D",
     baseline: 4.615,
     peak: 13.333,
-    builds: { stamina: 70, legStrength: 30 }
+    builds: { cardio: 70, legStrength: 30 }
   },
   {
     name: "Stairmaster",
     formType: "E",
     baseline: 10,
     peak: 150,
-    builds: { stamina: 60, legStrength: 40 }
+    builds: { cardio: 60, legStrength: 40 }
+  },
+  {
+    name: "Stair Climbing",
+    formType: "E",
+    baseline: 10,
+    peak: 150,
+    builds: { cardio: 80, legStrength: 20 }
   },
   {
     name: "Jump Rope",
     formType: "C",
     baseline: 30,
     peak: 600,
-    builds: { stamina: 80, speed: 20 }
+    builds: { cardio: 100 }
   },
   {
     name: "Bicycle",
     formType: "D",
     baseline: 1.0,
     peak: 25.0,
-    builds: { stamina: 50, speed: 50 }
+    builds: { cardio: 100 }
+  },
+  {
+    name: "Outdoor Bicycle",
+    formType: "D",
+    baseline: 1.0,
+    peak: 25.0,
+    builds: { cardio: 100 }
   },
   {
     name: "Elliptical",
     formType: "D",
     baseline: 0.5,
     peak: 15.0,
-    builds: { stamina: 50, speed: 50 }
+    builds: { cardio: 100 }
   },
   {
     name: "Rowing Machine",
     formType: "D",
     baseline: 0.5,
     peak: 10.0,
-    builds: { stamina: 70, backStrength: 30 }
+    builds: { cardio: 70, backStrength: 30 }
+  },
+  {
+    name: "Hiking",
+    formType: "F",
+    baseline: 1.0,
+    peak: 15.0,
+    builds: { cardio: 70, legStrength: 30 }
+  },
+  {
+    name: "HIIT Cardio Circuit",
+    formType: "C",
+    baseline: 30,
+    peak: 300,
+    builds: { cardio: 100 }
   },
   {
     name: "Dumbbell Chest Fly",
@@ -1992,7 +2027,13 @@ export function evaluateAthletePerformance(
 
     statNames.forEach(stat => {
       const builds = conf.builds as any;
-      const pct = builds[stat] || 0;
+      let pct = builds[stat] || 0;
+      if (stat === "cardio") {
+        pct = builds.cardio || (builds.stamina || 0) + (builds.speed || 0);
+        if (pct === 0 && isCardio) {
+          pct = 100;
+        }
+      }
       if (pct > 0) {
         let addedProgress = progress * (pct / 100);
 
@@ -2048,6 +2089,9 @@ export function evaluateAthletePerformance(
       );
     }
   });
+
+  evaluation.weeklyVolume.speed = evaluation.weeklyVolume.cardio;
+  evaluation.weeklyVolume.stamina = evaluation.weeklyVolume.cardio;
 
   // --- WORKOUT PROGRESS BALANCE DECAY (7-DAY LINEAR DECAY OVERRIDE) ---
   let lastWorkoutTime = 0;
