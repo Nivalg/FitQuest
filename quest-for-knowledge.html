@@ -444,6 +444,13 @@
     color: var(--magenta);
   }
 
+  .daily-quest-streak {
+    margin-top: -8px;
+    text-align: center;
+    font-size: 15px;
+    color: var(--gold);
+  }
+
   .deck-actions {
     display: flex;
     flex-direction: column;
@@ -502,6 +509,15 @@
     align-items: center;
     color: var(--gold);
     font-size: 12px;
+  }
+
+  .card-item-leech {
+    border-color: var(--magenta);
+  }
+
+  .leech-badge {
+    color: var(--magenta);
+    margin-left: 6px;
   }
 
   .card-list {
@@ -1566,6 +1582,9 @@
       <div class="record-combo-line hidden" id="decks-recordcombo"></div>
     </div>
 
+    <button class="btn-gold btn-daily-quest" id="btn-daily-quest" style="width:100%;">📅 DAILY QUEST (0 due)</button>
+    <div class="daily-quest-streak hidden" id="daily-quest-streak"></div>
+
     <div id="deck-list" class="card-list"></div>
     <button class="btn-gold" id="btn-new-group" style="width:100%;">📚 NEW COLLECTION</button>
     <button class="btn-cyan" id="btn-stats">📊 STATS &amp; PROFILE</button>
@@ -1984,6 +2003,10 @@ question | option A | option B | option C | option D | 2"></textarea>
   var SUPER_MOVE_FIRST_DAMAGE = 30;
   var SUPER_MOVE_DAMAGE_MIN = 20;
   var SUPER_MOVE_DAMAGE_MAX = 25;
+  // Daily Quest cards are genuinely spaced (they were actually due, not just
+  // freshly seen), so each one is worth real XP toward its own collection -
+  // on top of that, deck-clear XP still comes from battling normally.
+  var DAILY_QUEST_XP_PER_CARD = 3;
   var LEVEL_TITLES = [
     { min: 1, title: 'Novice Wizard' },
     { min: 3, title: 'Apprentice Wizard' },
@@ -2051,6 +2074,102 @@ question | option A | option B | option C | option D | 2"></textarea>
       for (var i = 0; i < 1 + extra; i++) pool.push(card);
     });
     return shuffle(pool);
+  }
+
+  // ---------- Spaced repetition (simplified SM-2) ----------
+  // Every card carries its own review schedule: an interval (days until due
+  // again), an ease factor that grows/shrinks with performance, and a due
+  // timestamp. Cards without these fields yet (older decks) are treated as
+  // due immediately, so nothing old ever gets stuck unreachable.
+  var DAY_MS = 24 * 60 * 60 * 1000;
+  var SRS_EASE_DEFAULT = 2.5;
+  var SRS_EASE_MIN = 1.3;
+  var LEECH_THRESHOLD = 8;
+
+  function ensureSrsFields(card) {
+    if (typeof card.srsInterval !== 'number') card.srsInterval = 0;
+    if (typeof card.srsDue !== 'number') card.srsDue = 0;
+    if (typeof card.srsEase !== 'number') card.srsEase = SRS_EASE_DEFAULT;
+    if (typeof card.srsReps !== 'number') card.srsReps = 0;
+  }
+
+  function isCardDue(card) {
+    ensureSrsFields(card);
+    return card.srsDue <= Date.now();
+  }
+
+  // A right answer grows the interval (1 day -> 3 days -> then interval *
+  // ease each time after); a wrong answer drops back to "review tomorrow"
+  // and knocks the ease factor down - the same idea as Anki's Again/Good,
+  // just collapsed to the binary correct/incorrect signal this game uses.
+  function scheduleCardReview(card, correct) {
+    ensureSrsFields(card);
+    if (correct) {
+      card.srsReps += 1;
+      if (card.srsReps === 1) card.srsInterval = 1;
+      else if (card.srsReps === 2) card.srsInterval = 3;
+      else card.srsInterval = Math.round(card.srsInterval * card.srsEase);
+      card.srsEase = Math.min(card.srsEase + 0.1, 3.0);
+    } else {
+      card.srsReps = 0;
+      card.srsInterval = 1;
+      card.srsEase = Math.max(card.srsEase - 0.3, SRS_EASE_MIN);
+    }
+    card.srsDue = Date.now() + card.srsInterval * DAY_MS;
+  }
+
+  function findDeckContainingCard(cardId) {
+    for (var i = 0; i < state.decks.length; i++) {
+      if (state.decks[i].cards.some(function (c) { return c.id === cardId; })) return state.decks[i];
+    }
+    return null;
+  }
+
+  function getAllDueCards() {
+    var due = [];
+    state.decks.forEach(function (deck) {
+      deck.cards.forEach(function (card) {
+        if (isCardDue(card)) due.push(card);
+      });
+    });
+    return due;
+  }
+
+  // A card that keeps coming back wrong despite repetition is a "leech" -
+  // more reps aren't the fix, it needs a rewrite or a note. This flags it
+  // once, right when it crosses the threshold, and records the miss in the
+  // usual places (per-card counter + the collection's missed-cards list).
+  function recordCardMiss(card, deck) {
+    card.missCount = (card.missCount || 0) + 1;
+    persist();
+    var justBecameLeech = card.missCount === LEECH_THRESHOLD;
+    var group = deck ? findGroupForDeck(deck.id) : null;
+    if (group) {
+      var missedCards = getGroupMissedCards(group);
+      if (!missedCards.some(function (c) { return c.id === card.id; })) {
+        missedCards.push({
+          id: card.id,
+          type: card.type,
+          q: card.q,
+          options: card.options ? card.options.slice() : undefined,
+          correctIndex: card.correctIndex,
+          a: card.a
+        });
+        saveGroups(state.groups);
+      }
+    }
+    return justBecameLeech;
+  }
+
+  function todayDateString() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function isConsecutiveDay(prevDateStr, todayStr) {
+    if (!prevDateStr) return false;
+    var prev = new Date(prevDateStr + 'T00:00:00Z').getTime();
+    var today = new Date(todayStr + 'T00:00:00Z').getTime();
+    return today - prev === DAY_MS;
   }
 
   function starsForHp(remainingHp, maxHp) {
@@ -2323,11 +2442,13 @@ question | option A | option B | option C | option D | 2"></textarea>
       var parsed = raw ? JSON.parse(raw) : null;
       if (parsed && typeof parsed.xp === 'number' && parsed.xp >= 0) {
         parsed.bestCombo = parsed.bestCombo || 0;
+        parsed.dailyQuestStreak = parsed.dailyQuestStreak || 0;
+        parsed.lastDailyQuestDate = parsed.lastDailyQuestDate || null;
         return parsed;
       }
-      return { xp: 0, bestCombo: 0 };
+      return { xp: 0, bestCombo: 0, dailyQuestStreak: 0, lastDailyQuestDate: null };
     } catch (e) {
-      return { xp: 0, bestCombo: 0 };
+      return { xp: 0, bestCombo: 0, dailyQuestStreak: 0, lastDailyQuestDate: null };
     }
   }
 
@@ -2563,8 +2684,76 @@ question | option A | option B | option C | option D | 2"></textarea>
     return card;
   }
 
+  function refreshDailyQuestButton() {
+    var dueCount = getAllDueCards().length;
+    var btn = document.getElementById('btn-daily-quest');
+    btn.textContent = '📅 DAILY QUEST (' + dueCount + ' due)';
+    btn.disabled = dueCount === 0;
+
+    var streakEl = document.getElementById('daily-quest-streak');
+    var streak = state.player.dailyQuestStreak || 0;
+    if (streak > 0) {
+      streakEl.textContent = '🔥 ' + streak + ' day streak';
+      streakEl.classList.remove('hidden');
+    } else {
+      streakEl.classList.add('hidden');
+    }
+  }
+
+  function startDailyQuest() {
+    var dueCards = getAllDueCards();
+    if (!dueCards.length) {
+      alert('Nothing is due for review right now - nice work staying on top of it! Check back tomorrow, or battle a deck to learn new cards.');
+      return;
+    }
+
+    // Daily Quest is launched from the top-level Decks screen, mixing cards
+    // from every deck - "back" should return there, not to whatever group
+    // happened to be viewed earlier in the session.
+    state.viewingGroupId = null;
+
+    state.battle = {
+      deckId: '__daily__',
+      queue: shuffle(dueCards),
+      index: 0,
+      playerHp: maxHpForGroup(null),
+      maxPlayerHp: maxHpForGroup(null),
+      enemyHp: dueCards.length,
+      maxEnemyHp: dueCards.length,
+      revealed: false,
+      locked: false,
+      combo: 0,
+      bestCombo: 0,
+      runGroupId: null,
+      isDailyQuest: true,
+      missedAnyThisBattle: false
+    };
+
+    document.getElementById('enemy-emoji').textContent = '📅';
+    document.getElementById('enemy-emoji').classList.remove('boss-emoji');
+    document.getElementById('enemy-label').textContent = 'DAILY QUEST';
+    document.getElementById('player-emoji').textContent = PLAYER_EMOJI;
+    setBattleLog('📅 ' + dueCards.length + ' card' + (dueCards.length === 1 ? '' : 's') + ' due today, mixed from every deck. No HP risk - just clear them out!');
+    renderBattleHp();
+    hideComboPopup();
+    document.getElementById('crack-overlay').classList.remove('show');
+    document.getElementById('elemental-fx').className = 'elemental-fx';
+    document.getElementById('projectile-layer').className = 'projectile-layer';
+    document.getElementById('ko-banner').classList.add('hidden');
+    document.getElementById('ko-banner').classList.remove('show');
+    document.getElementById('player-orbit-fx').classList.add('hidden');
+    document.getElementById('player-orbit-fx').classList.remove('show');
+    document.getElementById('btn-battle-back').classList.remove('hidden');
+    updatePlayerBadge('battle', state.player.xp);
+    renderCurrentCard();
+    openBattleScreen();
+  }
+
+  document.getElementById('btn-daily-quest').addEventListener('click', startDailyQuest);
+
   function renderDeckList() {
     updatePlayerBadge('decks', state.player.xp);
+    refreshDailyQuestButton();
 
     var list = document.getElementById('deck-list');
     list.innerHTML = '';
@@ -3610,8 +3799,11 @@ question | option A | option B | option C | option D | 2"></textarea>
     deck.cards.forEach(function (card, idx) {
       var item = document.createElement('div');
       item.className = 'card-item';
+      var isLeech = (card.missCount || 0) >= LEECH_THRESHOLD;
+      if (isLeech) item.classList.add('card-item-leech');
       var html =
-        '<div class="card-item-row"><span>CARD ' + (idx + 1) + (card.type === 'mc' ? ' · MC' : '') + '</span>' +
+        '<div class="card-item-row"><span>CARD ' + (idx + 1) + (card.type === 'mc' ? ' · MC' : '') +
+        (isLeech ? ' <span class="leech-badge" title="Keeps coming back wrong - consider rewriting it or adding a note">🥴 LEECH</span>' : '') + '</span>' +
         '<button class="btn-small" data-action="delete-card" data-id="' + card.id + '">DEL</button></div>' +
         '<div><label>Q:</label> ' + escapeHtml(card.q) + '</div>';
 
@@ -4044,10 +4236,19 @@ question | option A | option B | option C | option D | 2"></textarea>
         sourceCards = liveGroup ? getGroupMissedCards(liveGroup) : [];
       } else if (b.isReview) {
         sourceCards = b.reviewCards;
+      } else if (b.isDailyQuest) {
+        // Daily Quest is a fixed session - nothing left to reshuffle from if
+        // the queue runs dry here (should only happen via card deletion,
+        // handled separately in deleteCurrentStudyCard).
+        sourceCards = [];
       } else {
         sourceCards = findDeck(b.deckId).cards;
       }
-      b.queue = (b.isMissedStudy || b.isReview) ? shuffle(sourceCards) : weightedShuffle(sourceCards);
+      if (!sourceCards.length) {
+        endBattle(true);
+        return;
+      }
+      b.queue = (b.isMissedStudy || b.isReview || b.isDailyQuest) ? shuffle(sourceCards) : weightedShuffle(sourceCards);
       b.index = 0;
       setBattleLog('The deck reshuffles! Keep fighting!');
     }
@@ -4274,6 +4475,15 @@ question | option A | option B | option C | option D | 2"></textarea>
     var cardEntry = missedCards.find(function (c) { return c.id === currentCard.id; });
     var mastered = false;
 
+    // Study mode's cards are snapshots (no live deck reference), so look the
+    // real card up to keep its spaced-repetition schedule in sync too.
+    var srsDeck = findDeckContainingCard(currentCard.id);
+    var srsCard = srsDeck && srsDeck.cards.find(function (c) { return c.id === currentCard.id; });
+    if (srsCard) {
+      scheduleCardReview(srsCard, correct);
+      persist();
+    }
+
     if (correct) {
       if (cardEntry) {
         cardEntry.correctStreak = (cardEntry.correctStreak || 0) + 1;
@@ -4374,7 +4584,7 @@ question | option A | option B | option C | option D | 2"></textarea>
       b.reviewCards = b.reviewCards.filter(function (c) { return c.id !== currentCard.id; });
     }
 
-    if (b.isMissedStudy) {
+    if (b.isMissedStudy || b.isDailyQuest) {
       b.enemyHp = Math.max(0, b.enemyHp - 1);
     }
 
@@ -4391,9 +4601,13 @@ question | option A | option B | option C | option D | 2"></textarea>
       playFinisherFx(function () { endBattle(true); });
       return;
     }
+    if (b.isDailyQuest && b.enemyHp <= 0) {
+      endBattle(true);
+      return;
+    }
 
     var nothingLeftToFight;
-    if (b.isMissedStudy) {
+    if (b.isMissedStudy || b.isDailyQuest) {
       nothingLeftToFight = false; // handled above via enemyHp
     } else if (b.isReview) {
       nothingLeftToFight = b.index >= b.queue.length && !b.reviewCards.length;
@@ -4419,6 +4633,20 @@ question | option A | option B | option C | option D | 2"></textarea>
     if (b.isMissedStudy) {
       applyMissedStudyAnswerResult(correct, currentCard);
       return;
+    }
+    if (b.isDailyQuest) {
+      applyDailyQuestAnswerResult(correct, currentCard);
+      return;
+    }
+
+    // Every real battle exposure (win or lose) also updates this card's
+    // spaced-repetition schedule, so the Daily Quest stays accurate even for
+    // cards you only ever meet through normal deck battles.
+    var srsDeck = b.isReview ? null : findDeck(b.deckId);
+    var srsCard = srsDeck && srsDeck.cards.find(function (c) { return c.id === currentCard.id; });
+    if (srsCard) {
+      scheduleCardReview(srsCard, correct);
+      persist();
     }
 
     var dmg = 1 + Math.floor(Math.random() * 2); // 1-2 dmg
@@ -4479,14 +4707,12 @@ question | option A | option B | option C | option D | 2"></textarea>
       setBattleLog('Ouch! You take -' + dmg + ' HP!');
 
       // Track misses on the card itself so it shows up more often in future
-      // shuffles of this deck (see weightedShuffle) - the more you miss it,
-      // the more you'll see it.
-      if (!b.isReview) {
-        var deckForMiss = findDeck(b.deckId);
-        var missedDeckCard = deckForMiss && deckForMiss.cards.find(function (c) { return c.id === currentCard.id; });
-        if (missedDeckCard) {
-          missedDeckCard.missCount = (missedDeckCard.missCount || 0) + 1;
-          persist();
+      // shuffles of this deck (see weightedShuffle), and flag it as a leech
+      // if it keeps coming back wrong despite repetition.
+      if (srsCard) {
+        var justBecameLeech = recordCardMiss(srsCard, srsDeck);
+        if (justBecameLeech) {
+          setBattleLog('🥴 Ouch! -' + dmg + ' HP! This card keeps coming back - flagged as a leech in the deck editor.');
         }
       }
 
@@ -4502,21 +4728,6 @@ question | option A | option B | option C | option D | 2"></textarea>
             a: currentCard.a
           });
           saveRuns(state.runs);
-        }
-      }
-
-      if (cardGroup) {
-        var groupMissedCards = getGroupMissedCards(cardGroup);
-        if (!groupMissedCards.some(function (c) { return c.id === currentCard.id; })) {
-          groupMissedCards.push({
-            id: currentCard.id,
-            type: currentCard.type,
-            q: currentCard.q,
-            options: currentCard.options ? currentCard.options.slice() : undefined,
-            correctIndex: currentCard.correctIndex,
-            a: currentCard.a
-          });
-          saveGroups(state.groups);
         }
       }
     }
@@ -4551,6 +4762,66 @@ question | option A | option B | option C | option D | 2"></textarea>
     setTimeout(renderCurrentCard, 750);
   }
 
+  // Daily Quest: an interleaved review of every card due today, mixed across
+  // every deck. No HP risk - it's meant to be a fast daily habit, not a
+  // fight. A correct answer reschedules the card further out and clears it
+  // for the day; a miss reschedules it for tomorrow AND requeues it later in
+  // this same session, so you get another crack at it before you leave
+  // (same idea as Anki re-showing a missed card within the session).
+  function applyDailyQuestAnswerResult(correct, currentCard) {
+    var b = state.battle;
+    var deck = findDeckContainingCard(currentCard.id);
+    var liveCard = deck && deck.cards.find(function (c) { return c.id === currentCard.id; });
+
+    if (correct) {
+      if (liveCard) {
+        scheduleCardReview(liveCard, true);
+        persist();
+      }
+
+      var xpGroup = deck ? findGroupForDeck(deck.id) : null;
+      awardXp(DAILY_QUEST_XP_PER_CARD, xpGroup);
+      updatePlayerBadge('battle', xpGroup ? (xpGroup.xp || 0) : state.player.xp);
+
+      if (xpGroup) {
+        var missedCards = getGroupMissedCards(xpGroup);
+        var idx = missedCards.findIndex(function (c) { return c.id === currentCard.id; });
+        if (idx !== -1) {
+          missedCards.splice(idx, 1);
+          saveGroups(state.groups);
+        }
+      }
+
+      b.enemyHp -= 1;
+      playElementalFx();
+      setBattleLog('✓ Correct! (+' + DAILY_QUEST_XP_PER_CARD + ' XP) Rescheduled further out.');
+    } else {
+      var justBecameLeech = false;
+      if (liveCard) {
+        scheduleCardReview(liveCard, false);
+        justBecameLeech = recordCardMiss(liveCard, deck);
+      }
+      showCrackOverlay();
+      setBattleLog(justBecameLeech ?
+        '🥴 Missed it - this card keeps coming back, flagged as a leech. You\'ll see it again shortly.' :
+        'Missed it - scheduled for tomorrow, and you\'ll see it again shortly in this session.');
+
+      // Give another crack at it before the session ends, instead of only
+      // seeing it again tomorrow.
+      b.queue.push(currentCard);
+    }
+
+    renderEnemyHp();
+    b.index += 1;
+
+    if (b.enemyHp <= 0) {
+      setTimeout(function () { endBattle(true); }, 750);
+      return;
+    }
+
+    setTimeout(renderCurrentCard, 750);
+  }
+
   // "I don't know" - reveals the answer and marks the card as missed for
   // review, but does no damage either way and doesn't touch the combo. The
   // answer stays on screen (no timer) until the same button is tapped again
@@ -4561,44 +4832,60 @@ question | option A | option B | option C | option D | 2"></textarea>
     b.locked = true;
 
     var currentCard = b.queue[b.index];
-    var cardGroup = findBattleXpGroup();
+    var justBecameLeech = false;
 
-    if (!b.isReview) {
-      var deckForSkip = findDeck(b.deckId);
-      var skippedDeckCard = deckForSkip && deckForSkip.cards.find(function (c) { return c.id === currentCard.id; });
-      if (skippedDeckCard) {
-        skippedDeckCard.missCount = (skippedDeckCard.missCount || 0) + 1;
-        persist();
+    if (b.isDailyQuest) {
+      var dqDeck = findDeckContainingCard(currentCard.id);
+      var dqCard = dqDeck && dqDeck.cards.find(function (c) { return c.id === currentCard.id; });
+      if (dqCard) {
+        scheduleCardReview(dqCard, false);
+        justBecameLeech = recordCardMiss(dqCard, dqDeck);
       }
-    }
+      // Give another crack at it before the session ends.
+      b.queue.push(currentCard);
+    } else {
+      var cardGroup = findBattleXpGroup();
 
-    if (b.runGroupId && !b.isReview) {
-      var runStateForSkip = getRunState(b.runGroupId);
-      if (runStateForSkip && !runStateForSkip.missedCardsThisTier.some(function (c) { return c.id === currentCard.id; })) {
-        runStateForSkip.missedCardsThisTier.push({
-          id: currentCard.id,
-          type: currentCard.type,
-          q: currentCard.q,
-          options: currentCard.options ? currentCard.options.slice() : undefined,
-          correctIndex: currentCard.correctIndex,
-          a: currentCard.a
-        });
-        saveRuns(state.runs);
+      if (!b.isReview) {
+        var deckForSkip = findDeck(b.deckId);
+        var skippedDeckCard = deckForSkip && deckForSkip.cards.find(function (c) { return c.id === currentCard.id; });
+        if (skippedDeckCard) {
+          scheduleCardReview(skippedDeckCard, false);
+          justBecameLeech = recordCardMiss(skippedDeckCard, deckForSkip);
+        }
       }
-    }
 
-    if (cardGroup) {
-      var groupMissedCards = getGroupMissedCards(cardGroup);
-      if (!groupMissedCards.some(function (c) { return c.id === currentCard.id; })) {
-        groupMissedCards.push({
-          id: currentCard.id,
-          type: currentCard.type,
-          q: currentCard.q,
-          options: currentCard.options ? currentCard.options.slice() : undefined,
-          correctIndex: currentCard.correctIndex,
-          a: currentCard.a
-        });
-        saveGroups(state.groups);
+      if (b.runGroupId && !b.isReview) {
+        var runStateForSkip = getRunState(b.runGroupId);
+        if (runStateForSkip && !runStateForSkip.missedCardsThisTier.some(function (c) { return c.id === currentCard.id; })) {
+          runStateForSkip.missedCardsThisTier.push({
+            id: currentCard.id,
+            type: currentCard.type,
+            q: currentCard.q,
+            options: currentCard.options ? currentCard.options.slice() : undefined,
+            correctIndex: currentCard.correctIndex,
+            a: currentCard.a
+          });
+          saveRuns(state.runs);
+        }
+      }
+
+      // Covers in-run review too (its cards are snapshots with no live deck
+      // reference, so the block above can't reach them) - idempotent if the
+      // live-card path above already added it.
+      if (cardGroup) {
+        var groupMissedCards = getGroupMissedCards(cardGroup);
+        if (!groupMissedCards.some(function (c) { return c.id === currentCard.id; })) {
+          groupMissedCards.push({
+            id: currentCard.id,
+            type: currentCard.type,
+            q: currentCard.q,
+            options: currentCard.options ? currentCard.options.slice() : undefined,
+            correctIndex: currentCard.correctIndex,
+            a: currentCard.a
+          });
+          saveGroups(state.groups);
+        }
       }
     }
 
@@ -4624,7 +4911,9 @@ question | option A | option B | option C | option D | 2"></textarea>
     document.getElementById('btn-reveal').classList.add('hidden');
     document.getElementById('judge-row').classList.add('hidden');
 
-    setBattleLog('🤷 No worries - marked for review. Tap again to continue.');
+    setBattleLog(justBecameLeech ?
+      '🥴 No worries - this card keeps coming back, flagged as a leech. Tap again to continue.' :
+      '🤷 No worries - marked for review. Tap again to continue.');
 
     var dontKnowBtn = document.getElementById('btn-dont-know');
     dontKnowBtn.classList.remove('btn-dont-know-emoji');
@@ -4717,6 +5006,34 @@ question | option A | option B | option C | option D | 2"></textarea>
       state.resultContext = { isMissedStudy: true, groupId: b.runGroupId };
       retryBtn.classList.add('hidden');
       backBtn.textContent = '← BACK TO COLLECTION';
+      renderDeckList();
+      showScreen('result');
+      return;
+    }
+
+    if (b.isDailyQuest) {
+      // No HP risk here either - reaching this point means every card due
+      // today got cleared. Track the cross-day streak this specifically
+      // rewards (distinct from the in-battle combo), since a real streak of
+      // consecutive daily reviews is what spaced repetition actually needs.
+      var today = todayDateString();
+      if (state.player.lastDailyQuestDate !== today) {
+        state.player.dailyQuestStreak = isConsecutiveDay(state.player.lastDailyQuestDate, today) ?
+          (state.player.dailyQuestStreak || 0) + 1 : 1;
+        state.player.lastDailyQuestDate = today;
+        savePlayerProgress(state.player);
+      }
+
+      emojiEl.textContent = '📅';
+      titleEl.textContent = 'DAILY QUEST COMPLETE!';
+      titleEl.className = 'result-title victory';
+      starsEl.innerHTML = '';
+      msgEl.textContent = 'You cleared every card due today! 🔥 ' + state.player.dailyQuestStreak +
+        ' day streak.';
+
+      state.resultContext = { isDailyQuest: true };
+      retryBtn.classList.add('hidden');
+      backBtn.textContent = '← BACK TO DECKS';
       renderDeckList();
       showScreen('result');
       return;
