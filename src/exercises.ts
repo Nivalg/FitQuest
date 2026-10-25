@@ -1,16 +1,40 @@
-import { ExerciseInfo } from "./types";
+import { ExerciseInfo, ExercisePillar, MuscleKey } from "./types";
 
-export const EXERCISE_DATABASE: ExerciseInfo[] = [
+export function deriveBuildsFromMuscles(
+  muscles: Partial<Record<MuscleKey, number>>,
+  pillar: ExercisePillar
+): ExerciseInfo["builds"] {
+  if (pillar === "cardio") {
+    return { cardio: 100 };
+  }
+
+  let chestW = muscles.chest || 0;
+  let backW = muscles.back || 0;
+  let coreW = muscles.core || 0;
+  let armW = (muscles.biceps || 0) + (muscles.triceps || 0) + (muscles.shoulders || 0) + (muscles.traps || 0);
+  let legW = (muscles.quads || 0) + (muscles.hamstrings || 0) + (muscles.glutes || 0) + (muscles.calves || 0);
+
+  const total = chestW + backW + coreW + armW + legW;
+  if (total <= 0) return {};
+
+  const builds: ExerciseInfo["builds"] = {};
+  if (chestW > 0) builds.chestStrength = Math.round((chestW / total) * 100);
+  if (backW > 0) builds.backStrength = Math.round((backW / total) * 100);
+  if (coreW > 0) builds.coreStrength = Math.round((coreW / total) * 100);
+  if (armW > 0) builds.armStrength = Math.round((armW / total) * 100);
+  if (legW > 0) builds.legStrength = Math.round((legW / total) * 100);
+
+  return builds;
+}
+
+const RAW_EXERCISE_DATABASE: (Omit<ExerciseInfo, "builds"> & { builds?: ExerciseInfo["builds"] })[] = [
   // 1. FREE WEIGHTS
   {
     name: "Bench Press",
     pillar: "weights",
     formType: "A",
     description: "Classic horizontal press. Excellent for structural chest pushing force.",
-    builds: {
-      chestStrength: 80,
-      armStrength: 20
-    },
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.5 },
     image: "/bench_press_nes.gif?v=5",
     images: ["/bench_press_up.png?v=5", "/bench_press_down.png?v=5"]
   },
@@ -19,11 +43,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "The gold standard of lower-body power and spine stability.",
-    builds: {
-      legStrength: 70,
-      speed: 30
-    },
-    subCategories: ["quads", "glutes"],
+    muscles: { quads: 1, glutes: 0.5, core: 0.25 },
     link: "https://liftmanual.com/barbell-squat/"
   },
   {
@@ -31,11 +51,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Explosive Olympic lift pulling a barbell from the floor to the shoulders.",
-    builds: {
-      speed: 50,
-      legStrength: 30,
-      backStrength: 20
-    },
+    muscles: { traps: 1, quads: 0.5, hamstrings: 0.5, glutes: 0.5, back: 0.25 },
     image: "/power_clean.png?v=1"
   },
   {
@@ -43,22 +59,14 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Walking or stationary lunges holding dumbbells to build leg power and speed.",
-    builds: {
-      legStrength: 70,
-      speed: 30
-    },
-    subCategories: ["quads", "glutes"]
+    muscles: { quads: 1, glutes: 1, hamstrings: 0.25 }
   },
   {
     name: "Deadlift",
     pillar: "weights",
     formType: "A",
     description: "Heavy posterior chain lift recruiting back and legs.",
-    builds: {
-      backStrength: 60,
-      legStrength: 40
-    },
-    subCategories: ["glutes"],
+    muscles: { back: 1, hamstrings: 1, glutes: 1, traps: 0.5, quads: 0.25, core: 0.25 },
     link: "https://liftmanual.com/barbell-deadlift/"
   },
   {
@@ -66,10 +74,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Horizontal row targeting back width and thickness.",
-    builds: {
-      backStrength: 80,
-      armStrength: 20
-    },
+    muscles: { back: 1, biceps: 0.5, shoulders: 0.25 },
     link: "https://liftmanual.com/bent-over-row/"
   },
   {
@@ -77,11 +82,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Hamstring and glute overload focusing on hip hinge.",
-    builds: {
-      legStrength: 70,
-      backStrength: 30
-    },
-    subCategories: ["hamstrings"],
+    muscles: { hamstrings: 1, glutes: 0.5, back: 0.25 },
     link: "https://liftmanual.com/barbell-romanian-deadlift/"
   },
   {
@@ -89,20 +90,14 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Strict vertical barbell shoulder press for shoulders.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["shoulders"]
+    muscles: { shoulders: 1, triceps: 0.5 }
   },
   {
     name: "Barbell Bicep Curl",
     pillar: "weights",
     formType: "A",
     description: "Strict standing barbell curl for bicep peaks.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["biceps"],
+    muscles: { biceps: 1 },
     link: "https://liftmanual.com/barbell-curl/"
   },
   {
@@ -110,13 +105,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Explosive hip hinge swing for posterior power and speed.",
-    builds: {
-      legStrength: 50,
-      backStrength: 30,
-      speed: 20,
-      stamina: 20
-    },
-    subCategories: ["hamstrings"],
+    muscles: { glutes: 1, hamstrings: 0.5, back: 0.25 },
     link: "https://liftmanual.com/kettlebell-swing/"
   },
   {
@@ -124,11 +113,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Barbell hip thrust targeting maximum glute isolation.",
-    builds: {
-      legStrength: 100,
-      stamina: 20
-    },
-    subCategories: ["glutes"],
+    muscles: { glutes: 1, hamstrings: 0.25 },
     link: "https://liftmanual.com/barbell-hip-thrust/"
   },
   {
@@ -136,11 +121,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Dumbbell squat holding weights by your sides.",
-    builds: {
-      legStrength: 100,
-      stamina: 20
-    },
-    subCategories: ["quads", "glutes"],
+    muscles: { quads: 1, glutes: 0.5 },
     link: "https://liftmanual.com/dumbbell-squat/"
   },
   {
@@ -148,43 +129,28 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Deadlifts with stiff legs focusing on hamstrings hinge.",
-    builds: {
-      legStrength: 80,
-      backStrength: 20,
-      stamina: 20
-    },
-    subCategories: ["hamstrings", "glutes"]
+    muscles: { hamstrings: 1, glutes: 0.5, back: 0.25 }
   },
   {
     name: "Barbell Calf Raises",
     pillar: "weights",
     formType: "A",
     description: "Standing calf raises with loaded barbell.",
-    builds: {
-      legStrength: 100,
-      stamina: 10
-    },
-    subCategories: ["calves"]
+    muscles: { calves: 1 }
   },
   {
     name: "Barbell Silverback Shrug",
     pillar: "weights",
     formType: "A",
     description: "Shrugs with a forward lean to activate full traps width.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["traps"]
+    muscles: { traps: 1 }
   },
   {
     name: "Dumbbell Shrug",
     pillar: "weights",
     formType: "A",
     description: "Standing shrugs holding dumbbells.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["traps"],
+    muscles: { traps: 1 },
     link: "https://liftmanual.com/dumbbell-shrug/"
   },
   {
@@ -192,10 +158,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Upright rowing motion to build traps and shoulders.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["traps", "shoulders"],
+    muscles: { traps: 1, shoulders: 1 },
     link: "https://liftmanual.com/barbell-upright-row/"
   },
   {
@@ -203,30 +166,21 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Shrugs holding kettlebells on an incline bench.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["traps"]
+    muscles: { traps: 1 }
   },
   {
     name: "Dumbbell Seated Shrug",
     pillar: "weights",
     formType: "A",
     description: "Seated dumbbell shrugs targeting upper traps.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["traps"]
+    muscles: { traps: 1 }
   },
   {
     name: "Dumbbell Preacher Curl",
     pillar: "weights",
     formType: "A",
     description: "Preacher bench dumbbell curl isolating the biceps.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["biceps"],
+    muscles: { biceps: 1 },
     link: "https://liftmanual.com/dumbbell-preacher-curl/"
   },
   {
@@ -234,10 +188,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "EZ-bar or straight barbell preacher curl for maximum bicep isolation.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["biceps"],
+    muscles: { biceps: 1 },
     link: "https://liftmanual.com/barbell-preacher-curl/"
   },
   {
@@ -245,10 +196,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Neutral grip dumbbell curls building the biceps and brachialis.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["biceps"],
+    muscles: { biceps: 1 },
     link: "https://liftmanual.com/dumbbell-hammer-curl/"
   },
   {
@@ -256,11 +204,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Bent-over barbell rowing motion building back and bicep thickness.",
-    builds: {
-      backStrength: 70,
-      armStrength: 30
-    },
-    subCategories: ["biceps"],
+    muscles: { back: 1, biceps: 0.5, shoulders: 0.25 },
     link: "https://liftmanual.com/bent-over-row/"
   },
   {
@@ -268,21 +212,14 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Seated or standing dumbbell overhead press for shoulders.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["shoulders"]
+    muscles: { shoulders: 1, triceps: 0.5 }
   },
   {
     name: "Barbell Incline Bench",
     pillar: "weights",
     formType: "A",
     description: "Incline barbell press building upper chest and shoulders.",
-    builds: {
-      chestStrength: 70,
-      armStrength: 30
-    },
-    subCategories: ["shoulders"],
+    muscles: { chest: 1, shoulders: 0.5, triceps: 0.5 },
     image: "/incline_press_nes.gif?v=5",
     images: ["/incline_press_up.png?v=5", "/incline_press_down.png?v=5"]
   },
@@ -291,11 +228,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Incline dumbbell chest press building upper chest and shoulders.",
-    builds: {
-      chestStrength: 70,
-      armStrength: 30
-    },
-    subCategories: ["shoulders"],
+    muscles: { chest: 1, shoulders: 0.5, triceps: 0.5 },
     image: "/incline_dumbbells_nes.gif?v=5",
     images: ["/incline_dumbbells_up.png?v=5", "/incline_dumbbells_down.png?v=5"]
   },
@@ -304,11 +237,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Front dumbbell raise isolating the anterior deltoids.",
-    builds: {
-      armStrength: 90,
-      stamina: 10
-    },
-    subCategories: ["shoulders"],
+    muscles: { shoulders: 1 },
     link: "https://liftmanual.com/dumbbell-front-raise/"
   },
   {
@@ -316,11 +245,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Close grip bench press overloading the triceps.",
-    builds: {
-      chestStrength: 50,
-      armStrength: 50
-    },
-    subCategories: ["triceps"],
+    muscles: { triceps: 1, chest: 0.5, shoulders: 0.25 },
     image: "/bench_press_nes.gif?v=5",
     images: ["/bench_press_up.png?v=5", "/bench_press_down.png?v=5"]
   },
@@ -329,11 +254,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "EZ-bar or straight barbell extension to isolate the triceps.",
-    builds: {
-      armStrength: 90,
-      stamina: 10
-    },
-    subCategories: ["triceps"],
+    muscles: { triceps: 1 },
     image: "/barbell_skull_crusher_up.png?v=5",
     images: ["/barbell_skull_crusher_up.png?v=5", "/barbell_skull_crusher_down.png?v=5"]
   },
@@ -342,11 +263,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Romanian deadlift with dumbbells focusing on glute extension.",
-    builds: {
-      legStrength: 70,
-      backStrength: 30
-    },
-    subCategories: ["glutes"],
+    muscles: { hamstrings: 1, glutes: 0.5, back: 0.25 },
     link: "https://liftmanual.com/dumbbell-romanian-deadlift/"
   },
   {
@@ -354,11 +271,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Romanian deadlift with a loaded barbell focusing on glute extension.",
-    builds: {
-      legStrength: 70,
-      backStrength: 30
-    },
-    subCategories: ["glutes"],
+    muscles: { hamstrings: 1, glutes: 0.5, back: 0.25 },
     link: "https://liftmanual.com/barbell-romanian-deadlift/"
   },
   {
@@ -366,10 +279,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Front rack barbell squat targeting quads and deep core stability.",
-    builds: {
-      coreStrength: 50,
-      legStrength: 50
-    },
+    muscles: { quads: 1, glutes: 0.5, core: 0.25 },
     link: "https://liftmanual.com/barbell-front-squat/"
   },
   {
@@ -377,10 +287,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Seated core rotation holding a single dumbbell.",
-    builds: {
-      coreStrength: 80,
-      stamina: 20
-    },
+    muscles: { core: 1 },
     link: "https://liftmanual.com/dumbbell-russian-twist/"
   },
   {
@@ -388,31 +295,21 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Seated core rotation holding a weight plate.",
-    builds: {
-      coreStrength: 80,
-      stamina: 20
-    }
+    muscles: { core: 1 }
   },
   {
     name: "Plate Sit-Ups",
     pillar: "weights",
     formType: "A",
     description: "Weighted sit-up holding a weight plate against the chest.",
-    builds: {
-      coreStrength: 90,
-      stamina: 10
-    }
+    muscles: { core: 1 }
   },
   {
     name: "Good Mornings",
     pillar: "weights",
     formType: "A",
     description: "Barbell hip hinge targeting the hamstrings and lower back.",
-    builds: {
-      legStrength: 70,
-      backStrength: 30
-    },
-    subCategories: ["hamstrings"],
+    muscles: { hamstrings: 1, glutes: 0.5, back: 0.5 },
     link: "https://liftmanual.com/good-morning/"
   },
   {
@@ -420,8 +317,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Dumbbell chest flyes isolating the pectoral muscles.",
-    builds: { chestStrength: 80, stamina: 20 },
-    subCategories: ["chest"],
+    muscles: { chest: 1, shoulders: 0.25 },
     image: "/dumbbell_fly_nes.gif?v=5",
     images: ["/dumbbell_fly_up.png?v=5", "/dumbbell_fly_down.png?v=5"]
   },
@@ -430,8 +326,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Decline bench crunch holding a plate or dumbbell to load the core.",
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"],
+    muscles: { core: 1 },
     link: "https://liftmanual.com/weighted-decline-sit-up/"
   },
   {
@@ -439,8 +334,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "weights",
     formType: "A",
     description: "Standard abdominal crunch holding a plate for core resistance.",
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"],
+    muscles: { core: 1 },
     link: "https://liftmanual.com/weighted-crunch/"
   },
 
@@ -450,10 +344,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Pec deck isolator targeting inner chest contraction.",
-    builds: {
-      chestStrength: 70,
-      stamina: 30
-    },
+    muscles: { chest: 1, shoulders: 0.25 },
     link: "https://liftmanual.com/pec-deck-fly/",
     image: "/chest_fly_machine.png?v=1"
   },
@@ -462,10 +353,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable chest fly targeting inner and lower pec squeeze.",
-    builds: {
-      chestStrength: 80,
-      stamina: 20
-    },
+    muscles: { chest: 1, shoulders: 0.25 },
     image: "/cable_pec_fly.png?v=1"
   },
   {
@@ -473,10 +361,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable flies targeting complete chest squeeze.",
-    builds: {
-      chestStrength: 80,
-      stamina: 20
-    },
+    muscles: { chest: 1, shoulders: 0.25 },
     link: "https://liftmanual.com/cable-crossover/",
     image: "/cable_crossover.png?v=1"
   },
@@ -485,10 +370,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Wide vertical cable pulldowns for back width.",
-    builds: {
-      backStrength: 50,
-      stamina: 50
-    },
+    muscles: { back: 1, biceps: 0.5 },
     link: "https://liftmanual.com/cable-wide-grip-lat-pulldown/",
     image: "/lat_pulldown_machine.png?v=1"
   },
@@ -497,10 +379,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable pull targeting mid-back thickness.",
-    builds: {
-      backStrength: 70,
-      stamina: 30
-    },
+    muscles: { back: 1, biceps: 0.5, traps: 0.25 },
     image: "/seated_cable_row.png?v=1"
   },
   {
@@ -508,11 +387,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated deep leg sled pressing to overload quads.",
-    builds: {
-      legStrength: 50,
-      stamina: 50
-    },
-    subCategories: ["quads", "glutes"],
+    muscles: { quads: 1, glutes: 0.5 },
     image: "/machine_leg_press.png?v=1"
   },
   {
@@ -520,11 +395,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Isolated hamstring curls targeting knee flexion.",
-    builds: {
-      legStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["hamstrings"],
+    muscles: { hamstrings: 1 },
     image: "/machine_hamstring_curl.png?v=1"
   },
   {
@@ -532,22 +403,14 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Lying prone machine curl isolating hamstring contraction.",
-    builds: {
-      legStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["hamstrings"]
+    muscles: { hamstrings: 1 }
   },
   {
     name: "Cable Tricep Pushdown",
     pillar: "machines",
     formType: "A",
     description: "Cable extension targeting tricep isolation.",
-    builds: {
-      armStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["triceps"],
+    muscles: { triceps: 1 },
     image: "/cable_tricep_pushdown.png?v=6"
   },
   {
@@ -555,11 +418,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Double-arm cable curls with constant tension.",
-    builds: {
-      stamina: 70,
-      armStrength: 30
-    },
-    subCategories: ["biceps"],
+    muscles: { biceps: 1 },
     image: "/cable_bicep_curl.png?v=1"
   },
   {
@@ -567,10 +426,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Kneeling cable crunch to overload upper abs.",
-    builds: {
-      coreStrength: 80,
-      stamina: 20
-    },
+    muscles: { core: 1 },
     image: "/cable_crunch.png?v=1"
   },
   {
@@ -578,11 +434,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Machine leg extensions isolating the quadriceps.",
-    builds: {
-      legStrength: 100,
-      stamina: 30
-    },
-    subCategories: ["quads"],
+    muscles: { quads: 1 },
     link: "https://liftmanual.com/leg-extension/"
   },
   {
@@ -590,11 +442,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Machine outer thigh drive to build glute medius stability.",
-    builds: {
-      legStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["glutes"],
+    muscles: { glutes: 1 },
     image: "/hip_abduction_machine.png?v=1"
   },
   {
@@ -602,12 +450,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable pull-throughs targeting hamstring stretch.",
-    builds: {
-      legStrength: 70,
-      coreStrength: 10,
-      stamina: 20
-    },
-    subCategories: ["hamstrings"],
+    muscles: { glutes: 1, hamstrings: 0.5 },
     image: "/cable_pull_through.png?v=1"
   },
   {
@@ -615,11 +458,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Standing machine raises overloading the calves.",
-    builds: {
-      legStrength: 100,
-      stamina: 10
-    },
-    subCategories: ["calves"],
+    muscles: { calves: 1 },
     image: "/machine_standing_calf_raises.png?v=1"
   },
   {
@@ -627,11 +466,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated machine raises targeting the soleus calves muscle.",
-    builds: {
-      legStrength: 100,
-      stamina: 10
-    },
-    subCategories: ["calves"],
+    muscles: { calves: 1 },
     image: "/machine_sitting_calf_raises.png?v=1"
   },
   {
@@ -639,11 +474,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable shrugs providing continuous traps tension.",
-    builds: {
-      armStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["traps"],
+    muscles: { traps: 1 },
     image: "/cable_shrug.png?v=1"
   },
   {
@@ -651,11 +482,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Side lateral raise with cables isolating the lateral deltoids.",
-    builds: {
-      armStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["shoulders"],
+    muscles: { shoulders: 1 },
     image: "/cable_lateral_raise.png?v=1"
   },
   {
@@ -663,11 +490,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable or machine kickbacks isolating the glutes through hip extension.",
-    builds: {
-      legStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["glutes"],
+    muscles: { glutes: 1 },
     image: "/glute_kickback.png?v=1"
   },
   {
@@ -675,11 +498,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Smith machine hip thrusts isolating and overloading the glute max.",
-    builds: {
-      legStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["glutes"],
+    muscles: { glutes: 1, hamstrings: 0.25 },
     image: "/smith_machine_hip_thrust.png?v=1"
   },
   {
@@ -687,11 +506,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Squatting on a Smith machine to guide the vertical bar path and isolate quads and glutes.",
-    builds: {
-      legStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["quads", "glutes"],
+    muscles: { quads: 1, glutes: 0.5 },
     image: "/smith_machine_squat.png?v=1"
   },
   {
@@ -699,11 +514,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "An angled sled machine squat focusing on chest-up stability to overload thighs and glutes.",
-    builds: {
-      legStrength: 80,
-      stamina: 20
-    },
-    subCategories: ["quads", "glutes"],
+    muscles: { quads: 1, glutes: 0.5 },
     image: "/hack_squat.png?v=1"
   },
   {
@@ -711,8 +522,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated chest press machine to isolate and build the pectorals.",
-    builds: { chestStrength: 80, stamina: 20 },
-    subCategories: ["chest"],
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.5 },
     link: "https://liftmanual.com/machine-chest-press/",
     image: "/machine_chest_press.png?v=1"
   },
@@ -721,8 +531,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Bench press performed on a Smith machine for path control.",
-    builds: { chestStrength: 80, stamina: 20 },
-    subCategories: ["chest"],
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.5 },
     link: "https://liftmanual.com/smith-bench-press/",
     image: "/smith_machine_bench_press.png?v=1"
   },
@@ -731,8 +540,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Incline seated chest press machine targeting the upper pecs.",
-    builds: { chestStrength: 80, stamina: 20 },
-    subCategories: ["chest"],
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.5 },
     link: "https://liftmanual.com/machine-incline-press/",
     image: "/machine_incline_press.png?v=1"
   },
@@ -741,8 +549,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Machine-assisted pull-ups to build back strength and control.",
-    builds: { backStrength: 80, stamina: 20 },
-    subCategories: ["back"],
+    muscles: { back: 1, biceps: 0.5 },
     link: "https://liftmanual.com/assisted-pull-up/",
     image: "/machine_assisted_pull_up.png?v=1"
   },
@@ -751,8 +558,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable pulldowns using a close-grip V-bar to build lat thickness.",
-    builds: { backStrength: 80, stamina: 20 },
-    subCategories: ["back"],
+    muscles: { back: 1, biceps: 0.5 },
     link: "https://liftmanual.com/close-grip-lat-pulldown/",
     image: "/close_grip_lat_pulldown.png?v=1"
   },
@@ -761,8 +567,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Straight-arm pull-downs isolating the lats and back length.",
-    builds: { backStrength: 80, stamina: 20 },
-    subCategories: ["back"],
+    muscles: { back: 1 },
     link: "https://liftmanual.com/cable-straight-arm-pulldown/",
     image: "/cable_straight_arm_pulldown.png?v=1"
   },
@@ -771,8 +576,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated preacher curl machine isolating the biceps brachii.",
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["biceps"],
+    muscles: { biceps: 1 },
     image: "/machine_preacher_curl.png?v=1"
   },
   {
@@ -780,8 +584,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable rope extensions overhead to target the long head triceps.",
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["triceps"],
+    muscles: { triceps: 1 },
     image: "/cable_overhead_tricep_extension.png?v=1"
   },
   {
@@ -789,12 +592,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated dip machine to overload the triceps and chest.",
-    builds: {
-      armStrength: 60,
-      chestStrength: 20,
-      stamina: 20
-    },
-    subCategories: ["triceps", "chest"],
+    muscles: { triceps: 1, chest: 0.25 },
     image: "/machine_seated_dips.png?v=1"
   },
   {
@@ -802,8 +600,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated abdominal crunch machine to load the core.",
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"],
+    muscles: { core: 1 },
     image: "/machine_ab_crunch.png?v=1"
   },
   {
@@ -811,8 +608,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Cable pull twisting diagonally to target core rotators and obliques.",
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"],
+    muscles: { core: 1 },
     image: "/cable_woodchopper.png?v=1"
   },
   {
@@ -820,8 +616,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Oblique rotation with a horizontal cable pull.",
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"],
+    muscles: { core: 1 },
     link: "https://liftmanual.com/cable-standing-oblique-twist/",
     image: "/cable_standing_oblique_twist_left.png?v=6",
     images: ["/cable_standing_oblique_twist_left.png?v=6", "/cable_standing_oblique_twist_right.png?v=6"]
@@ -831,8 +626,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated rotary torso machine targeting the internal and external obliques.",
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"],
+    muscles: { core: 1 },
     link: "https://liftmanual.com/machine-torso-rotation/",
     image: "/machine_torso_rotation.png?v=5"
   },
@@ -841,8 +635,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated press machine to build upper body pushing power and shoulders.",
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["shoulders"],
+    muscles: { shoulders: 1, triceps: 0.5 },
     link: "https://liftmanual.com/machine-shoulder-press/",
     image: "/machine_seated_shoulder_press.png?v=1"
   },
@@ -851,8 +644,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Seated or standing machine side raises to isolate the lateral deltoids.",
-    builds: { armStrength: 90, stamina: 10 },
-    subCategories: ["shoulders"],
+    muscles: { shoulders: 1 },
     link: "https://liftmanual.com/machine-lateral-raise/",
     image: "/machine_lateral_raise.png?v=1"
   },
@@ -861,8 +653,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Overhead press performed on a Smith machine to isolate shoulder drive.",
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["shoulders"],
+    muscles: { shoulders: 1, triceps: 0.5 },
     link: "https://liftmanual.com/smith-machine-overhead-press/",
     image: "/smith_machine_overhead_press.png?v=1"
   },
@@ -871,11 +662,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "machines",
     formType: "A",
     description: "Hyperextension exercise on a 45-degree or horizontal bench to overload lower back and glutes.",
-    builds: {
-      backStrength: 50,
-      legStrength: 50
-    },
-    subCategories: ["back", "glutes"],
+    muscles: { back: 1, glutes: 0.5, hamstrings: 0.5 },
     link: "https://liftmanual.com/back-extension/"
   },
 
@@ -885,18 +672,10 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Pistons of pushing power using your own body's angle.",
-    builds: {
-      stamina: 50,
-      chestStrength: 30,
-      armStrength: 20
-    },
-    subCategories: ["biceps", "shoulders", "traps"],
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.5 },
     link: "https://liftmanual.com/push-up/",
     image: "/pushups_up.png?v=11",
-    images: [
-      "/pushups_up.png?v=11",
-      "/pushups_down.png?v=11"
-    ],
+    images: ["/pushups_up.png?v=11", "/pushups_down.png?v=11"],
     frameDuration: 1750
   },
   {
@@ -904,12 +683,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Deep parallel bars pressing that blasts triceps and chest.",
-    builds: {
-      armStrength: 50,
-      chestStrength: 30,
-      stamina: 20
-    },
-    subCategories: ["triceps", "chest"],
+    muscles: { triceps: 1, chest: 0.5, shoulders: 0.25 },
     link: "https://liftmanual.com/dips/"
   },
   {
@@ -917,10 +691,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Strict vertical pull for back and biceps strength.",
-    builds: {
-      backStrength: 70,
-      stamina: 30
-    },
+    muscles: { back: 1, biceps: 0.5 },
     link: "https://liftmanual.com/pull-up/"
   },
   {
@@ -928,10 +699,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Horizontal bodyweight row targeting mid-back thickness.",
-    builds: {
-      backStrength: 70,
-      stamina: 30
-    },
+    muscles: { back: 1, biceps: 0.5 },
     link: "https://liftmanual.com/inverted-row/"
   },
   {
@@ -939,11 +707,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "High-rep squats for lower body stamina.",
-    builds: {
-      stamina: 70,
-      legStrength: 30
-    },
-    subCategories: ["quads", "glutes"],
+    muscles: { quads: 1, glutes: 0.5 },
     link: "https://liftmanual.com/bodyweight-squat/"
   },
   {
@@ -951,10 +715,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Underhand vertical pull for lats and bicep peaks.",
-    builds: {
-      armStrength: 100
-    },
-    subCategories: ["biceps"],
+    muscles: { back: 1, biceps: 0.75 },
     link: "https://liftmanual.com/chin-up/"
   },
   {
@@ -962,10 +723,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Hanging knee raises targeting lower abs.",
-    builds: {
-      coreStrength: 80,
-      stamina: 20
-    },
+    muscles: { core: 1 },
     link: "https://liftmanual.com/hanging-knee-raise/"
   },
   {
@@ -973,10 +731,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "C",
     description: "Isometric core shield holding in straight alignment.",
-    builds: {
-      coreStrength: 80,
-      stamina: 20
-    },
+    muscles: { core: 1 },
     link: "https://liftmanual.com/plank/"
   },
   {
@@ -984,10 +739,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Classic trunk flexes that demand stability.",
-    builds: {
-      coreStrength: 60,
-      stamina: 40
-    },
+    muscles: { core: 1 },
     link: "https://liftmanual.com/sit-up/"
   },
   {
@@ -995,10 +747,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Rollout targeting deep core stabilization.",
-    builds: {
-      coreStrength: 90,
-      stamina: 10
-    },
+    muscles: { core: 1 },
     link: "https://liftmanual.com/ab-wheel-rollout/"
   },
   {
@@ -1006,31 +755,15 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Decline crunch targeting core endurance.",
-    builds: {
-      coreStrength: 70,
-      stamina: 30
-    },
+    muscles: { core: 1 },
     link: "https://liftmanual.com/decline-crunch/"
-  },
-  {
-    name: "Agility Ladder Drills",
-    pillar: "bodyweight",
-    formType: "B",
-    description: "High-speed ladder footwork for coordination and speed.",
-    builds: {
-      speed: 60,
-      stamina: 40
-    }
   },
   {
     name: "Box Jumps",
     pillar: "bodyweight",
     formType: "B",
     description: "Vertical jumps targeting explosive power and speed.",
-    builds: {
-      legStrength: 50,
-      speed: 50
-    },
+    muscles: { quads: 1, glutes: 0.5, calves: 0.5 },
     link: "https://liftmanual.com/box-jump/"
   },
   {
@@ -1038,11 +771,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Raise on toes to isolate and build the calf muscles.",
-    builds: {
-      legStrength: 100,
-      stamina: 20
-    },
-    subCategories: ["calves"],
+    muscles: { calves: 1 },
     link: "https://liftmanual.com/calf-raise/"
   },
   {
@@ -1050,11 +779,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Bodyweight lunges targeting glute power and stability.",
-    builds: {
-      legStrength: 80,
-      stamina: 35
-    },
-    subCategories: ["glutes"],
+    muscles: { quads: 1, glutes: 1 },
     link: "https://liftmanual.com/lunge/"
   },
   {
@@ -1062,11 +787,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Alternating lunges stepping forward to isolate quadriceps.",
-    builds: {
-      legStrength: 80,
-      stamina: 30
-    },
-    subCategories: ["quads"],
+    muscles: { quads: 1, glutes: 1 },
     link: "https://liftmanual.com/lunge/"
   },
   {
@@ -1074,11 +795,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Weighted or bodyweight dips performed off a flat bench.",
-    builds: {
-      armStrength: 70,
-      stamina: 30
-    },
-    subCategories: ["triceps"],
+    muscles: { triceps: 1, chest: 0.25 },
     link: "https://liftmanual.com/bench-dips/"
   },
   {
@@ -1086,11 +803,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Close grip pushups placing maximum load on the triceps.",
-    builds: {
-      armStrength: 75,
-      stamina: 25
-    },
-    subCategories: ["triceps"],
+    muscles: { triceps: 1, chest: 0.5 },
     link: "https://liftmanual.com/diamond-push-up/"
   },
   {
@@ -1098,43 +811,15 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Explosive bodyweight squats jumping off the ground.",
-    builds: {
-      legStrength: 50,
-      speed: 50
-    },
+    muscles: { quads: 1, glutes: 0.5, calves: 0.5 },
     link: "https://liftmanual.com/jump-squat/"
-  },
-  {
-    name: "Jumping Jacks",
-    pillar: "bodyweight",
-    formType: "B",
-    description: "Classic jumping jacks for continuous conditioning.",
-    builds: {
-      stamina: 100
-    },
-    link: "https://liftmanual.com/jumping-jack/"
-  },
-  {
-    name: "Burpees",
-    pillar: "bodyweight",
-    formType: "B",
-    description: "Full-body burpees linking push-ups and squat jumps.",
-    builds: {
-      stamina: 80,
-      coreStrength: 20
-    },
-    link: "https://liftmanual.com/burpee/"
   },
   {
     name: "Bodyweight Reverse Lunge",
     pillar: "bodyweight",
     formType: "B",
     description: "Step backward into a lunge to overload hamstrings and glutes.",
-    builds: {
-      legStrength: 70,
-      stamina: 30
-    },
-    subCategories: ["hamstrings"],
+    muscles: { glutes: 1, quads: 0.75, hamstrings: 0.25 },
     link: "https://liftmanual.com/reverse-lunge/"
   },
   {
@@ -1142,8 +827,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Push-ups with hands elevated to target the lower chest.",
-    builds: { chestStrength: 70, stamina: 30 },
-    subCategories: ["chest"],
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.5 },
     link: "https://liftmanual.com/incline-push-up/"
   },
   {
@@ -1151,8 +835,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Push-ups with feet elevated to overload the upper chest.",
-    builds: { chestStrength: 70, stamina: 30 },
-    subCategories: ["chest"],
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.5 },
     link: "https://liftmanual.com/decline-push-up/"
   },
   {
@@ -1160,8 +843,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Push-ups with hands wider than shoulder width to focus on outer pecs.",
-    builds: { chestStrength: 70, stamina: 30 },
-    subCategories: ["chest"],
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.5 },
     link: "https://liftmanual.com/wide-grip-push-up/"
   },
   {
@@ -1169,8 +851,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Parallel bar dips leaning forward to recruit lower chest.",
-    builds: { chestStrength: 80, stamina: 20 },
-    subCategories: ["chest"],
+    muscles: { chest: 1, triceps: 0.5, shoulders: 0.25 },
     link: "https://liftmanual.com/chest-dips/"
   },
   {
@@ -1178,8 +859,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Chin-ups with an underhand grip targeting the back and biceps.",
-    builds: { backStrength: 70, armStrength: 30 },
-    subCategories: ["back", "biceps"],
+    muscles: { back: 1, biceps: 0.75 },
     link: "https://liftmanual.com/underhand-pull-up/"
   },
   {
@@ -1187,8 +867,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Jump to the top position and perform a slow, controlled drop.",
-    builds: { backStrength: 80, stamina: 20 },
-    subCategories: ["back"],
+    muscles: { back: 1, biceps: 0.5 },
     link: "https://liftmanual.com/negative-pull-up/"
   },
   {
@@ -1196,8 +875,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "C",
     description: "Lie face down and lift arms and legs off the floor to hold.",
-    builds: { backStrength: 100 },
-    subCategories: ["back"],
+    muscles: { back: 0.5 },
     link: "https://liftmanual.com/superman/"
   },
   {
@@ -1205,8 +883,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Active hang on bar pulling shoulder blades down and back.",
-    builds: { backStrength: 80, stamina: 20 },
-    subCategories: ["back"],
+    muscles: { back: 0.5, traps: 0.5 },
     link: "https://liftmanual.com/scapular-pull-up/"
   },
   {
@@ -1214,20 +891,40 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "bodyweight",
     formType: "B",
     description: "Hips-elevated pushups to shift the load onto the shoulders.",
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["shoulders"],
+    muscles: { shoulders: 1, triceps: 0.5 },
     link: "https://liftmanual.com/pike-push-up/"
   },
 
   // 4. CARDIO
   {
+    name: "Agility Ladder Drills",
+    pillar: "cardio",
+    formType: "C",
+    description: "High-speed ladder footwork for coordination and conditioning (20 mins = 100%).",
+    muscles: {}
+  },
+  {
+    name: "Jumping Jacks",
+    pillar: "cardio",
+    formType: "C",
+    description: "Classic jumping jacks for continuous conditioning (20 mins = 100%).",
+    muscles: {},
+    link: "https://liftmanual.com/jumping-jack/"
+  },
+  {
+    name: "Burpees",
+    pillar: "cardio",
+    formType: "C",
+    description: "Full-body burpees linking push-ups and squat jumps (20 mins or 100 reps = 100%).",
+    muscles: {},
+    link: "https://liftmanual.com/burpee/"
+  },
+  {
     name: "Treadmill Run / Jog",
     pillar: "cardio",
     formType: "D",
     description: "High-cadence run or jog tracking distance and pace.",
-    builds: {
-      cardio: 100
-    },
+    muscles: {},
     image: "/treadmill_jog.png?v=5"
   },
   {
@@ -1235,27 +932,21 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "cardio",
     formType: "D",
     description: "Steady outdoor or treadmill walking to build foundational stamina and active recovery.",
-    builds: {
-      cardio: 100
-    }
+    muscles: {}
   },
   {
     name: "Sprint Intervals",
     pillar: "cardio",
     formType: "D",
     description: "High-intensity sprint bursts to push speed.",
-    builds: {
-      cardio: 100
-    }
+    muscles: { hamstrings: 1, glutes: 1, calves: 1 }
   },
   {
     name: "Stairmaster",
     pillar: "cardio",
     formType: "E",
     description: "Continuous vertical climbing to test quad endurance.",
-    builds: {
-      cardio: 100
-    },
+    muscles: { quads: 1, glutes: 1, calves: 1 },
     image: "/stairmaster.png?v=5"
   },
   {
@@ -1263,18 +954,14 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "cardio",
     formType: "C",
     description: "Continuous rope jumping for cardio condition and agility.",
-    builds: {
-      cardio: 100
-    }
+    muscles: {}
   },
   {
     name: "Bicycle",
     pillar: "cardio",
     formType: "D",
     description: "Cycling on a stationary or road bike (5 miles target = 100%).",
-    builds: {
-      cardio: 100
-    },
+    muscles: {},
     image: "/bicycle.png?v=5"
   },
   {
@@ -1282,28 +969,22 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "cardio",
     formType: "D",
     description: "Outdoor cycling tracking distance and duration (5 miles = 100%).",
-    builds: {
-      cardio: 100
-    },
+    muscles: {},
     image: "/bicycle.png?v=5"
   },
   {
     name: "Spin Bike",
     pillar: "cardio",
     formType: "D",
-    description: "High-energy indoor spinning workout (30 mins = 100%).",
-    builds: {
-      cardio: 100
-    }
+    description: "High-energy indoor spinning workout (40 mins = 100%).",
+    muscles: {}
   },
   {
     name: "Elliptical",
     pillar: "cardio",
     formType: "D",
     description: "Low-impact gliding on the elliptical trainer.",
-    builds: {
-      cardio: 100
-    },
+    muscles: {},
     image: "/elliptical.png?v=5"
   },
   {
@@ -1311,10 +992,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "cardio",
     formType: "D",
     description: "Rowing ergometer workout tracking distance and time.",
-    builds: {
-      cardio: 70,
-      backStrength: 30
-    },
+    muscles: { back: 1 },
     image: "/rowing_machine.png?v=5"
   },
   {
@@ -1322,10 +1000,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "cardio",
     formType: "F",
     description: "Navigate outdoor trails tracking duration, distance, and difficulty level.",
-    builds: {
-      cardio: 70,
-      legStrength: 30
-    },
+    muscles: { quads: 1, glutes: 1, calves: 1 },
     image: "/hiking.png?v=1"
   },
   {
@@ -1333,9 +1008,7 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "cardio",
     formType: "D",
     description: "Outdoor running tracking miles and time (2 miles = 100%).",
-    builds: {
-      cardio: 100
-    },
+    muscles: {},
     image: "/treadmill.png?v=5"
   },
   {
@@ -1343,22 +1016,23 @@ export const EXERCISE_DATABASE: ExerciseInfo[] = [
     pillar: "cardio",
     formType: "C",
     description: "High-intensity interval cardio training for time.",
-    builds: {
-      cardio: 100
-    }
+    muscles: {}
   },
   {
     name: "Stair Climbing",
     pillar: "cardio",
     formType: "E",
     description: "Climbing stairs or stairmaster (50 floors target = 100%).",
-    builds: {
-      cardio: 80,
-      legStrength: 20
-    },
+    muscles: { quads: 1, glutes: 1, calves: 1 },
     image: "/stairmaster.png?v=5"
   }
 ];
+
+export const EXERCISE_DATABASE: ExerciseInfo[] = RAW_EXERCISE_DATABASE.map(ex => ({
+  ...ex,
+  builds: ex.builds || deriveBuildsFromMuscles(ex.muscles, ex.pillar),
+  subCategories: ex.subCategories || (Object.keys(ex.muscles) as MuscleKey[])
+}));
 
 export const CATEGORIES = [
   { id: "weights", name: "Free Weights" },
@@ -1368,11 +1042,18 @@ export const CATEGORIES = [
 ];
 
 export function getCustomExercises(): ExerciseInfo[] {
+  if (typeof localStorage === "undefined") return [];
   try {
     const saved = localStorage.getItem("fitquest_custom_exercises");
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.map((ex: any) => ({
+          ...ex,
+          muscles: ex.muscles || {},
+          builds: ex.builds || deriveBuildsFromMuscles(ex.muscles || {}, ex.pillar || "weights")
+        }));
+      }
     }
   } catch (e) {
     console.error("Error reading fitquest_custom_exercises from localStorage", e);
@@ -1383,7 +1064,7 @@ export function getCustomExercises(): ExerciseInfo[] {
 export function getAllExercises(): ExerciseInfo[] {
   const custom = getCustomExercises();
   if (custom.length === 0) return EXERCISE_DATABASE;
-  
+
   // Filter out any duplicate names prioritizing custom ones
   const customNames = new Set(custom.map(c => c.name.toLowerCase()));
   const defaultFiltered = EXERCISE_DATABASE.filter(e => !customNames.has(e.name.toLowerCase()));

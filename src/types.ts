@@ -30,6 +30,11 @@ export interface AthleteProfile {
   staminaXP?: number;
   cardioStamina?: number;
   cardioStaminaXP?: number;
+
+  // Quest system rewards & titles
+  equippedTitle?: string;
+  unlockedTitles?: string[];
+  questXP?: number;
 }
 
 export type FitnessMetricType = "bench" | "squat" | "mile" | "pushups" | "general_workout";
@@ -59,12 +64,25 @@ export interface FitnessLog {
 
 export type ExercisePillar = "weights" | "machines" | "cardio" | "bodyweight";
 export type GameStat = "chestStrength" | "armStrength" | "legStrength" | "backStrength" | "coreStrength" | "cardio";
+export type MuscleKey =
+  | "chest"
+  | "back"
+  | "core"
+  | "biceps"
+  | "triceps"
+  | "shoulders"
+  | "traps"
+  | "quads"
+  | "hamstrings"
+  | "glutes"
+  | "calves";
 
 export interface ExerciseInfo {
   name: string;
   pillar: ExercisePillar;
   formType: "A" | "B" | "C" | "D" | "E" | "F";
   description: string;
+  muscles: Partial<Record<MuscleKey, number>>;
   builds: {
     chestStrength?: number; // e.g. 80 for 80%
     armStrength?: number;
@@ -83,4 +101,5 @@ export interface ExerciseInfo {
   images?: string[];
   frameDuration?: number;
 }
+
 

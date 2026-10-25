@@ -336,6 +336,8 @@ export default function App() {
       saveProfile(null);
       saveLogs([]);
       localStorage.removeItem("fitrpg_decay_stats");
+      localStorage.removeItem("fitquest_active_quests_v1");
+      localStorage.removeItem("fitquest_completed_quests_v1");
       setActiveTab("dashboard");
       showToast("Profile reset completed.");
     }
@@ -445,6 +447,7 @@ export default function App() {
                     logs={logs}
                     onProfileUpdate={handleProfileUpdate}
                     onRecordLog={handleRecordLogCommit}
+                    onLogWorkout={handleLogExerciseWorkout}
                     onReset={handleReset}
                     onNavigateToLogs={() => setActiveTab("calendar")}
                     onNavigateToExercises={() => setActiveTab("log")}

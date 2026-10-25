@@ -1,5 +1,5 @@
-import { FitnessLog } from "../types";
-import { getAllExercises } from "../exercises";
+import { ExerciseInfo, ExercisePillar, FitnessLog, MuscleKey } from "../types";
+import { EXERCISE_DATABASE, deriveBuildsFromMuscles, getAllExercises } from "../exercises";
 
 export interface StatLevels {
   chestStrength: number;
@@ -24,9 +24,11 @@ export interface LogMetrics {
 
 export interface ExerciseConfig {
   name: string;
+  pillar: ExercisePillar;
   formType: "A" | "B" | "C" | "D" | "E" | "F";
   baseline: number;
   peak: number;
+  muscles: Partial<Record<MuscleKey, number>>;
   builds: {
     chestStrength?: number;
     backStrength?: number;
@@ -40,1059 +42,169 @@ export interface ExerciseConfig {
   subCategories?: string[];
 }
 
-// Master definition of the exercises and precise stat percentages
-export const EXERCISE_CONFIGS: ExerciseConfig[] = [
-  // 1. FREE WEIGHTS
-  {
-    name: "Bench Press",
-    formType: "A",
-    baseline: 45,
-    peak: 400,
-    builds: { chestStrength: 80, armStrength: 20 }
+export const PROGRESS_CONFIG = {
+  muscleTargets: {
+    chest: 10,
+    back: 12,
+    core: 8,
+    biceps: 6,
+    triceps: 6,
+    shoulders: 8,
+    traps: 4,
+    quads: 6,
+    hamstrings: 5,
+    glutes: 5,
+    calves: 4
+  } as Record<MuscleKey, number>,
+  armRollupWeights: {
+    biceps: 0.30,
+    triceps: 0.30,
+    shoulders: 0.30,
+    traps: 0.10
   },
-  {
-    name: "Barbell Squat",
-    formType: "A",
-    baseline: 45,
-    peak: 600,
-    builds: { legStrength: 70, speed: 30 },
-    subCategories: ["quads", "glutes"]
+  legRollupWeights: {
+    quads: 0.30,
+    hamstrings: 0.25,
+    glutes: 0.25,
+    calves: 0.20
   },
-  {
-    name: "Power Clean",
-    formType: "A",
-    baseline: 45,
-    peak: 300,
-    builds: { speed: 50, legStrength: 30, backStrength: 20 }
+  effortThresholds: {
+    fullThreshold: 0.80,
+    halfThreshold: 0.60,
+    fullCredit: 1.0,
+    halfCredit: 0.5,
+    warmupCredit: 0.0,
+    lookbackDays: 90
   },
-  {
-    name: "Dumbbell Lunges",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { legStrength: 70, speed: 30 },
-    subCategories: ["quads", "glutes"]
-  },
-  {
-    name: "Deadlift",
-    formType: "A",
-    baseline: 45,
-    peak: 600,
-    builds: { backStrength: 60, legStrength: 40 },
-    subCategories: ["glutes"]
-  },
-  {
-    name: "Barbell Row",
-    formType: "A",
-    baseline: 45,
-    peak: 300,
-    builds: { backStrength: 80, armStrength: 20 }
-  },
-  {
-    name: "Romanian Deadlift",
-    formType: "A",
-    baseline: 45,
-    peak: 500,
-    builds: { legStrength: 70, backStrength: 30 },
-    subCategories: ["hamstrings"]
-  },
-  {
-    name: "Barbell Overhead Press",
-    formType: "A",
-    baseline: 45,
-    peak: 250,
-    builds: { armStrength: 100 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Barbell Bicep Curl",
-    formType: "A",
-    baseline: 20,
-    peak: 180,
-    builds: { armStrength: 100 },
-    subCategories: ["biceps"]
-  },
-  {
-    name: "Kettlebell Swings",
-    formType: "A",
-    baseline: 15,
-    peak: 150,
-    builds: { legStrength: 50, backStrength: 30, speed: 20, stamina: 20 },
-    subCategories: ["hamstrings"]
-  },
-  {
-    name: "Barbell Hip Thrust",
-    formType: "A",
-    baseline: 45,
-    peak: 600,
-    builds: { legStrength: 100, stamina: 20 },
-    subCategories: ["glutes"]
-  },
-  {
-    name: "Dumbbell Squat",
-    formType: "A",
-    baseline: 10,
-    peak: 200,
-    builds: { legStrength: 100, stamina: 20 },
-    subCategories: ["quads", "glutes"]
-  },
-  {
-    name: "Stiff Leg Deadlifts",
-    formType: "A",
-    baseline: 45,
-    peak: 500,
-    builds: { legStrength: 80, backStrength: 20, stamina: 20 },
-    subCategories: ["hamstrings", "glutes"]
-  },
-  {
-    name: "Barbell Calf Raises",
-    formType: "A",
-    baseline: 45,
-    peak: 350,
-    builds: { legStrength: 100, stamina: 10 },
-    subCategories: ["calves"]
-  },
-  {
-    name: "Barbell Silverback Shrug",
-    formType: "A",
-    baseline: 45,
-    peak: 400,
-    builds: { armStrength: 100 },
-    subCategories: ["traps"]
-  },
-  {
-    name: "Dumbbell Shrug",
-    formType: "A",
-    baseline: 10,
-    peak: 200,
-    builds: { armStrength: 100 },
-    subCategories: ["traps"]
-  },
-  {
-    name: "Barbell Upright Row",
-    formType: "A",
-    baseline: 45,
-    peak: 220,
-    builds: { armStrength: 100 },
-    subCategories: ["traps", "shoulders"]
-  },
-  {
-    name: "Kettlebell Incline Shrugs",
-    formType: "A",
-    baseline: 10,
-    peak: 180,
-    builds: { armStrength: 100 },
-    subCategories: ["traps"]
-  },
-  {
-    name: "Dumbbell Seated Shrug",
-    formType: "A",
-    baseline: 10,
-    peak: 180,
-    builds: { armStrength: 100 },
-    subCategories: ["traps"]
-  },
-  {
-    name: "Dumbbell Preacher Curl",
-    formType: "A",
-    baseline: 10,
-    peak: 100,
-    builds: { armStrength: 100 },
-    subCategories: ["biceps"]
-  },
-  {
-    name: "Barbell Preacher Curl",
-    formType: "A",
-    baseline: 20,
-    peak: 180,
-    builds: { armStrength: 100 },
-    subCategories: ["biceps"]
-  },
-  {
-    name: "Hammer Curl",
-    formType: "A",
-    baseline: 10,
-    peak: 100,
-    builds: { armStrength: 100 },
-    subCategories: ["biceps"]
-  },
-  {
-    name: "Barbell Bent Over Row",
-    formType: "A",
-    baseline: 45,
-    peak: 350,
-    builds: { backStrength: 70, armStrength: 30 },
-    subCategories: ["biceps"]
-  },
-  {
-    name: "Dumbbell Overhead Press",
-    formType: "A",
-    baseline: 15,
-    peak: 120,
-    builds: { armStrength: 100 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Barbell Incline Bench",
-    formType: "A",
-    baseline: 45,
-    peak: 350,
-    builds: { chestStrength: 70, armStrength: 30 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Dumbbell Incline Bench",
-    formType: "A",
-    baseline: 15,
-    peak: 120,
-    builds: { chestStrength: 70, armStrength: 30 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Dumbbell Front Raise",
-    formType: "A",
-    baseline: 5,
-    peak: 60,
-    builds: { armStrength: 90, stamina: 10 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Close Grip Bench Press",
-    formType: "A",
-    baseline: 45,
-    peak: 350,
-    builds: { chestStrength: 50, armStrength: 50 },
-    subCategories: ["triceps"]
-  },
-  {
-    name: "Barbell Skull Crusher",
-    formType: "A",
-    baseline: 20,
-    peak: 180,
-    builds: { armStrength: 90, stamina: 10 },
-    subCategories: ["triceps"]
-  },
-  {
-    name: "Dumbbell Romanian Deadlift",
-    formType: "A",
-    baseline: 20,
-    peak: 250,
-    builds: { legStrength: 70, backStrength: 30 },
-    subCategories: ["glutes"]
-  },
-  {
-    name: "Barbell Romanian Deadlift",
-    formType: "A",
-    baseline: 45,
-    peak: 500,
-    builds: { legStrength: 70, backStrength: 30 },
-    subCategories: ["glutes"]
-  },
-  {
-    name: "Barbell Front Squat",
-    formType: "A",
-    baseline: 45,
-    peak: 400,
-    builds: { coreStrength: 50, legStrength: 50 }
-  },
-  {
-    name: "Dumbbell Russian Twist",
-    formType: "A",
-    baseline: 5,
-    peak: 100,
-    builds: { coreStrength: 80, stamina: 20 }
-  },
-  {
-    name: "Plate Russian Twist",
-    formType: "A",
-    baseline: 10,
-    peak: 100,
-    builds: { coreStrength: 80, stamina: 20 }
-  },
-  {
-    name: "Plate Sit-Ups",
-    formType: "A",
-    baseline: 10,
-    peak: 100,
-    builds: { coreStrength: 90, stamina: 10 }
-  },
-  {
-    name: "Good Mornings",
-    formType: "A",
-    baseline: 45,
-    peak: 300,
-    builds: { legStrength: 70, backStrength: 30 },
-    subCategories: ["hamstrings"]
-  },
+  setFactors: [1.0, 1.0, 1.0, 1.0, 0.5, 0.5], // sets 1-4 = 1.0, sets 5-6 = 0.5, sets 7+ = 0
+  cardioMuscleSetsPer100: 2,
+  weeklyDecayDays: 7,
+  monthlyDecayDays: 30
+};
 
-  // 2. MACHINES
-  {
-    name: "Chest Fly Machine",
-    formType: "A",
-    baseline: 20,
-    peak: 250,
-    builds: { chestStrength: 70, stamina: 30 }
-  },
-  {
-    name: "Cable Pec Fly",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { chestStrength: 80, stamina: 20 }
-  },
-  {
-    name: "Cable Crossover",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { chestStrength: 80, stamina: 20 }
-  },
-  {
-    name: "Lat Pulldown Machine",
-    formType: "A",
-    baseline: 30,
-    peak: 250,
-    builds: { backStrength: 50, stamina: 50 }
-  },
-  {
-    name: "Seated Cable Row",
-    formType: "A",
-    baseline: 30,
-    peak: 250,
-    builds: { backStrength: 70, stamina: 30 }
-  },
-  {
-    name: "Machine Leg Press",
-    formType: "A",
-    baseline: 90,
-    peak: 1000,
-    builds: { legStrength: 50, stamina: 50 },
-    subCategories: ["quads", "glutes"]
-  },
-  {
-    name: "Machine Hamstring Curl",
-    formType: "A",
-    baseline: 20,
-    peak: 200,
-    builds: { legStrength: 80, stamina: 20 },
-    subCategories: ["hamstrings"]
-  },
-  {
-    name: "Lying Leg Curl",
-    formType: "A",
-    baseline: 15,
-    peak: 180,
-    builds: { legStrength: 80, stamina: 20 },
-    subCategories: ["hamstrings"]
-  },
-  {
-    name: "Cable Tricep Pushdown",
-    formType: "A",
-    baseline: 10,
-    peak: 155,
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["triceps"]
-  },
-  {
-    name: "Cable Bicep Curl",
-    formType: "A",
-    baseline: 15,
-    peak: 150,
-    builds: { stamina: 70, armStrength: 30 },
-    subCategories: ["biceps"]
-  },
-  {
-    name: "Cable Crunch",
-    formType: "A",
-    baseline: 20,
-    peak: 200,
-    builds: { coreStrength: 80, stamina: 20 }
-  },
-  {
-    name: "Machine Leg Extension",
-    formType: "A",
-    baseline: 20,
-    peak: 250,
-    builds: { legStrength: 100, stamina: 30 },
-    subCategories: ["quads"]
-  },
-  {
-    name: "Hip Abduction Machine",
-    formType: "A",
-    baseline: 20,
-    peak: 250,
-    builds: { legStrength: 80, stamina: 20 },
-    subCategories: ["glutes"]
-  },
-  {
-    name: "Cable Pull Through",
-    formType: "A",
-    baseline: 10,
-    peak: 200,
-    builds: { legStrength: 70, coreStrength: 10, stamina: 20 },
-    subCategories: ["hamstrings"]
-  },
-  {
-    name: "Machine Standing Calf Raises",
-    formType: "A",
-    baseline: 20,
-    peak: 300,
-    builds: { legStrength: 100, stamina: 10 },
-    subCategories: ["calves"]
-  },
-  {
-    name: "Machine Sitting Calf Raises",
-    formType: "A",
-    baseline: 20,
-    peak: 250,
-    builds: { legStrength: 100, stamina: 10 },
-    subCategories: ["calves"]
-  },
-  {
-    name: "Cable Shrug",
-    formType: "A",
-    baseline: 10,
-    peak: 250,
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["traps"]
-  },
-  {
-    name: "Cable Lateral Raise",
-    formType: "A",
-    baseline: 5,
-    peak: 80,
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Glute Kickback",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { legStrength: 80, stamina: 20 },
-    subCategories: ["glutes"]
-  },
-  {
-    name: "Smith Machine Hip Thrust",
-    formType: "A",
-    baseline: 45,
-    peak: 400,
-    builds: { legStrength: 80, stamina: 20 },
-    subCategories: ["glutes"]
-  },
-  {
-    name: "Smith Machine Squat",
-    formType: "A",
-    baseline: 45,
-    peak: 450,
-    builds: { legStrength: 80, stamina: 20 },
-    subCategories: ["quads", "glutes"]
-  },
-  {
-    name: "Hack Squat",
-    formType: "A",
-    baseline: 45,
-    peak: 600,
-    builds: { legStrength: 80, stamina: 20 },
-    subCategories: ["quads", "glutes"]
-  },
+const BASELINE_PEAK_MAP: Record<string, { baseline: number; peak: number }> = {
+  "Bench Press": { baseline: 45, peak: 400 },
+  "Barbell Squat": { baseline: 45, peak: 600 },
+  "Power Clean": { baseline: 45, peak: 300 },
+  "Dumbbell Lunges": { baseline: 10, peak: 150 },
+  "Deadlift": { baseline: 45, peak: 600 },
+  "Barbell Row": { baseline: 45, peak: 300 },
+  "Romanian Deadlift": { baseline: 45, peak: 500 },
+  "Barbell Overhead Press": { baseline: 45, peak: 250 },
+  "Barbell Bicep Curl": { baseline: 20, peak: 180 },
+  "Kettlebell Swings": { baseline: 15, peak: 150 },
+  "Barbell Hip Thrust": { baseline: 45, peak: 600 },
+  "Dumbbell Squat": { baseline: 10, peak: 200 },
+  "Stiff Leg Deadlifts": { baseline: 45, peak: 500 },
+  "Barbell Calf Raises": { baseline: 45, peak: 350 },
+  "Barbell Silverback Shrug": { baseline: 45, peak: 400 },
+  "Dumbbell Shrug": { baseline: 10, peak: 200 },
+  "Barbell Upright Row": { baseline: 45, peak: 220 },
+  "Kettlebell Incline Shrugs": { baseline: 10, peak: 180 },
+  "Dumbbell Seated Shrug": { baseline: 10, peak: 180 },
+  "Dumbbell Preacher Curl": { baseline: 10, peak: 100 },
+  "Barbell Preacher Curl": { baseline: 20, peak: 180 },
+  "Hammer Curl": { baseline: 10, peak: 100 },
+  "Barbell Bent Over Row": { baseline: 45, peak: 350 },
+  "Dumbbell Overhead Press": { baseline: 15, peak: 120 },
+  "Barbell Incline Bench": { baseline: 45, peak: 350 },
+  "Dumbbell Incline Bench": { baseline: 15, peak: 120 },
+  "Dumbbell Front Raise": { baseline: 5, peak: 60 },
+  "Close Grip Bench Press": { baseline: 45, peak: 350 },
+  "Barbell Skull Crusher": { baseline: 20, peak: 180 },
+  "Dumbbell Romanian Deadlift": { baseline: 20, peak: 250 },
+  "Barbell Romanian Deadlift": { baseline: 45, peak: 500 },
+  "Barbell Front Squat": { baseline: 45, peak: 400 },
+  "Dumbbell Russian Twist": { baseline: 5, peak: 100 },
+  "Plate Russian Twist": { baseline: 10, peak: 100 },
+  "Plate Sit-Ups": { baseline: 10, peak: 100 },
+  "Good Mornings": { baseline: 45, peak: 300 },
+  "Dumbbell Chest Fly": { baseline: 10, peak: 120 },
+  "Weighted Decline Sit-Up": { baseline: 10, peak: 120 },
+  "Weighted Crunch": { baseline: 10, peak: 150 },
+  "Chest Fly Machine": { baseline: 20, peak: 250 },
+  "Cable Pec Fly": { baseline: 10, peak: 150 },
+  "Cable Crossover": { baseline: 10, peak: 150 },
+  "Lat Pulldown Machine": { baseline: 30, peak: 250 },
+  "Seated Cable Row": { baseline: 30, peak: 250 },
+  "Machine Leg Press": { baseline: 90, peak: 1000 },
+  "Machine Hamstring Curl": { baseline: 20, peak: 200 },
+  "Lying Leg Curl": { baseline: 15, peak: 180 },
+  "Cable Tricep Pushdown": { baseline: 10, peak: 155 },
+  "Cable Bicep Curl": { baseline: 15, peak: 150 },
+  "Cable Crunch": { baseline: 20, peak: 200 },
+  "Machine Leg Extension": { baseline: 20, peak: 250 },
+  "Hip Abduction Machine": { baseline: 20, peak: 250 },
+  "Cable Pull Through": { baseline: 10, peak: 200 },
+  "Machine Standing Calf Raises": { baseline: 20, peak: 300 },
+  "Machine Sitting Calf Raises": { baseline: 20, peak: 250 },
+  "Cable Shrug": { baseline: 10, peak: 250 },
+  "Cable Lateral Raise": { baseline: 5, peak: 80 },
+  "Glute Kickback": { baseline: 10, peak: 150 },
+  "Smith Machine Hip Thrust": { baseline: 45, peak: 400 },
+  "Smith Machine Squat": { baseline: 45, peak: 450 },
+  "Hack Squat": { baseline: 45, peak: 600 },
+  "Machine Chest Press": { baseline: 20, peak: 300 },
+  "Smith Machine Bench Press": { baseline: 30, peak: 400 },
+  "Machine Incline Press": { baseline: 20, peak: 250 },
+  "Machine Assisted Pull-Up": { baseline: 10, peak: 200 },
+  "Close-Grip Lat Pulldown": { baseline: 30, peak: 250 },
+  "Cable Straight-Arm Pulldown": { baseline: 10, peak: 150 },
+  "Machine Preacher Curl": { baseline: 10, peak: 150 },
+  "Cable Overhead Tricep Extension": { baseline: 10, peak: 150 },
+  "Machine Seated Dips": { baseline: 20, peak: 250 },
+  "Machine Ab Crunch": { baseline: 10, peak: 200 },
+  "Cable Woodchopper": { baseline: 10, peak: 150 },
+  "Cable Standing Oblique Twist": { baseline: 10, peak: 120 },
+  "Machine Torso Rotation": { baseline: 10, peak: 150 },
+  "Machine Seated Shoulder Press": { baseline: 20, peak: 250 },
+  "Machine Lateral Raise": { baseline: 10, peak: 150 },
+  "Smith Machine Overhead Press": { baseline: 30, peak: 300 },
+  "Back Extension": { baseline: 0, peak: 250 },
+  "Regular Push-Ups": { baseline: 3, peak: 100 },
+  "Dips": { baseline: 3, peak: 50 },
+  "Overhand Pull-Ups": { baseline: 1, peak: 40 },
+  "Inverted Rows": { baseline: 3, peak: 60 },
+  "Bodyweight Squats": { baseline: 10, peak: 150 },
+  "Chin-Ups": { baseline: 1, peak: 40 },
+  "Hanging Knee Raises": { baseline: 3, peak: 60 },
+  "Plank": { baseline: 30, peak: 480 },
+  "Sit-Ups": { baseline: 3, peak: 100 },
+  "Ab Wheel Rollout": { baseline: 3, peak: 50 },
+  "Decline Crunch": { baseline: 3, peak: 80 },
+  "Box Jumps": { baseline: 3, peak: 100 },
+  "Calf Raises": { baseline: 10, peak: 150 },
+  "Lunges": { baseline: 5, peak: 100 },
+  "Forward Lunges": { baseline: 5, peak: 100 },
+  "Bench Dips": { baseline: 3, peak: 80 },
+  "Diamond Push-Ups": { baseline: 1, peak: 60 },
+  "Squat Jumps": { baseline: 5, peak: 100 },
+  "Bodyweight Reverse Lunge": { baseline: 5, peak: 100 },
+  "Incline Push-Ups": { baseline: 3, peak: 80 },
+  "Decline Push-Ups": { baseline: 3, peak: 60 },
+  "Wide Grip Push-Ups": { baseline: 3, peak: 60 },
+  "Chest Dips": { baseline: 1, peak: 40 },
+  "Underhand Pull-Ups": { baseline: 1, peak: 40 },
+  "Pull-Up Negatives": { baseline: 1, peak: 30 },
+  "Superman Holds": { baseline: 10, peak: 180 },
+  "Scapular Pull-Ups": { baseline: 3, peak: 50 },
+  "Pike Push-Ups": { baseline: 1, peak: 40 }
+};
 
-  // 3. BODYWEIGHT
-  {
-    name: "Regular Push-Ups",
-    formType: "B",
-    baseline: 3,
-    peak: 100,
-    builds: { stamina: 50, chestStrength: 30, armStrength: 20 },
-    subCategories: ["biceps", "shoulders", "traps"]
-  },
-  {
-    name: "Dips",
-    formType: "B",
-    baseline: 3,
-    peak: 50,
-    builds: { armStrength: 50, stamina: 30, chestStrength: 20 },
-    subCategories: ["triceps"]
-  },
-  {
-    name: "Overhand Pull-Ups",
-    formType: "B",
-    baseline: 1,
-    peak: 40,
-    builds: { backStrength: 70, stamina: 30 }
-  },
-  {
-    name: "Inverted Rows",
-    formType: "B",
-    baseline: 3,
-    peak: 60,
-    builds: { backStrength: 70, stamina: 30 }
-  },
-  {
-    name: "Bodyweight Squats",
-    formType: "B",
-    baseline: 10,
-    peak: 150,
-    builds: { stamina: 70, legStrength: 30 },
-    subCategories: ["quads", "glutes"]
-  },
-  {
-    name: "Chin-Ups",
-    formType: "B",
-    baseline: 1,
-    peak: 40,
-    builds: { armStrength: 100 },
-    subCategories: ["biceps"]
-  },
-  {
-    name: "Hanging Knee Raises",
-    formType: "B",
-    baseline: 3,
-    peak: 60,
-    builds: { coreStrength: 80, stamina: 20 }
-  },
-  {
-    name: "Plank",
-    formType: "C",
-    baseline: 30,
-    peak: 480,
-    builds: { coreStrength: 80, stamina: 20 }
-  },
-  {
-    name: "Sit-Ups",
-    formType: "B",
-    baseline: 3,
-    peak: 100,
-    builds: { coreStrength: 60, stamina: 40 }
-  },
-  {
-    name: "Ab Wheel Rollout",
-    formType: "B",
-    baseline: 3,
-    peak: 50,
-    builds: { coreStrength: 90, stamina: 10 }
-  },
-  {
-    name: "Decline Crunch",
-    formType: "B",
-    baseline: 3,
-    peak: 80,
-    builds: { coreStrength: 70, stamina: 30 }
-  },
-  {
-    name: "Agility Ladder Drills",
-    formType: "B",
-    baseline: 10,
-    peak: 150,
-    builds: { speed: 60, stamina: 40 }
-  },
-  {
-    name: "Box Jumps",
-    formType: "B",
-    baseline: 3,
-    peak: 100,
-    builds: { legStrength: 50, speed: 50 }
-  },
-  {
-    name: "Calf Raises",
-    formType: "B",
-    baseline: 10,
-    peak: 150,
-    builds: { legStrength: 100, stamina: 20 },
-    subCategories: ["calves"]
-  },
-  {
-    name: "Lunges",
-    formType: "B",
-    baseline: 5,
-    peak: 100,
-    builds: { legStrength: 80, stamina: 35 },
-    subCategories: ["glutes"]
-  },
-  {
-    name: "Forward Lunges",
-    formType: "B",
-    baseline: 5,
-    peak: 100,
-    builds: { legStrength: 80, stamina: 30 },
-    subCategories: ["quads"]
-  },
-  {
-    name: "Bench Dips",
-    formType: "B",
-    baseline: 3,
-    peak: 80,
-    builds: { armStrength: 70, stamina: 30 },
-    subCategories: ["triceps"]
-  },
-  {
-    name: "Diamond Push-Ups",
-    formType: "B",
-    baseline: 1,
-    peak: 60,
-    builds: { armStrength: 75, stamina: 25 },
-    subCategories: ["triceps"]
-  },
-  {
-    name: "Squat Jumps",
-    formType: "B",
-    baseline: 5,
-    peak: 100,
-    builds: { legStrength: 50, speed: 50 }
-  },
-  {
-    name: "Jumping Jacks",
-    formType: "B",
-    baseline: 10,
-    peak: 300,
-    builds: { stamina: 100 }
-  },
-  {
-    name: "Burpees",
-    formType: "B",
-    baseline: 3,
-    peak: 100,
-    builds: { stamina: 80, coreStrength: 20 }
-  },
-  {
-    name: "Bodyweight Reverse Lunge",
-    formType: "B",
-    baseline: 5,
-    peak: 100,
-    builds: { legStrength: 70, stamina: 30 },
-    subCategories: ["hamstrings"]
-  },
-
-  // 4. CARDIO
-  {
-    name: "Treadmill Run / Jog",
-    formType: "D",
-    baseline: 4.615,
-    peak: 13.333,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Outdoor Running",
-    formType: "D",
-    baseline: 4.615,
-    peak: 13.333,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Walking",
-    formType: "D",
-    baseline: 2.0,
-    peak: 5.0,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Sprint Intervals",
-    formType: "D",
-    baseline: 4.615,
-    peak: 13.333,
-    builds: { cardio: 70, legStrength: 30 }
-  },
-  {
-    name: "Stairmaster",
-    formType: "E",
-    baseline: 10,
-    peak: 150,
-    builds: { cardio: 60, legStrength: 40 }
-  },
-  {
-    name: "Stair Climbing",
-    formType: "E",
-    baseline: 10,
-    peak: 150,
-    builds: { cardio: 80, legStrength: 20 }
-  },
-  {
-    name: "Jump Rope",
-    formType: "C",
-    baseline: 30,
-    peak: 600,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Bicycle",
-    formType: "D",
-    baseline: 1.0,
-    peak: 25.0,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Outdoor Bicycle",
-    formType: "D",
-    baseline: 1.0,
-    peak: 25.0,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Elliptical",
-    formType: "D",
-    baseline: 0.5,
-    peak: 15.0,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Rowing Machine",
-    formType: "D",
-    baseline: 0.5,
-    peak: 10.0,
-    builds: { cardio: 70, backStrength: 30 }
-  },
-  {
-    name: "Hiking",
-    formType: "F",
-    baseline: 1.0,
-    peak: 15.0,
-    builds: { cardio: 70, legStrength: 30 }
-  },
-  {
-    name: "HIIT Cardio Circuit",
-    formType: "C",
-    baseline: 30,
-    peak: 300,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Dumbbell Chest Fly",
-    formType: "A",
-    baseline: 10,
-    peak: 120,
-    builds: { chestStrength: 80, stamina: 20 },
-    subCategories: ["chest"]
-  },
-  {
-    name: "Weighted Decline Sit-Up",
-    formType: "A",
-    baseline: 10,
-    peak: 120,
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"]
-  },
-  {
-    name: "Weighted Crunch",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"]
-  },
-  {
-    name: "Machine Chest Press",
-    formType: "A",
-    baseline: 20,
-    peak: 300,
-    builds: { chestStrength: 80, armStrength: 20 },
-    subCategories: ["chest"]
-  },
-  {
-    name: "Smith Machine Bench Press",
-    formType: "A",
-    baseline: 30,
-    peak: 400,
-    builds: { chestStrength: 80, armStrength: 20 },
-    subCategories: ["chest"]
-  },
-  {
-    name: "Machine Incline Press",
-    formType: "A",
-    baseline: 20,
-    peak: 250,
-    builds: { chestStrength: 80, armStrength: 20 },
-    subCategories: ["chest"]
-  },
-  {
-    name: "Machine Assisted Pull-Up",
-    formType: "A",
-    baseline: 10,
-    peak: 200,
-    builds: { backStrength: 80, armStrength: 20 },
-    subCategories: ["back"]
-  },
-  {
-    name: "Close-Grip Lat Pulldown",
-    formType: "A",
-    baseline: 30,
-    peak: 250,
-    builds: { backStrength: 80, armStrength: 20 },
-    subCategories: ["back"]
-  },
-  {
-    name: "Cable Straight-Arm Pulldown",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { backStrength: 80, stamina: 20 },
-    subCategories: ["back"]
-  },
-  {
-    name: "Machine Preacher Curl",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { armStrength: 100 },
-    subCategories: ["biceps"]
-  },
-  {
-    name: "Cable Overhead Tricep Extension",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { armStrength: 100 },
-    subCategories: ["triceps"]
-  },
-  {
-    name: "Machine Seated Dips",
-    formType: "A",
-    baseline: 20,
-    peak: 250,
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["triceps"]
-  },
-  {
-    name: "Machine Ab Crunch",
-    formType: "A",
-    baseline: 10,
-    peak: 200,
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"]
-  },
-  {
-    name: "Cable Woodchopper",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"]
-  },
-  {
-    name: "Cable Standing Oblique Twist",
-    formType: "A",
-    baseline: 10,
-    peak: 120,
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"]
-  },
-  {
-    name: "Machine Torso Rotation",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { coreStrength: 80, stamina: 20 },
-    subCategories: ["core"]
-  },
-  {
-    name: "Machine Seated Shoulder Press",
-    formType: "A",
-    baseline: 20,
-    peak: 250,
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Machine Lateral Raise",
-    formType: "A",
-    baseline: 10,
-    peak: 150,
-    builds: { armStrength: 90, stamina: 10 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Smith Machine Overhead Press",
-    formType: "A",
-    baseline: 30,
-    peak: 300,
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Incline Push-Ups",
-    formType: "B",
-    baseline: 3,
-    peak: 80,
-    builds: { chestStrength: 70, stamina: 30 },
-    subCategories: ["chest"]
-  },
-  {
-    name: "Decline Push-Ups",
-    formType: "B",
-    baseline: 3,
-    peak: 60,
-    builds: { chestStrength: 70, stamina: 30 },
-    subCategories: ["chest"]
-  },
-  {
-    name: "Wide Grip Push-Ups",
-    formType: "B",
-    baseline: 3,
-    peak: 60,
-    builds: { chestStrength: 70, stamina: 30 },
-    subCategories: ["chest"]
-  },
-  {
-    name: "Chest Dips",
-    formType: "B",
-    baseline: 1,
-    peak: 40,
-    builds: { chestStrength: 80, stamina: 20 },
-    subCategories: ["chest"]
-  },
-  {
-    name: "Underhand Pull-Ups",
-    formType: "B",
-    baseline: 1,
-    peak: 40,
-    builds: { backStrength: 70, armStrength: 30 },
-    subCategories: ["back", "biceps"]
-  },
-  {
-    name: "Pull-Up Negatives",
-    formType: "B",
-    baseline: 1,
-    peak: 30,
-    builds: { backStrength: 80, stamina: 20 },
-    subCategories: ["back"]
-  },
-  {
-    name: "Superman Holds",
-    formType: "C",
-    baseline: 10,
-    peak: 180,
-    builds: { backStrength: 100 },
-    subCategories: ["back"]
-  },
-  {
-    name: "Scapular Pull-Ups",
-    formType: "B",
-    baseline: 3,
-    peak: 50,
-    builds: { backStrength: 80, stamina: 20 },
-    subCategories: ["back"]
-  },
-  {
-    name: "Pike Push-Ups",
-    formType: "B",
-    baseline: 1,
-    peak: 40,
-    builds: { armStrength: 80, stamina: 20 },
-    subCategories: ["shoulders"]
-  },
-  {
-    name: "Hiking",
-    formType: "F",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Bodyweight Volume Stamina",
-    formType: "E",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Outdoor Running",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Outdoor Bicycle",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Spin Bike",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Stair Climbing",
-    formType: "E",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Treadmill Run / Jog",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Walking",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Sprint Intervals",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Stairmaster",
-    formType: "E",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Jump Rope",
-    formType: "C",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Bicycle",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Elliptical",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Rowing Machine",
-    formType: "D",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "HIIT Cardio Circuit",
-    formType: "C",
-    baseline: 0,
-    peak: 100,
-    builds: { cardio: 100 }
-  },
-  {
-    name: "Back Extension",
-    formType: "A",
-    baseline: 0,
-    peak: 250,
-    builds: { backStrength: 50, legStrength: 50 },
-    subCategories: ["back", "glutes"]
-  }
-];
+// Master definition of exercises derived directly from EXERCISE_DATABASE
+export const EXERCISE_CONFIGS: ExerciseConfig[] = EXERCISE_DATABASE.map(ex => {
+  const bp = BASELINE_PEAK_MAP[ex.name] || { baseline: 0, peak: 100 };
+  return {
+    name: ex.name,
+    pillar: ex.pillar,
+    formType: ex.formType,
+    baseline: bp.baseline,
+    peak: bp.peak,
+    muscles: ex.muscles,
+    builds: ex.builds,
+    subCategories: ex.subCategories
+  };
+});
 
 // Algorithmic anchors representing average (score = 50) and elite (score = 100) real-world thresholds
 export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "seconds" | "paceSeconds" | "distanceVolume" | "floors"; avg: number; elite: number }> = {
@@ -1221,6 +333,16 @@ export const SCALING_ANCHORS: Record<string, { type: "weightRatio" | "reps" | "s
   "Hiking": { type: "distanceVolume", avg: 5, elite: 15 }
 };
 
+const EXERCISE_ALIASES: Record<string, string> = {
+  "bench": "Bench Press",
+  "lat pulldown": "Lat Pulldown Machine",
+  "leg press": "Machine Leg Press",
+  "barbell curl": "Barbell Bicep Curl",
+  "skull crusher": "Barbell Skull Crusher",
+  "dumbbell skull crushers": "Barbell Skull Crusher",
+  "barbell shrug": "Barbell Silverback Shrug"
+};
+
 export function getExerciseConfig(name: string): ExerciseConfig | undefined {
   const norm = (name || "").toLowerCase().trim();
   if (!norm) return undefined;
@@ -1228,11 +350,41 @@ export function getExerciseConfig(name: string): ExerciseConfig | undefined {
   const exact = EXERCISE_CONFIGS.find(conf => conf.name.toLowerCase().trim() === norm);
   if (exact) return exact;
 
+  const aliasedName = EXERCISE_ALIASES[norm];
+  if (aliasedName) {
+    const aliased = EXERCISE_CONFIGS.find(conf => conf.name === aliasedName);
+    if (aliased) return aliased;
+  }
+
+  const customEx = getAllExercises().find(e => e.name.toLowerCase().trim() === norm);
+  if (customEx) {
+    return {
+      name: customEx.name,
+      pillar: customEx.pillar,
+      formType: customEx.formType,
+      baseline: 0,
+      peak: 100,
+      muscles: customEx.muscles || {},
+      builds: customEx.builds || deriveBuildsFromMuscles(customEx.muscles || {}, customEx.pillar),
+      subCategories: customEx.subCategories || (Object.keys(customEx.muscles || {}) as MuscleKey[])
+    };
+  }
+
   return EXERCISE_CONFIGS.find(conf => {
     const configNameLower = conf.name.toLowerCase();
-    return configNameLower.includes(norm) || 
-           norm.includes(configNameLower);
+    return configNameLower.includes(norm) || norm.includes(configNameLower);
   });
+}
+
+export function isCardioExercise(
+  conf?: ExerciseConfig,
+  dbEx?: ExerciseInfo,
+  log?: FitnessLog
+): boolean {
+  if (dbEx) return dbEx.pillar === "cardio";
+  if (conf) return conf.pillar === "cardio";
+  if (log?.categoryName) return log.categoryName.toLowerCase().trim() === "cardio";
+  return false;
 }
 
 /**
@@ -1240,28 +392,28 @@ export function getExerciseConfig(name: string): ExerciseConfig | undefined {
  */
 export function parseLogMetrics(log: FitnessLog): LogMetrics {
   const metrics: LogMetrics = {};
-  
+
   if (log.weight !== undefined) metrics.weight = Number(log.weight);
   if (log.reps !== undefined) metrics.reps = Number(log.reps);
   if (log.minutes !== undefined) metrics.minutes = Number(log.minutes);
   if (log.seconds !== undefined) metrics.seconds = Number(log.seconds);
   if (log.distance !== undefined) metrics.distance = Number(log.distance);
   if (log.floors !== undefined) metrics.floors = Number(log.floors);
-  
+
   if (Object.keys(metrics).some(k => metrics[k as keyof LogMetrics] !== undefined && !isNaN(metrics[k as keyof LogMetrics] as number))) {
     return metrics;
   }
 
   // Backup regex parsing
   const valStr = log.newValue || "";
-  
+
   const weightMatch = valStr.match(/(\d+)\s*reps\s*@\s*(\d+)\s*lbs/i);
   if (weightMatch) {
     metrics.reps = parseInt(weightMatch[1]) || 1;
     metrics.weight = parseInt(weightMatch[2]) || 0;
     return metrics;
   }
-  
+
   const distMatch = valStr.match(/([\d.]+)\s*miles\s*in\s*(\d+)m\s*(\d+)s/i);
   if (distMatch) {
     metrics.distance = parseFloat(distMatch[1]) || 0;
@@ -1299,6 +451,57 @@ export function parseLogMetrics(log: FitnessLog): LogMetrics {
   return metrics;
 }
 
+/**
+ * Raw performance score for strength effort comparison (§2):
+ * - Weighted lifts: Epley estimated 1RM = weight * (1 + reps / 30)
+ * - Bodyweight moves: reps
+ * - Holds (Plank, Superman Holds): seconds
+ */
+export function calculateRawStrengthScore(log: FitnessLog, conf?: ExerciseConfig): number {
+  const m = parseLogMetrics(log);
+  const formType = conf?.formType || "A";
+
+  if (formType === "C") {
+    const mins = m.minutes || 0;
+    const secs = m.seconds || 0;
+    return mins * 60 + secs;
+  }
+
+  if (formType === "B") {
+    if (m.reps !== undefined && m.reps > 0) return m.reps;
+    const mins = m.minutes || 0;
+    const secs = m.seconds || 0;
+    return mins * 60 + secs;
+  }
+
+  // Weighted lifts (formType === "A")
+  const weight = m.weight || 0;
+  const reps = m.reps || 0;
+  if (weight > 0) {
+    return weight * (1 + reps / 30);
+  }
+  if (reps > 0) {
+    return reps;
+  }
+  return 0;
+}
+
+export function getSetFactor(setNumber: number): number {
+  if (setNumber <= 0) return 0;
+  const idx = setNumber - 1;
+  return idx < PROGRESS_CONFIG.setFactors.length ? PROGRESS_CONFIG.setFactors[idx] : 0;
+}
+
+export function getEffortFactor(ratio: number): number {
+  if (ratio >= PROGRESS_CONFIG.effortThresholds.fullThreshold) {
+    return PROGRESS_CONFIG.effortThresholds.fullCredit;
+  }
+  if (ratio >= PROGRESS_CONFIG.effortThresholds.halfThreshold) {
+    return PROGRESS_CONFIG.effortThresholds.halfCredit;
+  }
+  return PROGRESS_CONFIG.effortThresholds.warmupCredit;
+}
+
 export function getSessionSetCount(log: FitnessLog, allLogs: FitnessLog[]): number {
   if (!log.exerciseName) return 1;
 
@@ -1332,32 +535,27 @@ export function calculateScoreFromLog(
   gender: "male" | "female" = "male"
 ): number {
   if (!log.exerciseName) return 0;
-  
+
   const conf = getExerciseConfig(log.exerciseName);
   const resolvedName = conf ? conf.name : log.exerciseName.trim();
-
+  const dbEx = getAllExercises().find(e => e.name.toLowerCase() === resolvedName.toLowerCase());
   const m = parseLogMetrics(log);
 
-  if (resolvedName === "Bodyweight Volume Stamina") {
-    const reps = m.reps || 0;
-    if (reps <= 0) return 0;
-    const scoreVal = ((reps - 100) / 400) * 50 + 50;
-    return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
-  }
-
   if (resolvedName === "Hiking") {
-    const mins = m.minutes || 0;
-    const trailLevel = m.weight || 1; // stored in weight field
-    const scoreVal = (mins * trailLevel) / 480;
+    const mins = (m.minutes || 0) + (m.seconds || 0) / 60;
+    const dist = m.distance || 0;
+    // Trail difficulty: 8 is moderate on a 1-10 scale (60 mins * 8 / 480 * 100 = 100%).
+    // If logged from the 1-100 UI slider (> 15), map slider 50 (steep/moderate hills) -> 8.
+    const rawTrail = m.weight !== undefined && m.weight > 0 ? m.weight : 8;
+    const trailDifficulty = rawTrail > 15 ? (4 + (rawTrail / 50) * 4) : rawTrail;
+    const timeScore = mins > 0 ? ((mins * trailDifficulty) / 480) * 100 : 0;
+    const distScore = dist > 0 ? (dist / 2.5) * 100 : 0;
+    const scoreVal = Math.max(timeScore, distScore);
     return Math.max(0.00, Math.min(110.00, parseFloat(scoreVal.toFixed(2))));
   }
 
-  const dbEx = getAllExercises().find(e => e.name.toLowerCase() === resolvedName.toLowerCase());
-  const isCardioEx = targetStat === "cardio" || targetStat === "stamina" || targetStat === "speed" || 
-                     !!conf?.builds?.cardio || !!conf?.builds?.stamina || !!conf?.builds?.speed ||
-                     dbEx?.pillar === "cardio" || !!dbEx?.builds?.cardio || !!dbEx?.builds?.stamina || !!dbEx?.builds?.speed ||
-                     m.distance !== undefined || m.minutes !== undefined || m.floors !== undefined ||
-                     /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(resolvedName);
+  // Decide isCardio strictly from category/pillar (never from builds)
+  const isCardioEx = isCardioExercise(conf, dbEx, log);
 
   if (isCardioEx) {
     const mins = m.minutes || 0;
@@ -1365,14 +563,23 @@ export function calculateScoreFromLog(
     const totalMinutes = mins + secs / 60;
     const dist = m.distance || 0;
     const floors = m.floors || 0;
+    const reps = m.reps || 0;
 
     let timeScore = 0;
     let distScore = 0;
+    let repScore = 0;
 
     const nameLower = resolvedName.toLowerCase();
+    const is20MinCardio =
+      nameLower === "jumping jacks" ||
+      nameLower === "burpees" ||
+      nameLower === "agility ladder drills";
 
     if (totalMinutes > 0) {
-      if (nameLower.includes("walk") || nameLower.includes("hike")) {
+      if (is20MinCardio) {
+        // Jumping Jacks, Burpees, Agility Ladder Drills: 20 mins = 100%
+        timeScore = (totalMinutes / 20.0) * 100.0;
+      } else if (nameLower.includes("walk") || nameLower.includes("hike")) {
         // Walking/Hiking: 60 mins = 100% score (30 mins = 50%)
         timeScore = (totalMinutes / 60.0) * 100.0;
       } else if (nameLower.includes("bicycle") || nameLower.includes("bike") || nameLower.includes("cycling") || nameLower.includes("spin")) {
@@ -1381,6 +588,19 @@ export function calculateScoreFromLog(
       } else {
         // Running / HIIT / Stairmaster / General Cardio: 30 mins = 100% score (15 mins = 50%)
         timeScore = (totalMinutes / 30.0) * 100.0;
+      }
+    }
+
+    if (reps > 0 && is20MinCardio) {
+      if (nameLower === "burpees") {
+        // 100 burpees = 100% cardio session (5 reps/min sustained pace over 20 mins)
+        repScore = (reps / 100.0) * 100.0;
+      } else if (nameLower === "jumping jacks") {
+        // 500 jumping jacks = 100% cardio session (25 reps/min over 20 mins)
+        repScore = (reps / 500.0) * 100.0;
+      } else if (nameLower === "agility ladder drills") {
+        // 20 ladder passes/laps = 100% cardio session (1 lap/min over 20 mins)
+        repScore = (reps / 20.0) * 100.0;
       }
     }
 
@@ -1396,10 +616,11 @@ export function calculateScoreFromLog(
       distScore = (floors / 50.0) * 100.0;
     }
 
-    const finalCardioScore = Math.max(timeScore, distScore);
+    const finalCardioScore = Math.max(timeScore, distScore, repScore);
     if (finalCardioScore > 0) {
       return Math.max(0.00, Math.min(110.00, parseFloat(finalCardioScore.toFixed(2))));
     }
+    return 0;
   }
 
   const anchor = SCALING_ANCHORS[resolvedName];
@@ -1408,7 +629,7 @@ export function calculateScoreFromLog(
   // Scale anchor by gender if it's a strength/core stat
   let scaledAvg = anchor.avg;
   let scaledElite = anchor.elite;
-  
+
   if (gender === "female") {
     let scale = 1.0;
     if (targetStat === "legStrength") {
@@ -1430,7 +651,7 @@ export function calculateScoreFromLog(
   }
 
   let score = 0;
-  
+
   if (anchor.type === "weightRatio") {
     let weight = m.weight || 0;
     const reps = m.reps || 0;
@@ -1490,6 +711,8 @@ export interface DerivedPerformance {
   subCategoryLevels: Record<string, number>;
   weeklyVolume: Record<string, number>;
   weeklySubVolume: Record<string, number>;
+  monthlyVolume: Record<string, number>;
+  monthlySubVolume: Record<string, number>;
   recoveryRemaining: Record<string, number>;
   logEvaluations: Record<string, {
     isWorkingSet: boolean;
@@ -1517,21 +740,21 @@ function getEffectiveLevelForExerciseAndStat(
   gender: "male" | "female" = "male"
 ): number {
   if (matchedLogs.length === 0) return 0;
-  
+
   let pr = 0;
   matchedLogs.forEach(l => {
     const score = calculateScoreFromLog(l, bodyWeight, stat, gender);
     if (score > pr) pr = score;
   });
-  
+
   const workingLogs = matchedLogs.filter(l => {
     const score = calculateScoreFromLog(l, bodyWeight, stat, gender);
     const ratio = pr > 0 ? (score / pr) : 1.0;
     return ratio >= 0.60 || pr === 0;
   });
-  
+
   if (workingLogs.length === 0) return 0;
-  
+
   let peakScore = 0;
   let newestTimestamp = 0;
   workingLogs.forEach(wl => {
@@ -1540,10 +763,10 @@ function getEffectiveLevelForExerciseAndStat(
     const setTime = new Date(wl.timestamp).getTime();
     if (setTime > newestTimestamp) newestTimestamp = setTime;
   });
-  
+
   const daysElapsed = Math.max(0, (now - newestTimestamp) / (1000 * 60 * 60 * 24));
   let decayMultiplier = 1.0;
-  
+
   if (stat === "stamina") {
     if (daysElapsed > 7) {
       if (daysElapsed >= 21) decayMultiplier = 0.4;
@@ -1555,16 +778,17 @@ function getEffectiveLevelForExerciseAndStat(
       else decayMultiplier = 1.0 - ((daysElapsed - 14) / 16.0) * 0.6;
     }
   }
-  
+
   return peakScore * decayMultiplier;
 }
 
 export function evaluateAthletePerformance(
   logs: FitnessLog[],
   bodyWeight: number = 175,
-  gender: "male" | "female" = "male"
+  gender: "male" | "female" = "male",
+  nowMs?: number
 ): DerivedPerformance {
-  const now = Date.now();
+  const now = nowMs !== undefined ? nowMs : Date.now();
   const evaluation: DerivedPerformance = {
     statLevels: {
       chestStrength: 0.00,
@@ -1618,6 +842,26 @@ export function evaluateAthletePerformance(
       hamstrings: 0,
       calves: 0
     },
+    monthlyVolume: {
+      chestStrength: 0,
+      backStrength: 0,
+      armStrength: 0,
+      legStrength: 0,
+      coreStrength: 0,
+      cardio: 0,
+      speed: 0,
+      stamina: 0
+    },
+    monthlySubVolume: {
+      biceps: 0,
+      triceps: 0,
+      shoulders: 0,
+      traps: 0,
+      glutes: 0,
+      quads: 0,
+      hamstrings: 0,
+      calves: 0
+    },
     recoveryRemaining: {
       chestStrength: 0,
       backStrength: 0,
@@ -1632,47 +876,9 @@ export function evaluateAthletePerformance(
     exerciseDetails: {}
   };
 
-  // 0. Dual Crediting: Group rep-based bodyweight logs & overflow reps from weightRatio sets by day
-  const dailyRepVolume: Record<string, number> = {};
-  logs.forEach(log => {
-    if (!log.exerciseName) return;
-    const conf = getExerciseConfig(log.exerciseName);
-    const resolvedName = conf ? conf.name : log.exerciseName.trim();
-    const anchor = SCALING_ANCHORS[resolvedName];
-    if (!anchor) return;
-    
-    const dateStr = new Date(log.timestamp).toISOString().split("T")[0];
-    
-    if (anchor.type === "reps") {
-      const reps = log.reps || 0;
-      if (reps > 0) {
-        dailyRepVolume[dateStr] = (dailyRepVolume[dateStr] || 0) + reps;
-      }
-    } else if (anchor.type === "weightRatio") {
-      const reps = log.reps || 0;
-      if (reps > 10) {
-        const overflow = reps - 10;
-        dailyRepVolume[dateStr] = (dailyRepVolume[dateStr] || 0) + overflow;
-      }
-    }
-  });
-
-  const virtualLogs: FitnessLog[] = [...logs];
-  Object.entries(dailyRepVolume).forEach(([dateStr, totalReps]) => {
-    virtualLogs.push({
-      id: `virtual-bw-stamina-${dateStr}`,
-      timestamp: `${dateStr}T12:00:00.000Z`,
-      metricType: "general_workout",
-      title: "Daily Bodyweight / Rep Volume",
-      exerciseName: "Bodyweight Volume Stamina",
-      newValue: `${totalReps} reps`,
-      reps: totalReps
-    });
-  });
-
-  // 1. Group logs by exercise to calculate All-time PR first
+  // 1. Group logs by exercise to calculate All-time PR & 90-day best raw score
   const exerciseLogs: Record<string, FitnessLog[]> = {};
-  virtualLogs.forEach(log => {
+  logs.forEach(log => {
     if (!log.exerciseName) return;
     const conf = getExerciseConfig(log.exerciseName);
     const resolvedName = conf ? conf.name : log.exerciseName.trim();
@@ -1683,35 +889,41 @@ export function evaluateAthletePerformance(
   });
 
   const prByExercise: Record<string, number> = {};
-  virtualLogs.forEach(log => {
-    if (!log.exerciseName) return;
-    const score = calculateScoreFromLog(log, bodyWeight, undefined, gender);
-    const conf = getExerciseConfig(log.exerciseName);
-    const resolvedName = conf ? conf.name : log.exerciseName.trim();
-    prByExercise[resolvedName] = Math.max(prByExercise[resolvedName] || 0, score);
-  });
+  const allTimeRawBestByExercise: Record<string, number> = {};
+  const ninetyDayRawBestByExercise: Record<string, number> = {};
+  const lookbackMs = PROGRESS_CONFIG.effortThresholds.lookbackDays * 24 * 60 * 60 * 1000;
 
-  // 2. Evaluate each log's 60% working threshold & relative overload volume power
   logs.forEach(log => {
     if (!log.exerciseName) return;
     const conf = getExerciseConfig(log.exerciseName);
     const resolvedName = conf ? conf.name : log.exerciseName.trim();
-    
+    const score = calculateScoreFromLog(log, bodyWeight, undefined, gender);
+    prByExercise[resolvedName] = Math.max(prByExercise[resolvedName] || 0, score);
+
+    const rawScore = calculateRawStrengthScore(log, conf);
+    allTimeRawBestByExercise[resolvedName] = Math.max(allTimeRawBestByExercise[resolvedName] || 0, rawScore);
+    const logTime = new Date(log.timestamp).getTime();
+    if (now - logTime <= lookbackMs && now - logTime >= -300000) {
+      ninetyDayRawBestByExercise[resolvedName] = Math.max(ninetyDayRawBestByExercise[resolvedName] || 0, rawScore);
+    }
+  });
+
+  // 2. Evaluate each log's 90-day effort ratio & working set status
+  logs.forEach(log => {
+    if (!log.exerciseName) return;
+    const conf = getExerciseConfig(log.exerciseName);
+    const resolvedName = conf ? conf.name : log.exerciseName.trim();
+
     const score = calculateScoreFromLog(log, bodyWeight, undefined, gender);
     const pr = prByExercise[resolvedName] || 0;
-    const ratio = pr > 0 ? (score / pr) : 1.0;
-    
-    // Threshold is 60% of peak historical capacity
-    const isWorkingSet = ratio >= 0.60 || pr === 0;
-    let volumePower = 0.0;
-    if (isWorkingSet) {
-      if (ratio >= 1.0) {
-        volumePower = Math.min(3.0, ratio); // Cap ratio output power at 3.0x max for protection
-      } else {
-        // Linearly scales volume from 0.2 (at 60% capacity) to 1.0 (at 100% capacity)
-        volumePower = 0.2 + 0.8 * (ratio - 0.60) / 0.40;
-      }
-    }
+
+    const rawScore = calculateRawStrengthScore(log, conf);
+    const bestRaw = ninetyDayRawBestByExercise[resolvedName] || allTimeRawBestByExercise[resolvedName] || 0;
+    const ratio = bestRaw > 0 ? (rawScore / bestRaw) : 1.0;
+
+    // Threshold is 60% of 90-day (or all-time fallback) peak capacity
+    const isWorkingSet = ratio >= PROGRESS_CONFIG.effortThresholds.halfThreshold || bestRaw === 0;
+    const volumePower = getEffortFactor(ratio);
 
     evaluation.logEvaluations[log.id] = {
       isWorkingSet,
@@ -1791,44 +1003,31 @@ export function evaluateAthletePerformance(
 
   // 4. Calculate individual decayed, capped levels for all 8 subcategories
   const subCategoryNames = ["biceps", "triceps", "shoulders", "traps", "glutes", "quads", "hamstrings", "calves"] as const;
-  
+
   subCategoryNames.forEach(sub => {
     const contributions: number[] = [];
     let hasNonMachineLog = false;
     let hasAnyLog = false;
     const parentStat = ["biceps", "triceps", "shoulders", "traps"].includes(sub) ? "armStrength" : "legStrength";
-    const subsList = parentStat === "armStrength"
-      ? ["biceps", "triceps", "shoulders", "traps"]
-      : ["quads", "hamstrings", "glutes", "calves"];
 
     EXERCISE_CONFIGS.forEach(config => {
-      const builds = config.builds as any;
-      const pct = builds[parentStat] || 0;
-      if (pct > 0) {
-        const configSubs = config.subCategories || [];
-        let isMatched = configSubs.includes(sub);
-        if (!isMatched && !configSubs.some(s => subsList.includes(s))) {
-          isMatched = true;
-        }
-
-        if (isMatched) {
-          const matchedLogs = exerciseLogs[config.name] || [];
-          const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
-            config.name,
-            parentStat,
-            matchedLogs,
-            now,
-            bodyWeight,
-            gender
-          );
-          const contrib = statEffectiveLvl * (pct / 100);
-          if (contrib > 0) {
-            contributions.push(contrib);
-            hasAnyLog = true;
-            const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
-            if (dbEx?.pillar !== "machines") {
-              hasNonMachineLog = true;
-            }
+      const muscleW = config.muscles[sub] || 0;
+      if (muscleW > 0) {
+        const matchedLogs = exerciseLogs[config.name] || [];
+        const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+          config.name,
+          parentStat,
+          matchedLogs,
+          now,
+          bodyWeight,
+          gender
+        );
+        const contrib = statEffectiveLvl * muscleW;
+        if (contrib > 0) {
+          contributions.push(contrib);
+          hasAnyLog = true;
+          if (config.pillar !== "machines") {
+            hasNonMachineLog = true;
           }
         }
       }
@@ -1840,7 +1039,7 @@ export function evaluateAthletePerformance(
     }
 
     contributions.sort((a, b) => b - a);
-    let rawSubLvl = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
+    const rawSubLvl = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
 
     let finalSubLvl = Math.max(0.00, rawSubLvl);
     if (finalSubLvl > 50) {
@@ -1865,52 +1064,56 @@ export function evaluateAthletePerformance(
 
     if (stat === "armStrength" || stat === "legStrength") {
       if (stat === "armStrength") {
-        offsetSum = (evaluation.subCategoryLevels.biceps + evaluation.subCategoryLevels.triceps + evaluation.subCategoryLevels.shoulders + evaluation.subCategoryLevels.traps) / 4;
+        offsetSum =
+          evaluation.subCategoryLevels.biceps * PROGRESS_CONFIG.armRollupWeights.biceps +
+          evaluation.subCategoryLevels.triceps * PROGRESS_CONFIG.armRollupWeights.triceps +
+          evaluation.subCategoryLevels.shoulders * PROGRESS_CONFIG.armRollupWeights.shoulders +
+          evaluation.subCategoryLevels.traps * PROGRESS_CONFIG.armRollupWeights.traps;
       } else {
-        offsetSum = (evaluation.subCategoryLevels.quads + evaluation.subCategoryLevels.hamstrings + evaluation.subCategoryLevels.glutes + evaluation.subCategoryLevels.calves) / 4;
+        offsetSum =
+          evaluation.subCategoryLevels.quads * PROGRESS_CONFIG.legRollupWeights.quads +
+          evaluation.subCategoryLevels.hamstrings * PROGRESS_CONFIG.legRollupWeights.hamstrings +
+          evaluation.subCategoryLevels.glutes * PROGRESS_CONFIG.legRollupWeights.glutes +
+          evaluation.subCategoryLevels.calves * PROGRESS_CONFIG.legRollupWeights.calves;
       }
+    } else if (stat === "chestStrength" || stat === "backStrength" || stat === "coreStrength") {
+      const muscleKey: MuscleKey = stat === "chestStrength" ? "chest" : stat === "backStrength" ? "back" : "core";
+      const contributions: number[] = [];
+      EXERCISE_CONFIGS.forEach(config => {
+        const w = config.muscles[muscleKey] || 0;
+        if (w > 0) {
+          const matchedLogs = exerciseLogs[config.name] || [];
+          const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+            config.name,
+            stat,
+            matchedLogs,
+            now,
+            bodyWeight,
+            gender
+          );
+          const contrib = statEffectiveLvl * w;
+          if (contrib > 0) {
+            contributions.push(contrib);
+          }
+        }
+      });
+      contributions.sort((a, b) => b - a);
+      offsetSum = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
     } else {
-      if (stat === "chestStrength" || stat === "backStrength" || stat === "coreStrength") {
-        const contributions: number[] = [];
-        EXERCISE_CONFIGS.forEach(config => {
-          const builds = config.builds as any;
-          const pct = builds[stat] || 0;
-          if (pct > 0) {
-            const matchedLogs = exerciseLogs[config.name] || [];
-            const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
-              config.name,
-              stat,
-              matchedLogs,
-              now,
-              bodyWeight,
-              gender
-            );
-            const contrib = statEffectiveLvl * (pct / 100);
-            if (contrib > 0) {
-              contributions.push(contrib);
-            }
-          }
-        });
-        contributions.sort((a, b) => b - a);
-        offsetSum = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
-      } else {
-        EXERCISE_CONFIGS.forEach(config => {
-          const builds = config.builds as any;
-          const pct = builds[stat] || builds.cardio || builds.stamina || builds.speed || 0;
-          if (pct > 0) {
-            const matchedLogs = exerciseLogs[config.name] || [];
-            const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
-              config.name,
-              "cardio",
-              matchedLogs,
-              now,
-              bodyWeight,
-              gender
-            );
-            offsetSum += statEffectiveLvl * (pct / 100);
-          }
-        });
-      }
+      EXERCISE_CONFIGS.forEach(config => {
+        if (config.pillar === "cardio") {
+          const matchedLogs = exerciseLogs[config.name] || [];
+          const statEffectiveLvl = getEffectiveLevelForExerciseAndStat(
+            config.name,
+            "cardio",
+            matchedLogs,
+            now,
+            bodyWeight,
+            gender
+          );
+          offsetSum += statEffectiveLvl;
+        }
+      });
     }
 
     const clampedLvl = Math.max(0.00, offsetSum);
@@ -1956,188 +1159,282 @@ export function evaluateAthletePerformance(
     }
   }
 
-  // Assign backward compatibility cardioStamina if needed
   evaluation.statLevels.cardioStamina = evaluation.statLevels.stamina;
   evaluation.statXps.cardioStamina = evaluation.statXps.stamina;
 
-  // 5. Calculate Weekly Stimulus Progress (Relative Overload %)
-  const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-  logs.forEach(log => {
-    if (!log.exerciseName) return;
-    const elapsedMs = now - new Date(log.timestamp).getTime();
-    if (elapsedMs > oneWeekMs || elapsedMs < -300000) return;
+  // 5. Calculate Weekly & Monthly Progress (Fractional Sets Against Session Target + Decay & Stacking)
+  const oneWeekMs = PROGRESS_CONFIG.weeklyDecayDays * 24 * 60 * 60 * 1000;
+  const oneMonthMs = PROGRESS_CONFIG.monthlyDecayDays * 24 * 60 * 60 * 1000;
 
-    let conf = getExerciseConfig(log.exerciseName);
-    if (!conf) {
-      const dbEx = getAllExercises().find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
-      if (dbEx) {
-        conf = {
-          name: dbEx.name,
-          formType: dbEx.formType as any,
-          baseline: 0,
-          peak: 100,
-          builds: dbEx.builds as any,
-          subCategories: dbEx.subCategories
-        };
-      } else if (log.distance || log.minutes || log.floors || /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(log.exerciseName!)) {
-        conf = {
-          name: log.exerciseName!,
-          formType: "D",
-          baseline: 0,
-          peak: 100,
-          builds: { cardio: 100 }
-        };
-      }
+  const allMuscleKeys: MuscleKey[] = [
+    "chest", "back", "core",
+    "biceps", "triceps", "shoulders", "traps",
+    "quads", "hamstrings", "glutes", "calves"
+  ];
+
+  // Sort valid logs within the 30-day window chronologically (preserving original order for identical timestamps)
+  const validLogs = logs
+    .map((log, idx) => ({ log, idx, time: new Date(log.timestamp).getTime() }))
+    .filter(item => item.log.exerciseName && !isNaN(item.time) && (now - item.time) <= oneMonthMs && (now - item.time) >= -300000)
+    .sort((a, b) => (a.time !== b.time ? a.time - b.time : a.idx - b.idx));
+
+  // Group logs by local calendar day to compute daily fractional set credits and daily session progress
+  interface DayBucket {
+    dateKey: string;
+    timestamp: number;
+    muscleCredits: Record<MuscleKey, number>;
+    cardioProgress: number;
+    exerciseSetCounts: Record<string, number>;
+  }
+
+  const dayBucketsMap = new Map<string, DayBucket>();
+
+  validLogs.forEach(({ log, time }) => {
+    const d = new Date(time);
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+    let bucket = dayBucketsMap.get(dateKey);
+    if (!bucket) {
+      bucket = {
+        dateKey,
+        timestamp: time,
+        muscleCredits: {
+          chest: 0, back: 0, core: 0,
+          biceps: 0, triceps: 0, shoulders: 0, traps: 0,
+          quads: 0, hamstrings: 0, glutes: 0, calves: 0
+        },
+        cardioProgress: 0,
+        exerciseSetCounts: {}
+      };
+      dayBucketsMap.set(dateKey, bucket);
+    }
+    if (time > bucket.timestamp) {
+      bucket.timestamp = time;
+    }
+
+    let conf = getExerciseConfig(log.exerciseName!);
+    const dbEx = getAllExercises().find(c => c.name.toLowerCase() === (conf?.name || log.exerciseName!).toLowerCase());
+    if (!conf && dbEx) {
+      conf = {
+        name: dbEx.name,
+        pillar: dbEx.pillar,
+        formType: dbEx.formType,
+        baseline: 0,
+        peak: 100,
+        muscles: dbEx.muscles || {},
+        builds: dbEx.builds,
+        subCategories: dbEx.subCategories
+      };
+    }
+    if (!conf && isCardioExercise(undefined, undefined, log)) {
+      conf = {
+        name: log.exerciseName!,
+        pillar: "cardio",
+        formType: "D",
+        baseline: 0,
+        peak: 100,
+        muscles: {},
+        builds: { cardio: 100 }
+      };
     }
     if (!conf) return;
 
-    const evalItem = evaluation.logEvaluations[log.id];
-    if (!evalItem) return;
+    const isCardio = isCardioExercise(conf, dbEx, log);
 
-    const dbEx = getAllExercises().find(c => c.name.toLowerCase() === conf.name.toLowerCase());
-    const isCardio = dbEx?.pillar === "cardio" || 
-                     !!(conf.builds as any)?.cardio || 
-                     !!(conf.builds as any)?.stamina || 
-                     !!(conf.builds as any)?.speed ||
-                     log.distance !== undefined ||
-                     log.minutes !== undefined ||
-                     log.floors !== undefined;
-
-    let progress = 0;
     if (isCardio) {
-      // Cardio logs represent complete workout sessions - yield progress directly proportional to log score
-      const score = evalItem.score > 0 ? evalItem.score : 100;
-      progress = Math.max(10, Math.min(100, score));
+      const rawCardioScore = calculateScoreFromLog(log, bodyWeight, "cardio", gender);
+      const cardioScore = Math.max(0, Math.min(100, rawCardioScore));
+      bucket.cardioProgress += cardioScore;
+
+      // Cardio adds (score / 100) * 2 fractional sets, split across the listed muscles (§3)
+      const muscleEntries = (Object.entries(conf.muscles || {}) as [MuscleKey, number][]).filter(([_, w]) => (w || 0) > 0);
+      if (muscleEntries.length > 0 && cardioScore > 0) {
+        const totalWeight = muscleEntries.reduce((sum, [_, w]) => sum + (w || 0), 0);
+        const totalCardioSets = (cardioScore / 100) * PROGRESS_CONFIG.cardioMuscleSetsPer100;
+        muscleEntries.forEach(([mKey, w]) => {
+          bucket!.muscleCredits[mKey] += totalCardioSets * ((w || 0) / totalWeight);
+        });
+      }
     } else {
-      // Intensity ratio R is dynamically calculated against historical peak capacity
-      const R = Math.max(0, Math.min(1.1, evalItem.ratio));
+      // Strength & Bodyweight model: fractional sets against session target (§2)
+      const setNum = (bucket.exerciseSetCounts[conf.name] || 0) + 1;
+      bucket.exerciseSetCounts[conf.name] = setNum;
 
-      // Diminishing returns volume gatekeeper based on sets logged on same day
-      const currentSetNum = getSessionSetCount(log, logs);
-      let volumeModifier = 1.00;
-      if (currentSetNum === 1) volumeModifier = 0.10;
-      else if (currentSetNum === 2) volumeModifier = 0.35;
-      else if (currentSetNum === 3) volumeModifier = 0.65;
-      else if (currentSetNum === 4) volumeModifier = 0.85;
-      else volumeModifier = 1.00;
+      const setFactor = getSetFactor(setNum);
+      if (setFactor <= 0) return;
 
-      // Progress scales exponentially: R^3 * 25, gated by session volume modifier
-      progress = Math.pow(R, 3) * 25 * volumeModifier;
-    }
+      const evalItem = evaluation.logEvaluations[log.id];
+      const ratio = evalItem ? evalItem.ratio : 1.0;
+      const effort = getEffortFactor(ratio);
+      if (effort <= 0) return;
 
-    statNames.forEach(stat => {
-      const builds = conf.builds as any;
-      let pct = builds[stat] || 0;
-      if (stat === "cardio") {
-        pct = builds.cardio || (builds.stamina || 0) + (builds.speed || 0);
-        if (pct === 0 && isCardio) {
-          pct = 100;
-        }
-      }
-      if (pct > 0) {
-        let addedProgress = progress * (pct / 100);
-
-        // Core progress builds 2.5x slower (scaled by 0.40) to prevent instant max-outs from indirect exercises
-        if (stat === "coreStrength") {
-          addedProgress *= 0.40;
-        }
-
-        if (stat !== "armStrength" && stat !== "legStrength") {
-          evaluation.weeklyVolume[stat] += addedProgress;
-        } else {
-          // Accumulate subcategory weekly progress
-          const isArm = stat === "armStrength";
-          const subsList = isArm ? ["biceps", "triceps", "shoulders", "traps"] as const : ["quads", "hamstrings", "glutes", "calves"] as const;
-          const configSubs = conf.subCategories || [];
-          let hasMatchedSub = false;
-          subsList.forEach(sub => {
-            if (configSubs.includes(sub)) {
-              evaluation.weeklySubVolume[sub] += progress * (pct / 100);
-              hasMatchedSub = true;
-            }
-          });
-          if (!hasMatchedSub) {
-            subsList.forEach(sub => {
-              evaluation.weeklySubVolume[sub] += progress * (pct / 100);
-            });
-          }
-        }
-      }
-    });
-
-    // If this is a run exercise of >= 5.0 miles or >= 60 minutes, fill speed and stamina all the way
-    const isRun = conf.name === "Treadmill Run / Jog" || conf.name === "Sprint Intervals" || (dbEx?.pillar === "cardio" && (conf.name.toLowerCase().includes("run") || conf.name.toLowerCase().includes("sprint") || conf.name.toLowerCase().includes("jog")));
-    if (isRun && ((log.distance && log.distance >= 5.0) || (log.minutes && log.minutes >= 60))) {
-      evaluation.weeklyVolume.cardio = 100.0;
-      evaluation.weeklyVolume.speed = 100.0;
-      evaluation.weeklyVolume.stamina = 100.0;
+      const muscleEntries = (Object.entries(conf.muscles || {}) as [MuscleKey, number][]).filter(([_, w]) => (w || 0) > 0);
+      muscleEntries.forEach(([mKey, muscleWeight]) => {
+        const credit = effort * setFactor * (muscleWeight || 0);
+        bucket!.muscleCredits[mKey] += credit;
+      });
     }
   });
 
-  // Clamp subcategory weekly progress values at 100.0% max
-  subCategoryNames.forEach(sub => {
-    evaluation.weeklySubVolume[sub] = parseFloat(
-      Math.min(100.0, evaluation.weeklySubVolume[sub]).toFixed(1)
-    );
-  });
+  // Process day buckets chronologically to apply linear decay and stacking per muscle (capped at 100%)
+  const sortedBuckets = Array.from(dayBucketsMap.values()).sort((a, b) => a.timestamp - b.timestamp);
 
-  // Clamp non-arm/leg weekly volume values at 100.0% max
-  statNames.forEach(stat => {
-    if (stat !== "armStrength" && stat !== "legStrength") {
-      evaluation.weeklyVolume[stat] = parseFloat(
-        Math.min(100.0, evaluation.weeklyVolume[stat]).toFixed(1)
-      );
-    }
-  });
+  const weeklyMuscleProgress: Record<MuscleKey, number> = {
+    chest: 0, back: 0, core: 0,
+    biceps: 0, triceps: 0, shoulders: 0, traps: 0,
+    quads: 0, hamstrings: 0, glutes: 0, calves: 0
+  };
+  const weeklyLastTime: Record<MuscleKey, number> = {
+    chest: 0, back: 0, core: 0,
+    biceps: 0, triceps: 0, shoulders: 0, traps: 0,
+    quads: 0, hamstrings: 0, glutes: 0, calves: 0
+  };
 
-  evaluation.weeklyVolume.speed = evaluation.weeklyVolume.cardio;
-  evaluation.weeklyVolume.stamina = evaluation.weeklyVolume.cardio;
+  const monthlyMuscleProgress: Record<MuscleKey, number> = {
+    chest: 0, back: 0, core: 0,
+    biceps: 0, triceps: 0, shoulders: 0, traps: 0,
+    quads: 0, hamstrings: 0, glutes: 0, calves: 0
+  };
+  const monthlyLastTime: Record<MuscleKey, number> = {
+    chest: 0, back: 0, core: 0,
+    biceps: 0, triceps: 0, shoulders: 0, traps: 0,
+    quads: 0, hamstrings: 0, glutes: 0, calves: 0
+  };
 
-  // --- WORKOUT PROGRESS BALANCE DECAY (7-DAY LINEAR DECAY OVERRIDE) ---
-  let lastWorkoutTime = 0;
-  logs.forEach(log => {
-    const t = new Date(log.timestamp).getTime();
-    if (t > lastWorkoutTime) lastWorkoutTime = t;
-  });
+  let weeklyCardioProgress = 0;
+  let weeklyCardioLastTime = 0;
+  let monthlyCardioProgress = 0;
+  let monthlyCardioLastTime = 0;
 
-  if (lastWorkoutTime > 0) {
-    const elapsedSeconds = (now - lastWorkoutTime) / 1000;
-    const decayAmount = (elapsedSeconds / 604800) * 100; // Linear progress decay reaches 0 after 7 days
+  sortedBuckets.forEach(bucket => {
+    const t = bucket.timestamp;
 
-    subCategoryNames.forEach(sub => {
-      const baseVol = evaluation.weeklySubVolume[sub];
-      evaluation.weeklySubVolume[sub] = parseFloat(Math.max(0, baseVol - decayAmount).toFixed(1));
-    });
+    allMuscleKeys.forEach(mKey => {
+      const credits = bucket.muscleCredits[mKey];
+      if (credits > 0) {
+        const target = PROGRESS_CONFIG.muscleTargets[mKey];
+        const sessionProgress = Math.min(100, (credits / target) * 100);
 
-    statNames.forEach(stat => {
-      if (stat !== "armStrength" && stat !== "legStrength") {
-        const baseVol = evaluation.weeklyVolume[stat];
-        evaluation.weeklyVolume[stat] = parseFloat(Math.max(0, baseVol - decayAmount).toFixed(1));
+        // Weekly stacking with 7-day linear decay
+        if (weeklyLastTime[mKey] > 0) {
+          const elapsed = Math.max(0, t - weeklyLastTime[mKey]);
+          const decay = (elapsed / oneWeekMs) * 100;
+          weeklyMuscleProgress[mKey] = Math.max(0, weeklyMuscleProgress[mKey] - decay);
+        }
+        weeklyMuscleProgress[mKey] = Math.min(100, weeklyMuscleProgress[mKey] + sessionProgress);
+        weeklyLastTime[mKey] = t;
+
+        // Monthly stacking with 30-day linear decay (consistent: 1 full session = 100%)
+        if (monthlyLastTime[mKey] > 0) {
+          const elapsed = Math.max(0, t - monthlyLastTime[mKey]);
+          const decay = (elapsed / oneMonthMs) * 100;
+          monthlyMuscleProgress[mKey] = Math.max(0, monthlyMuscleProgress[mKey] - decay);
+        }
+        monthlyMuscleProgress[mKey] = Math.min(100, monthlyMuscleProgress[mKey] + sessionProgress);
+        monthlyLastTime[mKey] = t;
       }
     });
 
-    // Calculate arm and leg progress as averages of their subcategories
-    evaluation.weeklyVolume["armStrength"] = parseFloat(
-      ((evaluation.weeklySubVolume["biceps"] +
-        evaluation.weeklySubVolume["triceps"] +
-        evaluation.weeklySubVolume["shoulders"] +
-        evaluation.weeklySubVolume["traps"]) / 4).toFixed(1)
-    );
-    evaluation.weeklyVolume["legStrength"] = parseFloat(
-      ((evaluation.weeklySubVolume["quads"] +
-        evaluation.weeklySubVolume["hamstrings"] +
-        evaluation.weeklySubVolume["glutes"] +
-        evaluation.weeklySubVolume["calves"]) / 4).toFixed(1)
-    );
-  } else {
-    // No workouts logged = 0% progress
-    statNames.forEach(stat => {
-      evaluation.weeklyVolume[stat] = 0;
-    });
-    subCategoryNames.forEach(sub => {
-      evaluation.weeklySubVolume[sub] = 0;
-    });
+    if (bucket.cardioProgress > 0) {
+      const sessionCardio = Math.min(100, bucket.cardioProgress);
+
+      if (weeklyCardioLastTime > 0) {
+        const elapsed = Math.max(0, t - weeklyCardioLastTime);
+        const decay = (elapsed / oneWeekMs) * 100;
+        weeklyCardioProgress = Math.max(0, weeklyCardioProgress - decay);
+      }
+      weeklyCardioProgress = Math.min(100, weeklyCardioProgress + sessionCardio);
+      weeklyCardioLastTime = t;
+
+      if (monthlyCardioLastTime > 0) {
+        const elapsed = Math.max(0, t - monthlyCardioLastTime);
+        const decay = (elapsed / oneMonthMs) * 100;
+        monthlyCardioProgress = Math.max(0, monthlyCardioProgress - decay);
+      }
+      monthlyCardioProgress = Math.min(100, monthlyCardioProgress + sessionCardio);
+      monthlyCardioLastTime = t;
+    }
+  });
+
+  // Final linear decay from each muscle's last active session timestamp up to `now`
+  allMuscleKeys.forEach(mKey => {
+    if (weeklyLastTime[mKey] > 0) {
+      const elapsed = Math.max(0, now - weeklyLastTime[mKey]);
+      const decay = (elapsed / oneWeekMs) * 100;
+      weeklyMuscleProgress[mKey] = parseFloat(Math.max(0, Math.min(100, weeklyMuscleProgress[mKey] - decay)).toFixed(1));
+    }
+    if (monthlyLastTime[mKey] > 0) {
+      const elapsed = Math.max(0, now - monthlyLastTime[mKey]);
+      const decay = (elapsed / oneMonthMs) * 100;
+      monthlyMuscleProgress[mKey] = parseFloat(Math.max(0, Math.min(100, monthlyMuscleProgress[mKey] - decay)).toFixed(1));
+    }
+  });
+
+  if (weeklyCardioLastTime > 0) {
+    const elapsed = Math.max(0, now - weeklyCardioLastTime);
+    const decay = (elapsed / oneWeekMs) * 100;
+    weeklyCardioProgress = parseFloat(Math.max(0, Math.min(100, weeklyCardioProgress - decay)).toFixed(1));
   }
+  if (monthlyCardioLastTime > 0) {
+    const elapsed = Math.max(0, now - monthlyCardioLastTime);
+    const decay = (elapsed / oneMonthMs) * 100;
+    monthlyCardioProgress = parseFloat(Math.max(0, Math.min(100, monthlyCardioProgress - decay)).toFixed(1));
+  }
+
+  // Assign capped & decayed sub-muscles first
+  subCategoryNames.forEach(sub => {
+    evaluation.weeklySubVolume[sub] = weeklyMuscleProgress[sub];
+    evaluation.monthlySubVolume[sub] = monthlyMuscleProgress[sub];
+  });
+
+  // Assign main sections and weighted radar roll-ups for Arms & Legs
+  evaluation.weeklyVolume.chestStrength = weeklyMuscleProgress.chest;
+  evaluation.weeklyVolume.backStrength = weeklyMuscleProgress.back;
+  evaluation.weeklyVolume.coreStrength = weeklyMuscleProgress.core;
+  evaluation.weeklyVolume.cardio = weeklyCardioProgress;
+  evaluation.weeklyVolume.speed = weeklyCardioProgress;
+  evaluation.weeklyVolume.stamina = weeklyCardioProgress;
+
+  evaluation.weeklyVolume.armStrength = parseFloat(
+    (
+      evaluation.weeklySubVolume.biceps * PROGRESS_CONFIG.armRollupWeights.biceps +
+      evaluation.weeklySubVolume.triceps * PROGRESS_CONFIG.armRollupWeights.triceps +
+      evaluation.weeklySubVolume.shoulders * PROGRESS_CONFIG.armRollupWeights.shoulders +
+      evaluation.weeklySubVolume.traps * PROGRESS_CONFIG.armRollupWeights.traps
+    ).toFixed(1)
+  );
+  evaluation.weeklyVolume.legStrength = parseFloat(
+    (
+      evaluation.weeklySubVolume.quads * PROGRESS_CONFIG.legRollupWeights.quads +
+      evaluation.weeklySubVolume.hamstrings * PROGRESS_CONFIG.legRollupWeights.hamstrings +
+      evaluation.weeklySubVolume.glutes * PROGRESS_CONFIG.legRollupWeights.glutes +
+      evaluation.weeklySubVolume.calves * PROGRESS_CONFIG.legRollupWeights.calves
+    ).toFixed(1)
+  );
+
+  evaluation.monthlyVolume.chestStrength = monthlyMuscleProgress.chest;
+  evaluation.monthlyVolume.backStrength = monthlyMuscleProgress.back;
+  evaluation.monthlyVolume.coreStrength = monthlyMuscleProgress.core;
+  evaluation.monthlyVolume.cardio = monthlyCardioProgress;
+  evaluation.monthlyVolume.speed = monthlyCardioProgress;
+  evaluation.monthlyVolume.stamina = monthlyCardioProgress;
+
+  evaluation.monthlyVolume.armStrength = parseFloat(
+    (
+      evaluation.monthlySubVolume.biceps * PROGRESS_CONFIG.armRollupWeights.biceps +
+      evaluation.monthlySubVolume.triceps * PROGRESS_CONFIG.armRollupWeights.triceps +
+      evaluation.monthlySubVolume.shoulders * PROGRESS_CONFIG.armRollupWeights.shoulders +
+      evaluation.monthlySubVolume.traps * PROGRESS_CONFIG.armRollupWeights.traps
+    ).toFixed(1)
+  );
+  evaluation.monthlyVolume.legStrength = parseFloat(
+    (
+      evaluation.monthlySubVolume.quads * PROGRESS_CONFIG.legRollupWeights.quads +
+      evaluation.monthlySubVolume.hamstrings * PROGRESS_CONFIG.legRollupWeights.hamstrings +
+      evaluation.monthlySubVolume.glutes * PROGRESS_CONFIG.legRollupWeights.glutes +
+      evaluation.monthlySubVolume.calves * PROGRESS_CONFIG.legRollupWeights.calves
+    ).toFixed(1)
+  );
 
   // 6. Calculate 72-Hour recovery status timelines
   const seventyTwoHoursMs = 72 * 60 * 60 * 1000;
@@ -2184,45 +1481,8 @@ export function getUndecayedStats(
   bodyWeight: number = 175,
   gender: "male" | "female" = "male"
 ): Record<string, number> {
-  const dailyRepVolume: Record<string, number> = {};
-  logs.forEach(log => {
-    if (!log.exerciseName) return;
-    const conf = getExerciseConfig(log.exerciseName);
-    const resolvedName = conf ? conf.name : log.exerciseName.trim();
-    const anchor = SCALING_ANCHORS[resolvedName];
-    if (!anchor) return;
-    
-    const dateStr = new Date(log.timestamp).toISOString().split("T")[0];
-    
-    if (anchor.type === "reps") {
-      const reps = log.reps || 0;
-      if (reps > 0) {
-        dailyRepVolume[dateStr] = (dailyRepVolume[dateStr] || 0) + reps;
-      }
-    } else if (anchor.type === "weightRatio") {
-      const reps = log.reps || 0;
-      if (reps > 10) {
-        const overflow = reps - 10;
-        dailyRepVolume[dateStr] = (dailyRepVolume[dateStr] || 0) + overflow;
-      }
-    }
-  });
-
-  const virtualLogs: FitnessLog[] = [...logs];
-  Object.entries(dailyRepVolume).forEach(([dateStr, totalReps]) => {
-    virtualLogs.push({
-      id: `virtual-bw-stamina-${dateStr}`,
-      timestamp: `${dateStr}T12:00:00.000Z`,
-      metricType: "general_workout",
-      title: "Daily Bodyweight / Rep Volume",
-      exerciseName: "Bodyweight Volume Stamina",
-      newValue: `${totalReps} reps`,
-      reps: totalReps
-    });
-  });
-
   const exerciseLogs: Record<string, FitnessLog[]> = {};
-  virtualLogs.forEach(log => {
+  logs.forEach(log => {
     if (!log.exerciseName) return;
     const conf = getExerciseConfig(log.exerciseName);
     const resolvedName = conf ? conf.name : log.exerciseName.trim();
@@ -2233,7 +1493,7 @@ export function getUndecayedStats(
   });
 
   const prByExercise: Record<string, number> = {};
-  virtualLogs.forEach(log => {
+  logs.forEach(log => {
     if (!log.exerciseName) return;
     const score = calculateScoreFromLog(log, bodyWeight, undefined, gender);
     const conf = getExerciseConfig(log.exerciseName);
@@ -2273,31 +1533,17 @@ export function getUndecayedStats(
     const contributions: number[] = [];
     let hasNonMachineLog = false;
     let hasAnyLog = false;
-    const parentStat = ["biceps", "triceps", "shoulders", "traps"].includes(sub) ? "armStrength" : "legStrength";
-    const subsList = parentStat === "armStrength"
-      ? ["biceps", "triceps", "shoulders", "traps"]
-      : ["quads", "hamstrings", "glutes", "calves"];
 
     EXERCISE_CONFIGS.forEach(config => {
-      const builds = config.builds as any;
-      const pct = builds[parentStat] || 0;
-      if (pct > 0) {
-        const configSubs = config.subCategories || [];
-        let isMatched = configSubs.includes(sub);
-        if (!isMatched && !configSubs.some(s => subsList.includes(s))) {
-          isMatched = true;
-        }
-
-        if (isMatched) {
-          const peak = peakLevels[config.name] || 0;
-          const contrib = peak * (pct / 100);
-          if (contrib > 0) {
-            contributions.push(contrib);
-            hasAnyLog = true;
-            const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
-            if (dbEx?.pillar !== "machines") {
-              hasNonMachineLog = true;
-            }
+      const w = config.muscles[sub] || 0;
+      if (w > 0) {
+        const peak = peakLevels[config.name] || 0;
+        const contrib = peak * w;
+        if (contrib > 0) {
+          contributions.push(contrib);
+          hasAnyLog = true;
+          if (config.pillar !== "machines") {
+            hasNonMachineLog = true;
           }
         }
       }
@@ -2309,7 +1555,7 @@ export function getUndecayedStats(
     }
 
     contributions.sort((a, b) => b - a);
-    let rawSubLvl = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
+    const rawSubLvl = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
 
     let finalSubLvl = Math.max(0.00, rawSubLvl);
     if (finalSubLvl > 50) {
@@ -2334,20 +1580,28 @@ export function getUndecayedStats(
 
     if (stat === "armStrength" || stat === "legStrength") {
       if (stat === "armStrength") {
-        finalLvl = (undecayedSubLevels.biceps + undecayedSubLevels.triceps + undecayedSubLevels.shoulders + undecayedSubLevels.traps) / 4;
+        finalLvl =
+          undecayedSubLevels.biceps * PROGRESS_CONFIG.armRollupWeights.biceps +
+          undecayedSubLevels.triceps * PROGRESS_CONFIG.armRollupWeights.triceps +
+          undecayedSubLevels.shoulders * PROGRESS_CONFIG.armRollupWeights.shoulders +
+          undecayedSubLevels.traps * PROGRESS_CONFIG.armRollupWeights.traps;
       } else {
-        finalLvl = (undecayedSubLevels.quads + undecayedSubLevels.hamstrings + undecayedSubLevels.glutes + undecayedSubLevels.calves) / 4;
+        finalLvl =
+          undecayedSubLevels.quads * PROGRESS_CONFIG.legRollupWeights.quads +
+          undecayedSubLevels.hamstrings * PROGRESS_CONFIG.legRollupWeights.hamstrings +
+          undecayedSubLevels.glutes * PROGRESS_CONFIG.legRollupWeights.glutes +
+          undecayedSubLevels.calves * PROGRESS_CONFIG.legRollupWeights.calves;
       }
     } else {
       let offsetSum = 0;
       if (stat === "chestStrength" || stat === "backStrength" || stat === "coreStrength") {
+        const muscleKey: MuscleKey = stat === "chestStrength" ? "chest" : stat === "backStrength" ? "back" : "core";
         const contributions: number[] = [];
         EXERCISE_CONFIGS.forEach(config => {
-          const builds = config.builds as any;
-          const pct = builds[stat] || 0;
-          if (pct > 0) {
+          const w = config.muscles[muscleKey] || 0;
+          if (w > 0) {
             const peak = peakLevels[config.name] || 0;
-            const contrib = peak * (pct / 100);
+            const contrib = peak * w;
             if (contrib > 0) {
               contributions.push(contrib);
             }
@@ -2357,10 +1611,8 @@ export function getUndecayedStats(
         offsetSum = (contributions[0] || 0) * 1.00 + (contributions[1] || 0) * 0.50 + (contributions[2] || 0) * 0.25;
       } else {
         EXERCISE_CONFIGS.forEach(config => {
-          const builds = config.builds as any;
-          const pct = builds[stat] || builds.cardio || builds.stamina || builds.speed || 0;
-          if (pct > 0) {
-            offsetSum += (peakLevels[config.name] || 0) * (pct / 100);
+          if (config.pillar === "cardio") {
+            offsetSum += peakLevels[config.name] || 0;
           }
         });
       }
@@ -2368,11 +1620,10 @@ export function getUndecayedStats(
       let hasNonMachineLog = false;
       EXERCISE_CONFIGS.forEach(config => {
         const builds = config.builds as any;
-        const isMatched = builds[stat] > 0 || (stat === "cardio" && (builds.cardio || builds.stamina || builds.speed));
+        const isMatched = builds[stat] > 0 || (stat === "cardio" && config.pillar === "cardio");
         if (isMatched) {
           const matchedLogs = exerciseLogs[config.name] || [];
-          const dbEx = getAllExercises().find(e => e.name.toLowerCase() === config.name.toLowerCase());
-          if (matchedLogs.length > 0 && dbEx?.pillar !== "machines") {
+          if (matchedLogs.length > 0 && config.pillar !== "machines") {
             hasNonMachineLog = true;
           }
         }
@@ -2410,7 +1661,7 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
   if (typeof window === "undefined" || !window.localStorage) return;
 
   const now = Date.now();
-  
+
   let gender: "male" | "female" = "male";
   try {
     const profileStr = localStorage.getItem("fitquest_profile");
@@ -2439,7 +1690,7 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
   }
 
   const statNames = ["chestStrength", "backStrength", "armStrength", "legStrength", "coreStrength", "cardio", "speed", "stamina"] as const;
-  
+
   statNames.forEach(stat => {
     const sCalc = (stat === "speed" || stat === "stamina") ? (baseStats.cardio || 0) : (baseStats[stat] || 0);
     const existing = decayStats[stat];
@@ -2451,11 +1702,11 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
 
     logs.forEach(log => {
       if (!log.exerciseName) return;
-      let conf = getExerciseConfig(log.exerciseName);
+      const conf = getExerciseConfig(log.exerciseName);
       if (!conf) return;
       const builds = conf.builds as any;
-      const isMatch = (builds[stat] && builds[stat] > 0) || 
-                      ((stat === "cardio" || stat === "speed" || stat === "stamina") && (builds.cardio || builds.stamina || builds.speed || log.distance || log.minutes));
+      const isMatch = (builds[stat] && builds[stat] > 0) ||
+                      ((stat === "cardio" || stat === "speed" || stat === "stamina") && conf.pillar === "cardio");
       if (isMatch) {
         const logTime = new Date(log.timestamp).getTime();
         const logWeight = log.weight || 0;
@@ -2508,8 +1759,7 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
       const conf = getExerciseConfig(l.exerciseName);
       if (!conf) return;
       const builds = conf.builds as any;
-      const dbEx = getAllExercises().find(e => e.name.toLowerCase() === conf.name.toLowerCase());
-      if (builds[stat] && builds[stat] > 0 && dbEx?.pillar !== "machines") {
+      if (builds[stat] && builds[stat] > 0 && conf.pillar !== "machines") {
         hasNonMachineLog = true;
       }
     });
@@ -2536,7 +1786,7 @@ export function runStateDecayEngine(logs: FitnessLog[], bodyWeight: number = 175
  */
 export function updateDecayOnNewLog(log: FitnessLog, logs: FitnessLog[], bodyWeight: number = 175): void {
   if (typeof window === "undefined" || !window.localStorage) return;
-  
+
   // Re-run the decay calculation flow completely on the new dataset
   runStateDecayEngine(logs, bodyWeight);
 }
@@ -2796,7 +2046,7 @@ export function calculateAllRecords(logs: FitnessLog[]): { title: string; val: s
 }
 
 /**
- * Calculates the percentage distribution of logged workouts across all 13 muscle sectors and stamina/speed.
+ * Calculates the percentage distribution of logged workouts across all muscle sectors and cardio.
  */
 export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, number> {
   const totals: Record<string, number> = {
@@ -2820,83 +2070,24 @@ export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, 
 
   logs.forEach(log => {
     if (!log.exerciseName) return;
-    let conf = EXERCISE_CONFIGS.find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
-    if (!conf) {
-      const dbEx = getAllExercises().find(c => c.name.toLowerCase() === log.exerciseName!.toLowerCase());
-      if (dbEx) {
-        conf = {
-          name: dbEx.name,
-          formType: dbEx.formType as any,
-          baseline: 0,
-          peak: 100,
-          builds: dbEx.builds as any,
-          subCategories: dbEx.subCategories
-        };
-      } else if (log.distance || log.minutes || log.floors || /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(log.exerciseName!)) {
-        conf = {
-          name: log.exerciseName!,
-          formType: "D",
-          baseline: 0,
-          peak: 100,
-          builds: { cardio: 100 }
-        };
-      }
-    }
+    const conf = getExerciseConfig(log.exerciseName);
     if (!conf) return;
 
-    const builds = conf.builds as any;
-    
-    // Chest, Back, Core, Cardio, Speed, Stamina
-    const mainStats = ["chestStrength", "backStrength", "coreStrength", "cardio", "speed", "stamina"] as const;
-    mainStats.forEach(stat => {
-      const pct = builds[stat] || 0;
-      if (pct > 0) {
-        totals[stat] += pct;
-        grandTotal += pct;
+    if (conf.pillar === "cardio") {
+      totals.cardio += 1;
+      grandTotal += 1;
+    }
+
+    const muscleEntries = Object.entries(conf.muscles || {}) as [MuscleKey, number][];
+    muscleEntries.forEach(([mKey, w]) => {
+      if ((w || 0) > 0) {
+        if (mKey === "chest") totals.chestStrength += w;
+        else if (mKey === "back") totals.backStrength += w;
+        else if (mKey === "core") totals.coreStrength += w;
+        else totals[mKey] += w;
+        grandTotal += w;
       }
     });
-
-    // Arms subcategories
-    const armPct = builds.armStrength || 0;
-    if (armPct > 0) {
-      const armSubs = ["biceps", "triceps", "shoulders", "traps"] as const;
-      const configSubs = conf.subCategories || [];
-      let hasMatched = false;
-      armSubs.forEach(sub => {
-        if (configSubs.includes(sub)) {
-          totals[sub] += armPct;
-          grandTotal += armPct;
-          hasMatched = true;
-        }
-      });
-      if (!hasMatched) {
-        armSubs.forEach(sub => {
-          totals[sub] += armPct;
-          grandTotal += armPct;
-        });
-      }
-    }
-
-    // Legs subcategories
-    const legPct = builds.legStrength || 0;
-    if (legPct > 0) {
-      const legSubs = ["quads", "hamstrings", "glutes", "calves"] as const;
-      const configSubs = conf.subCategories || [];
-      let hasMatched = false;
-      legSubs.forEach(sub => {
-        if (configSubs.includes(sub)) {
-          totals[sub] += legPct;
-          grandTotal += legPct;
-          hasMatched = true;
-        }
-      });
-      if (!hasMatched) {
-        legSubs.forEach(sub => {
-          totals[sub] += legPct;
-          grandTotal += legPct;
-        });
-      }
-    }
   });
 
   const distribution: Record<string, number> = {};
@@ -2912,3 +2103,4 @@ export function calculateMuscleDistribution(logs: FitnessLog[]): Record<string, 
 
   return distribution;
 }
+

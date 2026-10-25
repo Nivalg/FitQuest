@@ -71,6 +71,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
   const handleMuscleTap = (muscle: string) => {
     setSelectedHudMuscle(muscle);
+    if (muscle === "cardio" && activeFilter === "weights") {
+      setActiveFilter("bodyweight");
+    }
   };
 
   // Custom Workout Routines and Recents states
@@ -223,11 +226,41 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     }
   };
 
-  const getExerciseEquipmentType = (pillar: string, name: string): "weights" | "machines" | "bodyweight" | "cardio" => {
-    if (pillar === "cardio") return "cardio";
+  const getExerciseEquipmentType = (pillar: string, name: string): "weights" | "machines" | "bodyweight" => {
     if (pillar === "weights") return "weights";
     if (pillar === "machines") return "machines";
     if (pillar === "bodyweight") return "bodyweight";
+    if (pillar === "cardio") {
+      const lower = name.toLowerCase();
+      // Machine-based cardio equipment
+      if (
+        lower.includes("treadmill") ||
+        lower.includes("stairmaster") ||
+        lower.includes("spin bike") ||
+        lower === "bicycle" ||
+        lower.includes("stationary") ||
+        lower.includes("elliptical") ||
+        lower.includes("rowing machine") ||
+        lower.includes("rower") ||
+        lower.includes("erg") ||
+        lower.includes("machine")
+      ) {
+        return "machines";
+      }
+      // Weighted conditioning / cardio
+      if (
+        lower.includes("kettlebell") ||
+        lower.includes("dumbbell") ||
+        lower.includes("barbell") ||
+        lower.includes("sled") ||
+        lower.includes("farmer") ||
+        lower.includes("ruck")
+      ) {
+        return "weights";
+      }
+      // Bodyweight / outdoor / free-movement cardio
+      return "bodyweight";
+    }
     return "bodyweight";
   };
 
@@ -454,38 +487,26 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
   const getExercisesForMuscle = (muscle: string) => {
     return getAllExercises().filter(ex => {
-      const nameLower = ex.name.toLowerCase().trim();
-      
+      const m = (ex.muscles || {}) as Record<string, number>;
       switch (muscle) {
         case "cardio":
-          return ex.pillar === "cardio" || !!ex.builds.cardio || ex.subCategories?.includes("cardio");
-        case "chest":
-          return !!ex.builds.chestStrength || ex.subCategories?.includes("chest") || nameLower.includes("push") || nameLower.includes("bench") || nameLower.includes("fly") || nameLower.includes("pec");
-        case "back":
-          return !!ex.builds.backStrength || ex.subCategories?.includes("back") || nameLower.includes("row") || nameLower.includes("pulldown") || nameLower.includes("pull-up") || nameLower.includes("pullup") || nameLower.includes("deadlift") || nameLower.includes("superman");
-        case "core":
-          return !!ex.builds.coreStrength || ex.subCategories?.includes("core") || nameLower.includes("plank") || nameLower.includes("crunch") || nameLower.includes("sit-up") || nameLower.includes("twist") || nameLower.includes("ab");
         case "speed":
         case "stamina":
-          return ex.pillar === "cardio" || !!ex.builds.cardio || !!ex.builds.speed || !!ex.builds.stamina;
+          return ex.pillar === "cardio";
+        case "chest":
+        case "back":
+        case "core":
         case "shoulders":
-          return ex.subCategories?.includes("shoulders") || nameLower.includes("overhead press") || nameLower.includes("lateral raise") || nameLower.includes("front raise") || nameLower.includes("deltoid") || nameLower.includes("pike");
         case "biceps":
-          return ex.subCategories?.includes("biceps") || nameLower.includes("bicep") || nameLower.includes("curl") || nameLower.includes("chin-up");
         case "triceps":
-          return ex.subCategories?.includes("triceps") || nameLower.includes("tricep") || nameLower.includes("pushdown") || nameLower.includes("skull") || nameLower.includes("dip");
         case "traps":
-          return ex.subCategories?.includes("traps") || nameLower.includes("shrug") || nameLower.includes("upright row");
         case "quads":
-          return ex.subCategories?.includes("quads") || nameLower.includes("squat") || nameLower.includes("leg press") || nameLower.includes("leg extension") || nameLower.includes("quad extension") || nameLower.includes("lunge");
         case "hamstrings":
-          return ex.subCategories?.includes("hamstrings") || nameLower.includes("hamstring") || nameLower.includes("romanian") || nameLower.includes("good morning") || nameLower.includes("stiff leg");
         case "glutes":
-          return ex.subCategories?.includes("glutes") || nameLower.includes("glute") || nameLower.includes("hip thrust") || nameLower.includes("abduction") || nameLower.includes("kickback");
         case "calves":
-          return ex.subCategories?.includes("calves") || nameLower.includes("calf") || nameLower.includes("calves");
+          return (m[muscle] || 0) > 0;
         case "forearms":
-          return ex.subCategories?.includes("forearms") || nameLower.includes("forearm") || nameLower.includes("wrist") || nameLower.includes("grip");
+          return (m.biceps || 0) > 0 || ex.name.toLowerCase().includes("curl") || ex.name.toLowerCase().includes("deadlift") || ex.name.toLowerCase().includes("row") || ex.name.toLowerCase().includes("pull");
         default:
           return false;
       }
@@ -494,55 +515,19 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
   const getExercisesForFocusGroup = (focusId: string) => {
     const list = EXERCISE_DATABASE.filter(ex => {
-      const nameLower = ex.name.toLowerCase().trim();
-      
-      if (focusId === "speed") {
-        const speedNames = [
-          "treadmill run / jog",
-          "box jumps",
-          "jump rope",
-          "bicycle",
-          "elliptical",
-          "squat jumps",
-          "hiking",
-          "power clean",
-          "barbell squat",
-          "dumbbell lunges",
-          "kettlebell swings",
-          "walking"
-        ];
-        return speedNames.includes(nameLower);
+      if (focusId === "speed" || focusId === "stamina" || focusId === "cardio") {
+        return ex.pillar === "cardio";
       }
-      if (focusId === "stamina") {
-        const staminaNames = [
-          "regular push-ups",
-          "treadmill run / jog",
-          "bodyweight squats",
-          "jumping jacks",
-          "rowing machine",
-          "elliptical",
-          "burpees",
-          "kettlebell swings",
-          "bicycle",
-          "stairmaster",
-          "hiking",
-          "walking"
-        ];
-        return staminaNames.includes(nameLower);
-      }
-      
       if (focusId === "chest") return !!ex.builds.chestStrength;
       if (focusId === "back") return !!ex.builds.backStrength;
       if (focusId === "legs") return !!ex.builds.legStrength;
       if (focusId === "arms") return !!ex.builds.armStrength;
       if (focusId === "core") return !!ex.builds.coreStrength;
-      
       return false;
     });
 
-    // Filter by anatomical subcategory if selected
     if (selectedSubCategory && selectedSubCategory !== "all") {
-      return list.filter(ex => ex.subCategories?.includes(selectedSubCategory));
+      return list.filter(ex => (ex.muscles as any)?.[selectedSubCategory] > 0 || ex.subCategories?.includes(selectedSubCategory));
     }
 
     return list;
@@ -644,11 +629,15 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     }
 
     let buildsDict: Record<string, number> = {};
+    let musclesDict: Record<string, number> = {};
     let subCats: string[] = [];
 
     const weightPerMuscle = Math.round(100 / customExMuscles.length);
-    customExMuscles.forEach(m => {
+    customExMuscles.forEach((m, idx) => {
       subCats.push(m);
+      if (m !== "cardio" && m !== "speed" && m !== "stamina") {
+        musclesDict[m] = idx === 0 ? 1.0 : 0.5;
+      }
       if (m === "chest") buildsDict.chestStrength = (buildsDict.chestStrength || 0) + weightPerMuscle;
       else if (m === "back") buildsDict.backStrength = (buildsDict.backStrength || 0) + weightPerMuscle;
       else if (m === "core") buildsDict.coreStrength = (buildsDict.coreStrength || 0) + weightPerMuscle;
@@ -662,6 +651,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       pillar: customExPillar,
       formType: customExFormType,
       description: `Custom ${customExPillar} exercise targeting ${customExMuscles.join(", ")}.`,
+      muscles: musclesDict,
       builds: buildsDict,
       subCategories: subCats,
       image: customExImageUrl.trim() || undefined
@@ -1019,15 +1009,10 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   <div className="grid grid-cols-1 gap-3">
                     {(() => {
                       const activeExercises = getExercisesForMuscle(selectedHudMuscle);
-                      const filteredExercises = activeExercises.filter(ex => {
-                        if (selectedHudMuscle === "cardio") {
-                          return true;
-                        }
+                      const displayExercises = activeExercises.filter(ex => {
                         const eqType = getExerciseEquipmentType(ex.pillar, ex.name);
                         return eqType === activeFilter;
                       });
-
-                      const displayExercises = (filteredExercises.length > 0) ? filteredExercises : activeExercises;
 
                       return (
                         <>
@@ -1066,7 +1051,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                           })}
                           {displayExercises.length === 0 && (
                             <div className="col-span-2 text-center py-6 text-slate-500 border border-dashed border-slate-850 rounded-2xl font-mono text-[9px] uppercase">
-                              No exercises found for this muscle zone.
+                              No {activeFilter === "weights" ? "Free Weight" : activeFilter === "machines" ? "Machine" : "Bodyweight"} exercises found for {selectedHudMuscle}.
                             </div>
                           )}
                         </>

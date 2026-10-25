@@ -32,7 +32,22 @@ import {
 import { motion } from "motion/react";
 import MuscleVolumeVisualizer from "./MuscleVolumeVisualizer";
 import BodyStatusMap from "./BodyStatusMap";
-import { getDailyQuests, getAchievements } from "../utils/quests";
+import {
+  QUEST_CATALOG,
+  MAX_ACTIVE_QUESTS,
+  QuestCategory,
+  QuestTierKey,
+  ActiveQuestInstance,
+  CompletedQuestRecord,
+  QuestQuickLogPreset,
+  getActiveQuests,
+  saveActiveQuests,
+  getCompletedQuests,
+  saveCompletedQuests,
+  evaluateActiveQuests,
+  toLocalDateKey,
+  getAchievements
+} from "../utils/quests";
 import { EXERCISE_DATABASE } from "../exercises";
 
 const YOUTUBE_CHANNEL_LINK = "https://youtube.com/channel/UCwr35GfgTWfafg9qt6RQkMQ";
@@ -295,6 +310,17 @@ interface AthleteDashboardProps {
   logs: FitnessLog[];
   onProfileUpdate?: (profile: AthleteProfile) => void;
   onRecordLog?: (logData: any) => void;
+  onLogWorkout?: (params: {
+    exerciseName: string;
+    categoryName: string;
+    weight?: number;
+    reps?: number;
+    minutes?: number;
+    seconds?: number;
+    distance?: number;
+    floors?: number;
+    notes?: string;
+  }) => void;
   onReset: () => void;
   onNavigateToLogs: () => void;
   onNavigateToExercises: () => void;
@@ -304,6 +330,7 @@ export default function AthleteDashboard({
   profile,
   logs,
   onProfileUpdate,
+  onLogWorkout,
   onReset,
   onNavigateToLogs,
   onNavigateToExercises
@@ -313,7 +340,191 @@ export default function AthleteDashboard({
   const [hudViewSide, setHudViewSide] = React.useState<"front" | "back">("front");
   const [selectedHudMuscle, setSelectedHudMuscle] = React.useState<string>("chest");
 
-  const dailyQuests = React.useMemo(() => getDailyQuests(logs), [logs]);
+  // Quest Board state
+  const [activeQuests, setActiveQuests] = React.useState<ActiveQuestInstance[]>(() => getActiveQuests());
+  const [completedQuests, setCompletedQuests] = React.useState<CompletedQuestRecord[]>(() => getCompletedQuests());
+  const [selectedQuestCategory, setSelectedQuestCategory] = React.useState<QuestCategory>("milestone");
+  const [selectedTierByQuest, setSelectedTierByQuest] = React.useState<Record<string, QuestTierKey>>({});
+  const [selectedVariantByQuest, setSelectedVariantByQuest] = React.useState<Record<string, string>>({});
+  const [questFeedback, setQuestFeedback] = React.useState<string | null>(null);
+
+  const showQuestFeedback = (msg: string) => {
+    setQuestFeedback(msg);
+    setTimeout(() => {
+      setQuestFeedback(prev => (prev === msg ? null : prev));
+    }, 3500);
+  };
+
+  const evaluatedQuests = React.useMemo(
+    () => evaluateActiveQuests(activeQuests, logs),
+    [activeQuests, logs]
+  );
+
+  const unlockedTitles = React.useMemo(() => {
+    const fromProfile = profile.unlockedTitles || [];
+    const fromCompleted = completedQuests.map(c => c.rewardTitle).filter(Boolean);
+    return Array.from(new Set([...fromProfile, ...fromCompleted]));
+  }, [profile.unlockedTitles, completedQuests]);
+
+  const handleAcceptQuest = (questId: string) => {
+    if (activeQuests.length >= MAX_ACTIVE_QUESTS) {
+      showQuestFeedback(`Quest log full! Complete or abandon an active quest (max ${MAX_ACTIVE_QUESTS}).`);
+      return;
+    }
+    if (activeQuests.some(q => q.questId === questId)) {
+      showQuestFeedback("You already have this quest active!");
+      return;
+    }
+    const template = QUEST_CATALOG.find(q => q.id === questId);
+    if (!template) return;
+
+    const tier: QuestTierKey = selectedTierByQuest[questId] || "apprentice";
+    const variantId = selectedVariantByQuest[questId] || template.variants?.[0]?.id;
+    const tierConfig = template.getTiers(variantId)[tier];
+
+    const now = new Date();
+    const expires = new Date(now.getTime() + tierConfig.durationDays * 24 * 60 * 60 * 1000);
+
+    const newInstance: ActiveQuestInstance = {
+      instanceId: `${questId}_${Date.now()}`,
+      questId,
+      tier,
+      variantId,
+      acceptedAt: now.toISOString(),
+      expiresAt: expires.toISOString(),
+      restPotionsRemaining: tierConfig.restPotions,
+      shieldedDates: [],
+      manualProgress: {},
+      manualDailyProgress: {}
+    };
+
+    const next = [...activeQuests, newInstance];
+    setActiveQuests(next);
+    saveActiveQuests(next);
+    showQuestFeedback(`Accepted Quest: ${template.title} (${tierConfig.rankLabel})!`);
+  };
+
+  const handleAbandonQuest = (instanceId: string) => {
+    const next = activeQuests.filter(q => q.instanceId !== instanceId);
+    setActiveQuests(next);
+    saveActiveQuests(next);
+    showQuestFeedback("Quest abandoned. Slot freed.");
+  };
+
+  const handleUseRestPotion = (instanceId: string) => {
+    const todayKey = toLocalDateKey(Date.now());
+    const next = activeQuests.map(q => {
+      if (q.instanceId !== instanceId) return q;
+      if (q.restPotionsRemaining <= 0) return q;
+      if (q.shieldedDates.includes(todayKey)) return q;
+      return {
+        ...q,
+        restPotionsRemaining: q.restPotionsRemaining - 1,
+        shieldedDates: [...q.shieldedDates, todayKey]
+      };
+    });
+    setActiveQuests(next);
+    saveActiveQuests(next);
+    showQuestFeedback("🧪 Rest Potion consumed! Today's streak is shielded.");
+  };
+
+  const handleQuickLogObjective = (
+    instanceId: string,
+    objectiveId: string,
+    isStreakQuest: boolean,
+    preset: QuestQuickLogPreset
+  ) => {
+    if (onLogWorkout) {
+      onLogWorkout({
+        exerciseName: preset.exerciseName,
+        categoryName: preset.categoryName,
+        weight: preset.weight,
+        reps: preset.reps,
+        minutes: preset.minutes,
+        seconds: preset.seconds,
+        distance: preset.distance,
+        floors: preset.floors,
+        notes: "Logged via Quest Tracker"
+      });
+    } else {
+      // Fallback if onLogWorkout is not provided: record in manualProgress
+      const todayKey = toLocalDateKey(Date.now());
+      const next = activeQuests.map(q => {
+        if (q.instanceId !== instanceId) return q;
+        if (isStreakQuest) {
+          const dayMap = q.manualDailyProgress?.[todayKey] || {};
+          return {
+            ...q,
+            manualDailyProgress: {
+              ...(q.manualDailyProgress || {}),
+              [todayKey]: {
+                ...dayMap,
+                [objectiveId]: (dayMap[objectiveId] || 0) + preset.amount
+              }
+            }
+          };
+        }
+        return {
+          ...q,
+          manualProgress: {
+            ...(q.manualProgress || {}),
+            [objectiveId]: (q.manualProgress?.[objectiveId] || 0) + preset.amount
+          }
+        };
+      });
+      setActiveQuests(next);
+      saveActiveQuests(next);
+    }
+    showQuestFeedback(`Logged ${preset.buttonLabel} (${preset.exerciseName})!`);
+  };
+
+  const handleClaimQuestReward = (eq: ReturnType<typeof evaluateActiveQuests>[number]) => {
+    if (!eq.isReadyToClaim) return;
+
+    const record: CompletedQuestRecord = {
+      instanceId: eq.instance.instanceId,
+      questId: eq.template.id,
+      title: eq.template.title,
+      tier: eq.instance.tier,
+      rankLabel: eq.tierConfig.rankLabel,
+      rewardXP: eq.tierConfig.rewardXP,
+      rewardTitle: eq.tierConfig.rewardTitle,
+      completedAt: new Date().toISOString()
+    };
+
+    const nextCompleted = [record, ...completedQuests];
+    setCompletedQuests(nextCompleted);
+    saveCompletedQuests(nextCompleted);
+
+    const nextActive = activeQuests.filter(q => q.instanceId !== eq.instance.instanceId);
+    setActiveQuests(nextActive);
+    saveActiveQuests(nextActive);
+
+    if (onProfileUpdate) {
+      const nextTitles = Array.from(new Set([...(profile.unlockedTitles || []), eq.tierConfig.rewardTitle]));
+      onProfileUpdate({
+        ...profile,
+        questXP: (profile.questXP || 0) + eq.tierConfig.rewardXP,
+        unlockedTitles: nextTitles,
+        equippedTitle: profile.equippedTitle || eq.tierConfig.rewardTitle
+      });
+    }
+
+    showQuestFeedback(
+      `🏆 QUEST CLEARED! +${eq.tierConfig.rewardXP} XP & Unlocked Title: "${eq.tierConfig.rewardTitle}"!`
+    );
+  };
+
+  const handleEquipTitle = (title: string) => {
+    if (!onProfileUpdate) return;
+    const nextEquipped = profile.equippedTitle === title ? undefined : title;
+    onProfileUpdate({
+      ...profile,
+      equippedTitle: nextEquipped
+    });
+    showQuestFeedback(nextEquipped ? `Equipped Title: "${nextEquipped}"` : "Title unequipped.");
+  };
+
   const achievements = React.useMemo(() => getAchievements(logs, profile), [logs, profile]);
   const [selectedStatDetail, setSelectedStatDetail] = React.useState<{
     key: string;
@@ -368,6 +579,8 @@ export default function AthleteDashboard({
   const performance = evaluateAthletePerformance(logs, profile.bodyWeight, profile.gender || "male");
   const weeklyVolume = performance.weeklyVolume;
   const weeklySubVolume = performance.weeklySubVolume;
+  const monthlyVolume = performance.monthlyVolume;
+  const monthlySubVolume = performance.monthlySubVolume;
   const recoveryRemaining = performance.recoveryRemaining;
   const exerciseDetails = performance.exerciseDetails;
 
@@ -654,25 +867,21 @@ export default function AthleteDashboard({
     };
   }, [muscleDistribution]);
 
-  const aiCoachInsights = React.useMemo(() => {
-    const list: { type: "warning" | "tip" | "success"; text: string }[] = [];
-    if (logs.length === 0) {
-      list.push({
-        type: "tip",
-        text: "Begin logging your workouts to receive training balance coaching and insights!"
-      });
-      return list;
-    }
-
+  const daysSinceLastTrained = React.useMemo(() => {
     const now = Date.now();
     const oneDayMs = 24 * 60 * 60 * 1000;
 
-    // Define groups by exercise config builds
     const groupLastTrained: Record<string, number> = {
       chest: 0,
       back: 0,
-      arms: 0,
-      legs: 0,
+      biceps: 0,
+      triceps: 0,
+      shoulders: 0,
+      traps: 0,
+      quads: 0,
+      hamstrings: 0,
+      glutes: 0,
+      calves: 0,
       core: 0,
       cardio: 0
     };
@@ -685,114 +894,139 @@ export default function AthleteDashboard({
         if (dbEx) {
           conf = {
             name: dbEx.name,
+            pillar: dbEx.pillar,
             formType: dbEx.formType as any,
             baseline: 0,
             peak: 100,
+            muscles: dbEx.muscles || {},
             builds: dbEx.builds as any,
             subCategories: dbEx.subCategories
           };
-        } else if (log.distance || log.minutes || log.floors || /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(log.exerciseName!)) {
+        } else if (log.categoryName?.toLowerCase() === "cardio" || log.distance || log.minutes || log.floors || /run|jog|sprint|walk|bike|bicycle|cycling|stair|rope|elliptical|rowing|hike|cardio/i.test(log.exerciseName!)) {
           conf = {
             name: log.exerciseName!,
+            pillar: "cardio",
             formType: "D",
             baseline: 0,
             peak: 100,
+            muscles: {},
             builds: { cardio: 100 }
           };
         }
       }
       if (!conf) return;
 
+      const m = conf.muscles || {};
       const builds = conf.builds as any;
+      const subs = conf.subCategories || [];
       const logTime = new Date(log.timestamp).getTime();
 
-      if ((builds.chestStrength || 0) > 0) groupLastTrained.chest = Math.max(groupLastTrained.chest, logTime);
-      if ((builds.backStrength || 0) > 0) groupLastTrained.back = Math.max(groupLastTrained.back, logTime);
-      if ((builds.armStrength || 0) > 0) groupLastTrained.arms = Math.max(groupLastTrained.arms, logTime);
-      if ((builds.legStrength || 0) > 0) groupLastTrained.legs = Math.max(groupLastTrained.legs, logTime);
-      if ((builds.coreStrength || 0) > 0) groupLastTrained.core = Math.max(groupLastTrained.core, logTime);
-      if ((builds.speed || 0) > 0 || (builds.stamina || 0) > 0 || (builds.cardio || 0) > 0) groupLastTrained.cardio = Math.max(groupLastTrained.cardio, logTime);
+      if ((m.chest || 0) > 0 || (builds.chestStrength || 0) > 0) groupLastTrained.chest = Math.max(groupLastTrained.chest, logTime);
+      if ((m.back || 0) > 0 || (builds.backStrength || 0) > 0) groupLastTrained.back = Math.max(groupLastTrained.back, logTime);
+      if ((m.biceps || 0) > 0 || subs.includes("biceps")) groupLastTrained.biceps = Math.max(groupLastTrained.biceps, logTime);
+      if ((m.triceps || 0) > 0 || subs.includes("triceps")) groupLastTrained.triceps = Math.max(groupLastTrained.triceps, logTime);
+      if ((m.shoulders || 0) > 0 || subs.includes("shoulders")) groupLastTrained.shoulders = Math.max(groupLastTrained.shoulders, logTime);
+      if ((m.traps || 0) > 0 || subs.includes("traps")) groupLastTrained.traps = Math.max(groupLastTrained.traps, logTime);
+      if ((m.quads || 0) > 0 || subs.includes("quads")) groupLastTrained.quads = Math.max(groupLastTrained.quads, logTime);
+      if ((m.hamstrings || 0) > 0 || subs.includes("hamstrings")) groupLastTrained.hamstrings = Math.max(groupLastTrained.hamstrings, logTime);
+      if ((m.glutes || 0) > 0 || subs.includes("glutes")) groupLastTrained.glutes = Math.max(groupLastTrained.glutes, logTime);
+      if ((m.calves || 0) > 0 || subs.includes("calves")) groupLastTrained.calves = Math.max(groupLastTrained.calves, logTime);
+      if ((m.core || 0) > 0 || (builds.coreStrength || 0) > 0) groupLastTrained.core = Math.max(groupLastTrained.core, logTime);
+      if (conf.pillar === "cardio") groupLastTrained.cardio = Math.max(groupLastTrained.cardio, logTime);
     });
 
-    const labels: Record<string, string> = {
-      chest: "Chest/Push",
-      back: "Back/Pull",
-      arms: "Arms & Shoulders",
-      legs: "Lower Body (Legs)",
-      core: "Core Stability",
-      cardio: "Cardio & Endurance"
-    };
+    const sectors = [
+      { key: "chest", label: "CHEST", icon: "🛡️" },
+      { key: "back", label: "BACK", icon: "⚔️" },
+      { key: "biceps", label: "BICEPS", icon: "💪" },
+      { key: "triceps", label: "TRICEPS", icon: "⚡" },
+      { key: "shoulders", label: "SHOULDERS", icon: "🎯" },
+      { key: "traps", label: "TRAPS", icon: "🐂" },
+      { key: "quads", label: "QUADS", icon: "🦵" },
+      { key: "hamstrings", label: "HAMSTRINGS", icon: "🏃" },
+      { key: "glutes", label: "GLUTES", icon: "🍑" },
+      { key: "calves", label: "CALVES", icon: "🥾" },
+      { key: "core", label: "CORE", icon: "🧘" },
+      { key: "cardio", label: "CARDIO", icon: "❤️" }
+    ];
 
-    // 1. Neglected Zones Check
-    Object.entries(groupLastTrained).forEach(([key, lastTime]) => {
-      const name = labels[key];
-      if (lastTime === 0) {
-        list.push({
-          type: "warning",
-          text: `You have never logged a ${name} workout! Consider scheduling a session for balance.`
-        });
-      } else {
-        const days = (now - lastTime) / oneDayMs;
-        if (days > 8) {
-          list.push({
-            type: "warning",
-            text: `It has been ${Math.floor(days)} days since your last ${name} workout. Don't neglect this muscle zone!`
-          });
-        }
+    const totalPips = 5;
+
+    return sectors.map(sector => {
+      const lastTime = groupLastTrained[sector.key] || 0;
+      let days = 31;
+      if (lastTime > 0) {
+        days = Math.max(0, Math.floor((now - lastTime) / oneDayMs));
       }
-    });
+      const isOver30 = lastTime === 0 || days >= 30;
+      const clampedDays = isOver30 ? 30 : days;
 
-    // 2. Hyper-focused Zone Check
-    const dist = balanceDistribution;
-    if (dist.chest > 35) {
-      list.push({
-        type: "tip",
-        text: `Your Chest volume is high (${dist.chest}% of total volume). Balance it with Back/Pulling exercises to prevent shoulder issues.`
-      });
-    }
-    if (dist.legs > 40) {
-      list.push({
-        type: "tip",
-        text: `You are crushing leg days (${dist.legs}% of total volume)! Keep up the great lower-body foundation.`
-      });
-    }
-    if (dist.cardio < 8) {
-      list.push({
-        type: "warning",
-        text: `Cardio accounts for only ${dist.cardio}% of your workouts. Adding Treadmill Runs or Stairmaster sessions will increase your Stamina.`
-      });
-    }
-
-    // 3. Specific Exercise Overuse Check (bench press focus)
-    const exerciseCountLast14Days: Record<string, number> = {};
-    let recentLogsCount = 0;
-    logs.forEach(log => {
-      const ageDays = (now - new Date(log.timestamp).getTime()) / oneDayMs;
-      if (ageDays <= 14 && log.exerciseName) {
-        exerciseCountLast14Days[log.exerciseName] = (exerciseCountLast14Days[log.exerciseName] || 0) + 1;
-        recentLogsCount++;
+      // 5-pip segmented battery drain curve across 30 days:
+      // 0-2 days: 5 pips (Full / Fresh)
+      // 3-6 days: 4 pips (Active)
+      // 7-13 days: 3 pips (Cooling)
+      // 14-21 days: 2 pips (Fading)
+      // 22-29 days: 1 pip (Critical)
+      // 30+ days: 0 pips (Drained)
+      let filledPips = 0;
+      if (!isOver30) {
+        if (days <= 2) filledPips = 5;
+        else if (days <= 6) filledPips = 4;
+        else if (days <= 13) filledPips = 3;
+        else if (days <= 21) filledPips = 2;
+        else filledPips = 1;
       }
+
+      const pipColor =
+        filledPips >= 4
+          ? "bg-emerald-400 border-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.45)]"
+          : filledPips === 3
+          ? "bg-amber-400 border-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.35)]"
+          : filledPips === 2
+          ? "bg-orange-500 border-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.35)]"
+          : "bg-rose-500 border-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.45)] animate-pulse";
+
+      const stateLabel =
+        filledPips === 5
+          ? "FRESH"
+          : filledPips === 4
+          ? "CHARGED"
+          : filledPips === 3
+          ? "COOLING"
+          : filledPips === 2
+          ? "FADING"
+          : filledPips === 1
+          ? "CRITICAL"
+          : "DRAINED";
+
+      const shortDaysText = isOver30
+        ? "30+d"
+        : days === 0
+        ? "TODAY"
+        : `${days}d AGO`;
+
+      const statusText = isOver30
+        ? "30+ DAYS"
+        : days === 0
+        ? "TODAY"
+        : days === 1
+        ? "1 DAY AGO"
+        : `${days} DAYS AGO`;
+
+      return {
+        ...sector,
+        days,
+        isOver30,
+        clampedDays,
+        totalPips,
+        filledPips,
+        pipColor,
+        stateLabel,
+        shortDaysText,
+        statusText
+      };
     });
-
-    Object.entries(exerciseCountLast14Days).forEach(([exName, count]) => {
-      if (recentLogsCount >= 5 && count / recentLogsCount > 0.45) {
-        list.push({
-          type: "tip",
-          text: `Bench Press/workout overuse alert: "${exName}" represents ${Math.round((count / recentLogsCount) * 100)}% of your recent sets. Try variations (like incline dumbbell or push-ups) to vary load.`
-        });
-      }
-    });
-
-    // If balanced
-    if (list.filter(i => i.type === "warning").length === 0) {
-      list.push({
-        type: "success",
-        text: "Outstanding training balance! Your body split has no critical gaps or neglected zones."
-      });
-    }
-
-    return list;
-  }, [logs, balanceDistribution]);
+  }, [logs]);
 
   const groupedLogHistory = React.useMemo(() => {
     // 1. Sort logs chronologically (descending)
@@ -1105,15 +1339,25 @@ export default function AthleteDashboard({
             <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-emerald-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
             
             <div className="flex items-center justify-between w-full gap-4">
-              {/* Left side: name & rank */}
+              {/* Left side: name, equipped title & rank */}
               <div className="text-center flex flex-col items-center justify-center space-y-1.5 min-w-0 flex-1">
                 <h2 className="text-xs sm:text-sm font-press-start text-white tracking-wider truncate w-full text-center">
                   {profile.name.toUpperCase()}
                 </h2>
-                <div className="flex justify-center w-full mt-1">
+                {profile.equippedTitle && (
+                  <span className="inline-block text-[8px] font-press-start text-amber-300 bg-amber-950/30 border border-amber-400/40 px-2.5 py-0.5 rounded-full tracking-wider uppercase truncate max-w-full">
+                    « {profile.equippedTitle} »
+                  </span>
+                )}
+                <div className="flex flex-wrap items-center justify-center gap-1.5 w-full mt-1">
                   <span className="inline-block text-[10px] font-mono font-extrabold bg-[#0D0D0E] text-slate-300 border border-slate-800 px-3 py-1 rounded-lg truncate max-w-full shadow-sm">
                     {overallTier.name.toUpperCase()}
                   </span>
+                  {(profile.questXP || 0) > 0 && (
+                    <span className="inline-block text-[9px] font-mono font-extrabold bg-cyan-950/40 text-cyan-300 border border-cyan-500/30 px-2 py-1 rounded-lg">
+                      {profile.questXP} Q-XP
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1143,7 +1387,12 @@ export default function AthleteDashboard({
           {/* 🚀 DYNAMIC WEEKLY VOLUME TRACKER (BODY STATUS MAP) */}
           <div className="space-y-3">
             <BodyStatusMap weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
-            <MuscleVolumeVisualizer weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
+            <MuscleVolumeVisualizer
+              weeklyVolume={weeklyVolume}
+              weeklySubVolume={weeklySubVolume}
+              monthlyVolume={monthlyVolume}
+              monthlySubVolume={monthlySubVolume}
+            />
           </div>
 
           {/* TRAINING FOCUS DISTRIBUTION CHART */}
@@ -1279,35 +1528,108 @@ export default function AthleteDashboard({
           transition={{ duration: 0.2 }}
           className="space-y-6"
         >
-          {/* A. TRAINING INSIGHTS & BALANCE COACH */}
+          {/* A. SEGMENTED PIP / BATTERY FRESHNESS METER */}
           <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
+            <div className="border-b border-slate-800 pb-3 flex items-center justify-between gap-2">
               <div>
                 <span className="text-[9px] font-press-start text-cyan-400 tracking-wider block uppercase">
-                  🤖 AI BALANCE COACH
+                  🔋 MUSCLE CHARGE & DECAY BATTERY
                 </span>
                 <p className="text-[8px] text-slate-400 font-mono mt-1">
-                  Actionable insights based on your recent training volume logs.
+                  5-pip arcade charge meter. Pips drain over 30 days as a muscle group goes untrained.
                 </p>
               </div>
-              <Sparkles className="w-4 h-4 text-cyan-400 animate-pulse" />
+              <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
             </div>
 
-            <div className="space-y-2.5">
-              {aiCoachInsights.map((insight, idx) => {
-                let borderStyle = "border-slate-850 bg-[#0D0D0E]";
-                let icon = "💡";
-                if (insight.type === "warning") {
-                  borderStyle = "border-amber-500/30 bg-amber-955/5 text-amber-300";
-                  icon = "⚠️";
-                } else if (insight.type === "success") {
-                  borderStyle = "border-emerald-500/30 bg-emerald-955/5 text-emerald-300";
-                  icon = "✅";
-                }
+            {/* Legend */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-[#0D0D0E] border border-slate-850 rounded-xl px-3 py-2 text-[7.5px] font-mono text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-xs bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
+                <span>5/5 Fresh (0–2d)</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-xs bg-amber-400" />
+                <span>3/5 Cooling (7–13d)</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-2.5 h-2.5 rounded-xs bg-[#161B22] border border-slate-700" />
+                <span>0/5 Drained (30+d)</span>
+              </span>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              {daysSinceLastTrained.map((sector) => {
+                const badgeStyle =
+                  sector.filledPips >= 4
+                    ? "text-emerald-300 bg-emerald-950/40 border-emerald-500/40"
+                    : sector.filledPips === 3
+                    ? "text-amber-300 bg-amber-950/40 border-amber-500/40"
+                    : sector.filledPips >= 1
+                    ? "text-orange-300 bg-orange-950/40 border-orange-500/40"
+                    : "text-slate-500 bg-slate-900/60 border-slate-800";
+
                 return (
-                  <div key={idx} className={`p-3 border rounded-xl flex items-start gap-2.5 text-[9px] font-mono leading-relaxed transition ${borderStyle}`}>
-                    <span className="text-xs shrink-0 select-none">{icon}</span>
-                    <span>{insight.text}</span>
+                  <div
+                    key={sector.key}
+                    className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{sector.icon}</span>
+                        <span className="text-[8.5px] font-press-start text-slate-100 tracking-wider">
+                          {sector.label}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[8px] font-mono text-slate-400">
+                          {sector.shortDaysText}
+                        </span>
+                        <span
+                          className={`text-[7px] font-press-start px-2 py-0.5 rounded border ${badgeStyle}`}
+                        >
+                          {sector.stateLabel} ({sector.filledPips}/{sector.totalPips})
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 5-Pip Arcade Battery Container + Battery Terminal Cap */}
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 grid grid-cols-5 gap-1.5 bg-[#07090C] border-2 border-slate-800 rounded-xl p-1.5">
+                        {Array.from({ length: sector.totalPips }, (_, pipIdx) => {
+                          const isFilled = pipIdx < sector.filledPips;
+                          return (
+                            <div
+                              key={pipIdx}
+                              className={`h-4 rounded-md border transition-all duration-300 relative overflow-hidden ${
+                                isFilled
+                                  ? sector.pipColor
+                                  : "bg-[#11151C] border-slate-800/80 opacity-45"
+                              }`}
+                            >
+                              {isFilled ? (
+                                /* Retro pixel highlight strip on active pips */
+                                <div className="absolute top-0.5 left-1 right-1 h-1 bg-white/30 rounded-full pointer-events-none" />
+                              ) : (
+                                /* Diagonal drained/shattered hatch line on empty pips */
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="w-3 h-[1px] bg-slate-700/60 rotate-[-20deg]" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Battery Positive Terminal Nub */}
+                      <div
+                        className={`w-1.5 h-3.5 rounded-r-sm border-y border-r transition-colors ${
+                          sector.filledPips === sector.totalPips
+                            ? "bg-emerald-400 border-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
+                            : "bg-slate-800 border-slate-700"
+                        }`}
+                      />
+                    </div>
                   </div>
                 );
               })}
@@ -1457,65 +1779,476 @@ export default function AthleteDashboard({
           transition={{ duration: 0.2 }}
           className="space-y-6"
         >
-          {/* 1. SOLO LEVELING SYSTEM DAILY QUEST HEADER */}
+          {/* QUEST FEEDBACK TOAST BANNER */}
+          {questFeedback && (
+            <div className="bg-cyan-950/80 border-2 border-cyan-400 text-cyan-200 px-4 py-3 rounded-xl text-[9px] font-press-start tracking-wide text-center shadow-[0_0_20px_rgba(6,182,212,0.3)] animate-fade-in">
+              {questFeedback}
+            </div>
+          )}
+
+          {/* 1. ACTIVE QUEST CONTRACTS (UP TO 3) */}
           <div className="bg-[#161B22] border-2 border-cyan-500/40 rounded-2xl p-5 shadow-2xl space-y-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-            
+
             <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
                 <span className="text-[10px] font-press-start text-cyan-300 uppercase tracking-widest">
-                  DAILY SYSTEM QUESTS
+                  ACTIVE CONTRACTS
                 </span>
               </div>
-              <span className="text-[8px] font-mono text-slate-400 uppercase">
-                RESETS IN 24H
+              <span className="text-[8.5px] font-press-start text-emerald-400 bg-emerald-950/30 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+                {evaluatedQuests.length} / {MAX_ACTIVE_QUESTS} ACTIVE
               </span>
             </div>
 
-            <div className="space-y-3">
-              {dailyQuests.map((quest) => {
-                const pct = Math.min(100, Math.round((quest.current / quest.target) * 100));
+            {evaluatedQuests.length === 0 ? (
+              <div className="bg-[#0D0D0E] border border-dashed border-slate-800 rounded-xl p-5 text-center space-y-2">
+                <p className="text-[9px] font-press-start text-slate-400 uppercase">
+                  NO ACTIVE QUESTS SELECTED
+                </p>
+                <p className="text-[9px] font-mono text-slate-500 leading-relaxed">
+                  Choose a quest rank below on the Guild Quest Board and tap <span className="text-cyan-400 font-bold">ACCEPT QUEST</span> to begin tracking!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {evaluatedQuests.map((eq) => {
+                  const categoryBadgeColors: Record<QuestCategory, string> = {
+                    milestone: "text-cyan-300 border-cyan-500/40 bg-cyan-950/30",
+                    streak: "text-amber-300 border-amber-500/40 bg-amber-950/30",
+                    lore: "text-purple-300 border-purple-500/40 bg-purple-950/30",
+                    boss: "text-rose-300 border-rose-500/40 bg-rose-950/30"
+                  };
+
+                  return (
+                    <div
+                      key={eq.instance.instanceId}
+                      className={`p-4 border-2 rounded-2xl space-y-3.5 transition ${
+                        eq.isReadyToClaim
+                          ? "bg-emerald-950/20 border-emerald-400/70 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                          : "bg-[#0D0D0E] border-slate-800"
+                      }`}
+                    >
+                      {/* Header Row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="text-2xl p-2 bg-[#161B22] border border-slate-800 rounded-xl shrink-0">
+                            {eq.template.icon}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-[9.5px] font-press-start text-white tracking-wide">
+                                {eq.template.title}
+                              </span>
+                              <span
+                                className={`text-[7px] font-press-start px-2 py-0.5 rounded border uppercase ${
+                                  categoryBadgeColors[eq.template.category]
+                                }`}
+                              >
+                                {eq.tierConfig.rankLabel}
+                              </span>
+                              {eq.variantLabel && (
+                                <span className="text-[7px] font-mono font-bold text-slate-300 bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded uppercase">
+                                  {eq.variantLabel}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[8px] font-mono text-slate-400 mt-1">
+                              Reward: <span className="text-cyan-400 font-bold">+{eq.tierConfig.rewardXP} XP</span> • Title:{" "}
+                              <span className="text-amber-300 font-bold">«{eq.tierConfig.rewardTitle}»</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          {eq.isReadyToClaim ? (
+                            <span className="px-2 py-1 bg-emerald-400 text-slate-950 text-[7.5px] font-press-start rounded font-black tracking-wider inline-block">
+                              READY!
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-mono text-slate-400 block">
+                              ⏳ {eq.daysRemaining}d {eq.hoursRemaining}h left
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Streak Quest Banner + Rest Potion Control */}
+                      {eq.isStreakQuest && (
+                        <div className="bg-[#161B22] border border-amber-500/30 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2">
+                          <div className="space-y-0.5">
+                            <div className="text-[8px] font-press-start text-amber-300 flex items-center gap-1.5">
+                              <span>🔥 STREAK: {eq.streakDaysCompleted} / {eq.streakTargetDays} DAYS</span>
+                              {eq.todayCompleted && (
+                                <span className="text-[7px] bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-1.5 py-0.5 rounded">
+                                  {eq.todayShielded ? "SHIELDED TODAY" : "TODAY DONE ✓"}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[7.5px] font-mono text-slate-400">
+                              Complete today's daily targets below or use a Rest Potion to protect your streak.
+                            </p>
+                          </div>
+
+                          {eq.instance.restPotionsRemaining > 0 && !eq.todayCompleted && (
+                            <button
+                              type="button"
+                              onClick={() => handleUseRestPotion(eq.instance.instanceId)}
+                              className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/50 text-amber-300 text-[7.5px] font-press-start tracking-wider cursor-pointer active:scale-95 transition shrink-0"
+                            >
+                              🧪 USE REST POTION ({eq.instance.restPotionsRemaining})
+                            </button>
+                          )}
+                          {eq.instance.restPotionsRemaining === 0 && (
+                            <span className="text-[7.5px] font-mono text-slate-500">
+                              🧪 0 Rest Potions left
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Objectives List with Live Bars & Quick-Log Micro-Set Buttons */}
+                      <div className="space-y-2.5">
+                        {eq.objectives.map((obj) => (
+                          <div
+                            key={obj.id}
+                            className="bg-[#141920] border border-slate-850 rounded-xl p-2.5 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[8.5px] font-mono font-bold text-slate-200">
+                                {obj.label}
+                              </span>
+                              <span className="text-[8.5px] font-mono text-cyan-300 font-bold shrink-0">
+                                {obj.current.toLocaleString()} / {obj.target.toLocaleString()} {obj.unit} ({obj.pct}%)
+                              </span>
+                            </div>
+
+                            <div className="w-full bg-[#090B0E] h-2 rounded-full overflow-hidden border border-slate-800">
+                              <div
+                                className={`h-full transition-all duration-500 ${
+                                  obj.completed
+                                    ? "bg-gradient-to-r from-emerald-400 to-cyan-400"
+                                    : "bg-gradient-to-r from-cyan-500 to-blue-500"
+                                }`}
+                                style={{ width: `${obj.pct}%` }}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="text-[7.5px] font-mono text-slate-500">
+                                Auto-tracks from Exercise tab or quick-log:
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleQuickLogObjective(
+                                    eq.instance.instanceId,
+                                    obj.id,
+                                    eq.isStreakQuest,
+                                    obj.quickLog
+                                  )
+                                }
+                                className="px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/40 text-cyan-300 text-[7.5px] font-press-start tracking-wide cursor-pointer active:scale-95 transition"
+                              >
+                                {obj.quickLog.buttonLabel}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Footer Actions: Claim Reward or Abandon */}
+                      <div className="flex items-center justify-between gap-2 pt-1">
+                        {eq.isReadyToClaim ? (
+                          <button
+                            type="button"
+                            onClick={() => handleClaimQuestReward(eq)}
+                            className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 text-[9px] font-press-start font-black tracking-wider uppercase shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:brightness-110 cursor-pointer active:scale-98 transition"
+                          >
+                            ✨ CLAIM REWARD (+{eq.tierConfig.rewardXP} XP & TITLE)
+                          </button>
+                        ) : (
+                          <div className="text-[8px] font-mono text-slate-500">
+                            Overall Quest Completion:{" "}
+                            <span className="text-cyan-400 font-bold">{eq.overallPct}%</span>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleAbandonQuest(eq.instance.instanceId)}
+                          className="px-2.5 py-1.5 rounded-lg border border-slate-800 hover:border-rose-500/40 text-slate-500 hover:text-rose-400 text-[7.5px] font-mono uppercase cursor-pointer transition"
+                        >
+                          Abandon
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* UNLOCKED TITLES BAR (IF ANY UNLOCKED) */}
+          {unlockedTitles.length > 0 && (
+            <div className="bg-[#161B22] border-2 border-amber-500/30 rounded-2xl p-4 shadow-xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-press-start text-amber-300 uppercase tracking-wider">
+                  👑 UNLOCKED GUILD TITLES ({unlockedTitles.length})
+                </span>
+                <span className="text-[7.5px] font-mono text-slate-400">
+                  Tap to equip on Character card
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {unlockedTitles.map((title) => {
+                  const isEquipped = profile.equippedTitle === title;
+                  return (
+                    <button
+                      key={title}
+                      type="button"
+                      onClick={() => handleEquipTitle(title)}
+                      className={`px-3 py-1.5 rounded-xl text-[8px] font-press-start tracking-wide border transition cursor-pointer ${
+                        isEquipped
+                          ? "bg-amber-400 text-slate-950 border-amber-300 font-black shadow-[0_0_12px_rgba(251,191,36,0.3)]"
+                          : "bg-[#0D0D0E] text-amber-300 border-amber-500/30 hover:border-amber-400"
+                      }`}
+                    >
+                      « {title} » {isEquipped ? "✓" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 2. CHOOSE-AND-ACCEPT GUILD QUEST BOARD */}
+          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="border-b border-slate-800 pb-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-press-start text-cyan-400 tracking-wider uppercase">
+                  📜 GUILD QUEST BOARD
+                </span>
+                <span className="text-[8px] font-mono text-slate-400 uppercase">
+                  {completedQuests.length} COMPLETED
+                </span>
+              </div>
+              <p className="text-[8px] font-mono text-slate-400">
+                Select a quest category, customize your difficulty tier (Apprentice → Journeyman → Champion), and accept up to {MAX_ACTIVE_QUESTS} active contracts.
+              </p>
+            </div>
+
+            {/* Category Filter Tabs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-[#0D0D0E] p-1.5 rounded-xl border border-slate-850">
+              {(
+                [
+                  { id: "milestone", label: "⚔️ MILESTONE", sub: "Volume" },
+                  { id: "streak", label: "🔥 STREAK", sub: "Daily Protocol" },
+                  { id: "lore", label: "🏰 LORE", sub: "RPG Campaigns" },
+                  { id: "boss", label: "💀 BOSS", sub: "Single Raid" }
+                ] as { id: QuestCategory; label: string; sub: string }[]
+              ).map((cat) => {
+                const isSelected = selectedQuestCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setSelectedQuestCategory(cat.id)}
+                    className={`py-2 px-2 rounded-lg text-center transition cursor-pointer border ${
+                      isSelected
+                        ? "bg-cyan-950/60 border-cyan-400/60 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.15)]"
+                        : "bg-transparent border-transparent text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    <div className="text-[8px] font-press-start tracking-wide">{cat.label}</div>
+                    <div className="text-[7px] font-mono text-slate-400 mt-0.5">{cat.sub}</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quest Cards for Selected Category */}
+            <div className="space-y-4">
+              {QUEST_CATALOG.filter((q) => q.category === selectedQuestCategory).map((quest) => {
+                const selectedVariantId = selectedVariantByQuest[quest.id] || quest.variants?.[0]?.id;
+                const tiers = quest.getTiers(selectedVariantId);
+                const selectedTierKey: QuestTierKey = selectedTierByQuest[quest.id] || "apprentice";
+                const activeTier = tiers[selectedTierKey];
+                const isAlreadyActive = activeQuests.some((a) => a.questId === quest.id);
+                const isSlotsFull = activeQuests.length >= MAX_ACTIVE_QUESTS && !isAlreadyActive;
+                const timesCompleted = completedQuests.filter((c) => c.questId === quest.id).length;
+
                 return (
                   <div
                     key={quest.id}
-                    className={`p-3.5 border-2 rounded-xl space-y-2 transition ${
-                      quest.completed
-                        ? "bg-cyan-950/20 border-cyan-400/60 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
-                        : "bg-[#0D0D0E] border-slate-850"
-                    }`}
+                    className="bg-[#0D0D0E] border-2 border-slate-850 hover:border-slate-700 rounded-2xl p-4 space-y-3.5 transition"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-press-start text-white tracking-wide block">
-                        {quest.title}
+                    {/* Title & Lore */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2.5 bg-[#161B22] border border-slate-800 rounded-xl text-2xl shrink-0">
+                          {quest.icon}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[9.5px] font-press-start text-white tracking-wide">
+                              {quest.title}
+                            </span>
+                            {timesCompleted > 0 && (
+                              <span className="px-1.5 py-0.5 bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[7px] font-press-start rounded">
+                                CLEARED ×{timesCompleted}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[8px] font-mono text-cyan-400 font-bold block uppercase">
+                            {quest.subtitle}
+                          </span>
+                          <p className="text-[8.5px] font-mono text-slate-400 leading-relaxed">
+                            {quest.lore}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Optional Variant Selector (e.g., Push-Ups vs Squats vs Lunges vs Pull-Ups) */}
+                    {quest.variants && quest.variants.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[7.5px] font-press-start text-slate-400 uppercase block">
+                          CHOOSE VARIANT:
+                        </span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {quest.variants.map((v) => {
+                            const isVarSelected = selectedVariantId === v.id;
+                            return (
+                              <button
+                                key={v.id}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedVariantByQuest((prev) => ({
+                                    ...prev,
+                                    [quest.id]: v.id
+                                  }))
+                                }
+                                className={`px-2.5 py-1.5 rounded-lg text-left border transition cursor-pointer ${
+                                  isVarSelected
+                                    ? "bg-cyan-950/40 border-cyan-400 text-cyan-200"
+                                    : "bg-[#141920] border-slate-800 text-slate-400 hover:text-slate-200"
+                                }`}
+                              >
+                                <div className="text-[8px] font-mono font-bold">{v.label}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tiered Difficulty Selector (Apprentice -> Journeyman -> Champion) */}
+                    <div className="space-y-1.5">
+                      <span className="text-[7.5px] font-press-start text-slate-400 uppercase block">
+                        SELECT RANK TIER:
                       </span>
-                      {quest.completed ? (
-                        <span className="px-2 py-0.5 bg-cyan-400 text-slate-950 text-[8px] font-press-start rounded font-black tracking-wider">
-                          CLEARED
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-mono text-cyan-400 font-bold">
-                          +{quest.rewardXP} XP
-                        </span>
-                      )}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(["apprentice", "journeyman", "champion"] as QuestTierKey[]).map((tKey) => {
+                          const tConf = tiers[tKey];
+                          const isSelected = selectedTierKey === tKey;
+                          const tierColor =
+                            tKey === "apprentice"
+                              ? isSelected
+                                ? "border-emerald-400 bg-emerald-950/30 text-emerald-300"
+                                : "border-slate-800 bg-[#141920] text-slate-400"
+                              : tKey === "journeyman"
+                              ? isSelected
+                                ? "border-cyan-400 bg-cyan-950/30 text-cyan-300"
+                                : "border-slate-800 bg-[#141920] text-slate-400"
+                              : isSelected
+                              ? "border-amber-400 bg-amber-950/30 text-amber-300"
+                              : "border-slate-800 bg-[#141920] text-slate-400";
+
+                          return (
+                            <button
+                              key={tKey}
+                              type="button"
+                              onClick={() =>
+                                setSelectedTierByQuest((prev) => ({
+                                  ...prev,
+                                  [quest.id]: tKey
+                                }))
+                              }
+                              className={`p-2 rounded-xl border text-center transition cursor-pointer ${tierColor}`}
+                            >
+                              <div className="text-[7.5px] font-press-start truncate">
+                                {tConf.rankLabel.toUpperCase()}
+                              </div>
+                              <div className="text-[7.5px] font-mono font-bold mt-1 text-slate-200 truncate">
+                                {tConf.badgeLabel}
+                              </div>
+                              <div className="text-[7px] font-mono text-cyan-400 mt-0.5">
+                                +{tConf.rewardXP} XP
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <p className="text-[9px] font-mono text-slate-400">
-                      {quest.description}
-                    </p>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[8px] font-mono text-slate-400">
-                        <span>PROGRESS</span>
-                        <span>{quest.current} / {quest.target} {quest.unit} ({pct}%)</span>
+                    {/* Selected Tier Requirements & Rewards Preview */}
+                    <div className="bg-[#141920] border border-slate-850 rounded-xl p-3 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-1 text-[8px] font-mono">
+                        <span className="text-slate-400">
+                          ⏱️ Window:{" "}
+                          <span className="text-slate-200 font-bold">
+                            {activeTier.streakTargetDays
+                              ? `${activeTier.streakTargetDays}-Day Streak`
+                              : `${activeTier.durationDays} Days`}
+                          </span>
+                        </span>
+                        {activeTier.restPotions > 0 && (
+                          <span className="text-amber-300 font-bold">
+                            🧪 {activeTier.restPotions} Rest Potion{activeTier.restPotions > 1 ? "s" : ""} Included
+                          </span>
+                        )}
+                        <span className="text-amber-300">
+                          👑 Title: <span className="font-bold">«{activeTier.rewardTitle}»</span>
+                        </span>
                       </div>
-                      <div className="w-full bg-[#12161A] h-2 rounded-full overflow-hidden border border-slate-800">
-                        <div
-                          className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
+
+                      <div className="border-t border-slate-800/80 pt-1.5 space-y-1">
+                        {activeTier.objectives.map((obj) => (
+                          <div
+                            key={obj.id}
+                            className="flex items-center justify-between text-[8px] font-mono text-slate-300"
+                          >
+                            <span>• {obj.label}</span>
+                            <span className="text-cyan-300 font-bold">
+                              {obj.target.toLocaleString()} {obj.unit}
+                              {obj.scope === "daily" ? " / day" : ""}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
+
+                    {/* Accept Quest Button */}
+                    <button
+                      type="button"
+                      disabled={isAlreadyActive || isSlotsFull}
+                      onClick={() => handleAcceptQuest(quest.id)}
+                      className={`w-full py-2.5 px-4 rounded-xl text-[9px] font-press-start tracking-wider uppercase transition ${
+                        isAlreadyActive
+                          ? "bg-emerald-950/30 border border-emerald-500/40 text-emerald-400 cursor-default"
+                          : isSlotsFull
+                          ? "bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed"
+                          : "bg-gradient-to-r from-cyan-500 to-emerald-400 text-slate-950 font-black shadow-[0_0_15px_rgba(6,182,212,0.25)] hover:brightness-110 cursor-pointer active:scale-98"
+                      }`}
+                    >
+                      {isAlreadyActive
+                        ? "✓ QUEST ACTIVE IN CONTRACT LOG"
+                        : isSlotsFull
+                        ? `CONTRACT LOG FULL (${MAX_ACTIVE_QUESTS}/${MAX_ACTIVE_QUESTS})`
+                        : `⚔️ ACCEPT QUEST (${activeTier.rankLabel.toUpperCase()})`}
+                    </button>
                   </div>
                 );
               })}
