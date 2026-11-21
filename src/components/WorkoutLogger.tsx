@@ -1,5 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
-import { EXERCISE_DATABASE, CATEGORIES, getAllExercises, saveCustomExercise, deleteCustomExercise, getCustomExercises } from "../exercises";
+import {
+  EXERCISE_DATABASE,
+  CATEGORIES,
+  getAllExercises,
+  saveCustomExercise,
+  deleteCustomExercise,
+  getCustomExercises,
+  saveExerciseImageOverride,
+  clearExerciseImageOverride
+} from "../exercises";
 import { ExerciseInfo, ExercisePillar, AthleteProfile, FitnessLog } from "../types";
 import { evaluateAthletePerformance, calculateSubCategoryLevels } from "../utils/fitnessMath";
 import { pixelMusclePaths } from "../data/pixelMusclePaths";
@@ -105,7 +114,17 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const [customExFormType, setCustomExFormType] = useState<"A" | "B" | "C" | "D">("A");
   const [customExImageUrl, setCustomExImageUrl] = useState("");
   const [customExImagePreview, setCustomExImagePreview] = useState<string | null>(null);
+  const [customExImage2Url, setCustomExImage2Url] = useState("");
+  const [customExImage2Preview, setCustomExImage2Preview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInput2Ref = useRef<HTMLInputElement>(null);
+
+  // Per-Exercise Image / GIF Customizer states (works for ALL exercises, even those without default images)
+  const [isImageEditorOpen, setIsImageEditorOpen] = useState(false);
+  const [editFrame1, setEditFrame1] = useState("");
+  const [editFrame2, setEditFrame2] = useState("");
+  const editFrame1InputRef = useRef<HTMLInputElement>(null);
+  const editFrame2InputRef = useRef<HTMLInputElement>(null);
 
   // Dynamic Recents calculation
   const recents = React.useMemo(() => {
@@ -435,7 +454,9 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
 
   // Handle exercise selection
   const handleSelectExercise = (exercise: ExerciseInfo, fromView: "categories" | "exercises" = "exercises") => {
-    setSelectedExercise(exercise);
+    const latestExercise = getAllExercises().find(e => e.name.toLowerCase() === exercise.name.toLowerCase()) || exercise;
+    setSelectedExercise(latestExercise);
+    setIsImageEditorOpen(false);
     setFormBackTarget(fromView);
     
     // Ensure selectedCategory is set so the form renders successfully
@@ -603,18 +624,100 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     }
   };
 
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>, slot: 1 | 2 = 1) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === "string") {
-          setCustomExImagePreview(reader.result);
-          setCustomExImageUrl(reader.result);
+          if (slot === 2) {
+            setCustomExImage2Preview(reader.result);
+            setCustomExImage2Url(reader.result);
+          } else {
+            setCustomExImagePreview(reader.result);
+            setCustomExImageUrl(reader.result);
+          }
         }
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleOpenImageEditor = () => {
+    if (!selectedExercise) return;
+    const frames =
+      selectedExercise.images && selectedExercise.images.length > 0
+        ? selectedExercise.images
+        : selectedExercise.image
+        ? [selectedExercise.image]
+        : [];
+    setEditFrame1(frames[0] || "");
+    setEditFrame2(frames[1] || "");
+    setIsImageEditorOpen((prev) => !prev);
+  };
+
+  const handleEditFrameFileUpload = (slot: 1 | 2, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedExercise) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === "string") {
+        const currentFrames =
+          selectedExercise.images && selectedExercise.images.length > 0
+            ? [...selectedExercise.images]
+            : selectedExercise.image
+            ? [selectedExercise.image]
+            : [];
+        const f1 = slot === 1 ? reader.result : currentFrames[0] || "";
+        const f2 = slot === 2 ? reader.result : currentFrames[1] || "";
+        const nextFrames = [f1, f2].filter(Boolean);
+        saveExerciseImageOverride(selectedExercise.name, nextFrames);
+        setSelectedExercise({
+          ...selectedExercise,
+          images: nextFrames.length > 0 ? nextFrames : undefined,
+          image: nextFrames[0] || undefined
+        });
+        setFrameIndex(0);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleSaveExerciseImages = () => {
+    if (!selectedExercise) return;
+    const frames = [editFrame1.trim(), editFrame2.trim()].filter(Boolean);
+    saveExerciseImageOverride(selectedExercise.name, frames);
+    const updatedEx: ExerciseInfo = {
+      ...selectedExercise,
+      images: frames.length > 0 ? frames : undefined,
+      image: frames[0] || undefined
+    };
+    setSelectedExercise(updatedEx);
+    setFrameIndex(0);
+    setIsImageEditorOpen(false);
+  };
+
+  const handleResetExerciseImages = () => {
+    if (!selectedExercise) return;
+    clearExerciseImageOverride(selectedExercise.name);
+    const baseEx = EXERCISE_DATABASE.find(
+      (e) => e.name.toLowerCase() === selectedExercise.name.toLowerCase()
+    );
+    const customEx = getCustomExercises().find(
+      (e) => e.name.toLowerCase() === selectedExercise.name.toLowerCase()
+    );
+    const source = customEx || baseEx;
+    const restored: ExerciseInfo = {
+      ...selectedExercise,
+      images: source?.images,
+      image: source?.image
+    };
+    setSelectedExercise(restored);
+    setEditFrame1(restored.images?.[0] || restored.image || "");
+    setEditFrame2(restored.images?.[1] || "");
+    setFrameIndex(0);
+    setIsImageEditorOpen(false);
   };
 
   const handleSaveCustomExerciseSubmit = (e: React.FormEvent) => {
@@ -646,6 +749,8 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       else buildsDict.armStrength = (buildsDict.armStrength || 0) + weightPerMuscle;
     });
 
+    const customFrames = [customExImageUrl.trim(), customExImage2Url.trim()].filter(Boolean);
+
     const newExercise: ExerciseInfo = {
       name: customExName.trim(),
       pillar: customExPillar,
@@ -654,7 +759,8 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       muscles: musclesDict,
       builds: buildsDict,
       subCategories: subCats,
-      image: customExImageUrl.trim() || undefined
+      images: customFrames.length > 0 ? customFrames : undefined,
+      image: customFrames[0] || undefined
     };
 
     saveCustomExercise(newExercise);
@@ -664,6 +770,8 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     setCustomExMuscles(["chest"]);
     setCustomExImageUrl("");
     setCustomExImagePreview(null);
+    setCustomExImage2Url("");
+    setCustomExImage2Preview(null);
     
     // Select category matching custom exercise
     const catName = customExPillar === "weights" ? "Free Weights" : customExPillar === "machines" ? "Machines" : customExPillar === "bodyweight" ? "Bodyweight" : "Cardio";
@@ -1365,9 +1473,24 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
             </div>
           )}
 
-          {/* EXERCISE DEMONSTRATION IMAGE / ANIMATION DISPLAY CARD */}
-          {(selectedExercise.images?.length || selectedExercise.image) && (
-            <div className="bg-black border-2 border-slate-850 rounded-2xl p-3 flex flex-col items-center justify-center overflow-hidden shadow-inner relative max-w-sm mx-auto w-full">
+          {/* EXERCISE DEMONSTRATION IMAGE / ANIMATION DISPLAY CARD (Icon-only image/GIF uploaders for both frames) */}
+          <div className="bg-black border-2 border-slate-850 rounded-2xl p-3 flex items-center justify-center overflow-hidden shadow-inner relative max-w-sm mx-auto w-full min-h-[140px]">
+            <input
+              type="file"
+              ref={editFrame1InputRef}
+              accept="image/*,.gif"
+              onChange={(e) => handleEditFrameFileUpload(1, e)}
+              className="hidden"
+            />
+            <input
+              type="file"
+              ref={editFrame2InputRef}
+              accept="image/*,.gif"
+              onChange={(e) => handleEditFrameFileUpload(2, e)}
+              className="hidden"
+            />
+
+            {(selectedExercise.images?.length || selectedExercise.image) ? (
               <div className="relative w-full max-h-48 aspect-video flex items-center justify-center">
                 <img
                   src={
@@ -1379,8 +1502,37 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   className="max-h-48 w-auto object-contain rounded-lg shadow-lg"
                 />
               </div>
+            ) : null}
+
+            {/* Two Image-with-Arrow Icon Buttons (for Frame 1 and Frame 2) */}
+            <div
+              className={`flex items-center gap-2 ${
+                selectedExercise.images?.length || selectedExercise.image
+                  ? "absolute bottom-2 right-2 z-10"
+                  : "justify-center py-4"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => editFrame1InputRef.current?.click()}
+                className="p-2 rounded-xl bg-[#161B22]/90 hover:bg-cyan-950/80 border border-slate-700 hover:border-cyan-400 text-cyan-400 flex items-center justify-center gap-0.5 cursor-pointer transition active:scale-95 shadow-lg"
+                title="Change Image 1 / GIF"
+              >
+                <ImageIcon className="w-4 h-4" />
+                <Upload className="w-3 h-3" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => editFrame2InputRef.current?.click()}
+                className="p-2 rounded-xl bg-[#161B22]/90 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-400 text-emerald-400 flex items-center justify-center gap-0.5 cursor-pointer transition active:scale-95 shadow-lg"
+                title="Change Image 2 / GIF"
+              >
+                <ImageIcon className="w-4 h-4" />
+                <Upload className="w-3 h-3" />
+              </button>
             </div>
-          )}
+          </div>
 
           {/* Muscle progress bar below the header and above the form fields */}
           {(() => {
@@ -2182,79 +2334,83 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               </div>
             </div>
 
-            {/* 5. IMAGE / GIF UPLOAD OR URL */}
-            <div className="space-y-3 pt-2 border-t border-slate-800">
-              <label className="text-[9px] font-press-start text-cyan-300 uppercase block">
-                📸 EXERCISE DEMO IMAGE OR GIF (OPTIONAL)
-              </label>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* File Upload Button */}
-                <div className="space-y-1.5">
-                  <span className="text-[8px] font-mono text-slate-400 uppercase block font-bold">
-                    1. UPLOAD IMAGE FROM DEVICE
-                  </span>
+            {/* 5. IMAGE 1 & IMAGE 2 / GIF UPLOAD (ICON ONLY) */}
+            <div className="pt-2 border-t border-slate-800">
+              <div className="grid grid-cols-2 gap-3">
+                {/* IMAGE 1 / GIF */}
+                <div className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3 flex items-center justify-center min-h-[110px] relative">
                   <input
                     type="file"
                     ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handleImageFileUpload}
+                    accept="image/*,.gif"
+                    onChange={(e) => handleImageFileUpload(e, 1)}
                     className="hidden"
                   />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-2.5 px-3 bg-[#0D0D0E] border border-slate-700 hover:border-cyan-400 rounded-xl text-[8.5px] font-press-start text-slate-300 hover:text-white flex items-center justify-center gap-2 cursor-pointer transition"
-                  >
-                    <Upload className="w-3 h-3 text-cyan-400" /> CHOOSE FILE...
-                  </button>
-                </div>
-
-                {/* Web URL Input */}
-                <div className="space-y-1.5">
-                  <span className="text-[8px] font-mono text-slate-400 uppercase block font-bold">
-                    2. OR PASTE IMAGE/GIF WEB LINK
-                  </span>
-                  <input
-                    type="url"
-                    placeholder="https://example.com/demo.gif"
-                    value={customExImageUrl}
-                    onChange={(e) => {
-                      setCustomExImageUrl(e.target.value);
-                      setCustomExImagePreview(e.target.value);
-                    }}
-                    className="w-full bg-[#0D0D0E] border border-slate-800 focus:border-cyan-400 rounded-xl px-3 py-2 text-xs font-mono text-white placeholder-slate-600 focus:outline-none transition"
-                  />
-                </div>
-              </div>
-
-              {/* Preview Box */}
-              {customExImagePreview && (
-                <div className="pt-2 flex flex-col items-center space-y-2">
-                  <span className="text-[7.5px] font-press-start text-cyan-400 uppercase">PREVIEW DEMO:</span>
-                  <div className="relative w-32 h-32 bg-[#0D0D0E] border-2 border-cyan-400/60 rounded-xl overflow-hidden shadow-lg flex items-center justify-center">
-                    <img
-                      src={customExImagePreview}
-                      alt="Exercise Preview"
-                      className="w-full h-full object-contain"
-                      onError={() => {
-                        setCustomExImagePreview(null);
-                        alert("Could not load image from that URL link.");
-                      }}
-                    />
+                  {customExImagePreview ? (
+                    <div className="relative w-full h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                      <img
+                        src={customExImagePreview}
+                        alt="Preview 1"
+                        className="max-h-24 w-auto object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-[#161B22]/90 border border-slate-700 hover:border-cyan-400 text-cyan-400 flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <Upload className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       type="button"
-                      onClick={() => {
-                        setCustomExImagePreview(null);
-                        setCustomExImageUrl("");
-                      }}
-                      className="absolute top-1 right-1 bg-red-950/80 border border-red-500 text-red-300 text-[8px] px-1.5 py-0.5 rounded cursor-pointer"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-3 bg-[#161B22] border border-slate-700 hover:border-cyan-400 rounded-xl text-cyan-400 flex items-center justify-center gap-1 cursor-pointer transition active:scale-95"
                     >
-                      ✕
+                      <ImageIcon className="w-5 h-5" />
+                      <Upload className="w-3.5 h-3.5" />
                     </button>
-                  </div>
+                  )}
                 </div>
-              )}
+
+                {/* IMAGE 2 / GIF */}
+                <div className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3 flex items-center justify-center min-h-[110px] relative">
+                  <input
+                    type="file"
+                    ref={fileInput2Ref}
+                    accept="image/*,.gif"
+                    onChange={(e) => handleImageFileUpload(e, 2)}
+                    className="hidden"
+                  />
+                  {customExImage2Preview ? (
+                    <div className="relative w-full h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                      <img
+                        src={customExImage2Preview}
+                        alt="Preview 2"
+                        className="max-h-24 w-auto object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInput2Ref.current?.click()}
+                        className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-[#161B22]/90 border border-slate-700 hover:border-emerald-400 text-emerald-400 flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <Upload className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileInput2Ref.current?.click()}
+                      className="p-3 bg-[#161B22] border border-slate-700 hover:border-emerald-400 rounded-xl text-emerald-400 flex items-center justify-center gap-1 cursor-pointer transition active:scale-95"
+                    >
+                      <ImageIcon className="w-5 h-5" />
+                      <Upload className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* SAVE BUTTON */}

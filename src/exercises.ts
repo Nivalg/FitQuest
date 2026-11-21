@@ -1061,14 +1061,76 @@ export function getCustomExercises(): ExerciseInfo[] {
   return [];
 }
 
+const EXERCISE_IMAGE_OVERRIDES_KEY = "fitquest_exercise_image_overrides";
+
+export function getExerciseImageOverrides(): Record<string, { images?: string[]; image?: string }> {
+  if (typeof localStorage === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(EXERCISE_IMAGE_OVERRIDES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") return parsed;
+    }
+  } catch (e) {
+    console.error("Error reading fitquest_exercise_image_overrides from localStorage", e);
+  }
+  return {};
+}
+
+export function saveExerciseImageOverride(exerciseName: string, frames: string[]): void {
+  if (typeof localStorage === "undefined") return;
+  const cleanFrames = frames.map((f) => f.trim()).filter(Boolean);
+  const current = getExerciseImageOverrides();
+  const key = exerciseName.toLowerCase();
+  if (cleanFrames.length === 0) {
+    delete current[key];
+  } else {
+    current[key] = {
+      images: cleanFrames,
+      image: cleanFrames[0]
+    };
+  }
+  try {
+    localStorage.setItem(EXERCISE_IMAGE_OVERRIDES_KEY, JSON.stringify(current));
+  } catch (e) {
+    console.error("Error saving fitquest_exercise_image_overrides to localStorage", e);
+    alert("Image file is too large for browser storage. Try a smaller image/GIF or paste an image URL.");
+  }
+}
+
+export function clearExerciseImageOverride(exerciseName: string): void {
+  if (typeof localStorage === "undefined") return;
+  const current = getExerciseImageOverrides();
+  delete current[exerciseName.toLowerCase()];
+  try {
+    localStorage.setItem(EXERCISE_IMAGE_OVERRIDES_KEY, JSON.stringify(current));
+  } catch (e) {
+    console.error("Error clearing fitquest_exercise_image_overrides", e);
+  }
+}
+
 export function getAllExercises(): ExerciseInfo[] {
   const custom = getCustomExercises();
-  if (custom.length === 0) return EXERCISE_DATABASE;
+  const overrides = getExerciseImageOverrides();
 
-  // Filter out any duplicate names prioritizing custom ones
-  const customNames = new Set(custom.map(c => c.name.toLowerCase()));
-  const defaultFiltered = EXERCISE_DATABASE.filter(e => !customNames.has(e.name.toLowerCase()));
-  return [...defaultFiltered, ...custom];
+  let combined: ExerciseInfo[] = EXERCISE_DATABASE;
+  if (custom.length > 0) {
+    const customNames = new Set(custom.map(c => c.name.toLowerCase()));
+    const defaultFiltered = EXERCISE_DATABASE.filter(e => !customNames.has(e.name.toLowerCase()));
+    combined = [...defaultFiltered, ...custom];
+  }
+
+  if (Object.keys(overrides).length === 0) return combined;
+
+  return combined.map((ex) => {
+    const ov = overrides[ex.name.toLowerCase()];
+    if (!ov) return ex;
+    return {
+      ...ex,
+      images: ov.images && ov.images.length > 0 ? ov.images : ex.images,
+      image: ov.image || ex.image
+    };
+  });
 }
 
 export function saveCustomExercise(newEx: ExerciseInfo): ExerciseInfo[] {

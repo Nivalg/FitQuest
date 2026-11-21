@@ -339,6 +339,7 @@ export default function AthleteDashboard({
   const [activeSubTab, setActiveSubTab] = React.useState<"character" | "stats" | "quests">("character");
   const [hudViewSide, setHudViewSide] = React.useState<"front" | "back">("front");
   const [selectedHudMuscle, setSelectedHudMuscle] = React.useState<string>("chest");
+  const [selectedGraphExerciseByMuscle, setSelectedGraphExerciseByMuscle] = React.useState<Record<string, string>>({});
 
   // Quest Board state
   const [activeQuests, setActiveQuests] = React.useState<ActiveQuestInstance[]>(() => getActiveQuests());
@@ -703,7 +704,7 @@ export default function AthleteDashboard({
     setSelectedHudMuscle(muscle);
   };
 
-  const handleOpenStatModal = (muscle: string) => {
+  const handleOpenStatModal = (muscle: string, overrideLevel?: number) => {
     const iconDict = {
       shield: <Shield className="w-5 h-5 text-cyan-400" />,
       trophy: <Trophy className="w-5 h-5 text-orange-400" />,
@@ -713,15 +714,15 @@ export default function AthleteDashboard({
       activity: <Activity className="w-5 h-5 text-slate-400" />
     };
 
-    if (muscle === "chest" || muscle === "back" || muscle === "core" || muscle === "speed") {
-      const statKey = muscle === "chest" ? "chestStrength" : muscle === "back" ? "backStrength" : muscle === "core" ? "coreStrength" : "speed";
-      const displayedLvl = getDisplayedStatLevel(statKey);
+    if (muscle === "chest" || muscle === "back" || muscle === "core" || muscle === "speed" || muscle === "cardio") {
+      const statKey = muscle === "chest" ? "chestStrength" : muscle === "back" ? "backStrength" : muscle === "core" ? "coreStrength" : "cardio";
+      const displayedLvl = overrideLevel ?? getDisplayedStatLevel(statKey);
       const matchingStat = fitnessStatsList.find(s => s.key === statKey);
       if (matchingStat) {
         setSelectedStatDetail({
           key: matchingStat.key,
           label: matchingStat.label,
-          level: Math.ceil(displayedLvl),
+          level: Math.max(1, Math.ceil(displayedLvl)),
           desc: matchingStat.desc,
           textColor: matchingStat.textColor,
           icon: matchingStat.icon
@@ -738,7 +739,7 @@ export default function AthleteDashboard({
       setSelectedStatDetail({
         key: muscle,
         label: detail.label,
-        level: Math.ceil(levelVal),
+        level: Math.max(1, Math.ceil(overrideLevel ?? levelVal)),
         desc: detail.desc,
         textColor: detail.textColor,
         icon: detail.icon
@@ -1384,114 +1385,16 @@ export default function AthleteDashboard({
             </div>
           </div>
 
-          {/* 🚀 DYNAMIC WEEKLY VOLUME TRACKER (BODY STATUS MAP) */}
+          {/* 🚀 DYNAMIC WEEKLY / MONTHLY VOLUME TRACKER (BODY STATUS MAP) */}
           <div className="space-y-3">
-            <BodyStatusMap weeklyVolume={weeklyVolume} weeklySubVolume={weeklySubVolume} />
-            <MuscleVolumeVisualizer
+            <BodyStatusMap
               weeklyVolume={weeklyVolume}
               weeklySubVolume={weeklySubVolume}
               monthlyVolume={monthlyVolume}
               monthlySubVolume={monthlySubVolume}
+              logs={logs}
             />
           </div>
-
-          {/* TRAINING FOCUS DISTRIBUTION CHART */}
-          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div>
-              <h3 className="text-[10px] font-press-start text-cyan-300 tracking-wider uppercase">
-                ⚔️ TRAINING FOCUS DISTRIBUTION
-              </h3>
-              <p className="text-[8px] text-slate-400 font-mono mt-1 leading-relaxed">
-                Percentage breakdown of all-time effort spent training each physical sector (20%+ = fully filled).
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              {detailedStatsList.map((stat) => {
-                const percentage = muscleDistribution[stat.key] || 0;
-                const barFill = Math.min(100, (percentage / 20) * 100);
-                const shortLabel = stat.label.toUpperCase();
-                
-                return (
-                  <div key={stat.key} className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[7px] font-press-start leading-none">
-                      <span className="text-slate-400 tracking-wide flex items-center gap-1">
-                        <span className="text-[9px]">{stat.icon}</span>
-                        <span className={stat.textColor}>{shortLabel}</span>
-                      </span>
-                      <span className="font-mono text-[9px] text-slate-350 font-extrabold">
-                        {percentage.toFixed(1)}%
-                      </span>
-                    </div>
-
-                    <div className="w-full bg-[#0D0D0E] border border-slate-850 h-3 rounded-full overflow-hidden relative">
-                      {/* Premium animated bar */}
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${barFill}%` }}
-                        transition={{ duration: 0.8, ease: "easeOut" }}
-                        className={`h-full rounded-full bg-gradient-to-r ${stat.color} shadow-[0_0_8px_rgba(6,182,212,0.1)]`}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* 🏆 HALL OF HEROIC SETS (ACCOMPLISHMENTS CAROUSEL) */}
-          {accomplishments.length > 0 ? (
-            <div className="space-y-3">
-              <div className="bg-[#161B22] border-2 border-cyan-500/50 rounded-2xl p-5 shadow-[0_0_20px_rgba(6,182,212,0.15)] relative overflow-hidden h-[120px] flex flex-col justify-center animate-fade-in">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-full blur-xl pointer-events-none" />
-                
-                <div className="flex items-center gap-4">
-                  <div className="text-3xl shrink-0 p-2.5 bg-[#0D0D0E] border border-slate-800 rounded-xl">
-                    {accomplishments[activeAccomplishmentIndex]?.icon || "🏆"}
-                  </div>
-                  
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping shrink-0" />
-                      <span className="text-[8px] font-press-start text-cyan-400 tracking-widest block uppercase">
-                        HEROIC ACCOMPLISHMENTS
-                      </span>
-                    </div>
-                    <h3 className="text-[10px] font-press-start text-white truncate uppercase tracking-wider block mt-1">
-                      {accomplishments[activeAccomplishmentIndex]?.title || "ACCOMPLISHMENT"}
-                    </h3>
-                    <p className="text-xs font-mono font-black text-emerald-400 block tracking-wide mt-1">
-                      {accomplishments[activeAccomplishmentIndex]?.val || "0"}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Pagination Dots at bottom center */}
-                {accomplishments.length > 1 && (
-                  <div className="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
-                    {accomplishments.map((_, i) => (
-                      <div 
-                        key={i} 
-                        className={`h-1 rounded-full transition-all duration-305 ${
-                          i === activeAccomplishmentIndex ? "w-4 bg-cyan-400" : "w-1.5 bg-slate-850"
-                        }`} 
-                        style={{ minWidth: i === activeAccomplishmentIndex ? "16px" : "6px" }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="bg-[#161B22] border-2 border-dashed border-slate-800 rounded-2xl p-5 shadow-inner text-center">
-              <h3 className="text-xs font-press-start text-slate-500 tracking-wider">
-                🏆 HEROIC TOTALS SHIELD
-              </h3>
-              <p className="text-[10px] text-slate-400 font-mono mt-3 leading-relaxed">
-                No exercises logged yet. Log exercises under the EXERCISE tab to build up your totals and unlock accomplishments here!
-              </p>
-            </div>
-          )}
 
           {/* RETRO YOUTUBE SOCIAL UTILITY */}
           <div className="pt-4 flex justify-center">
@@ -1528,244 +1431,799 @@ export default function AthleteDashboard({
           transition={{ duration: 0.2 }}
           className="space-y-6"
         >
-          {/* A. SEGMENTED PIP / BATTERY FRESHNESS METER */}
-          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="border-b border-slate-800 pb-3 flex items-center justify-between gap-2">
-              <div>
-                <span className="text-[9px] font-press-start text-cyan-400 tracking-wider block uppercase">
-                  🔋 MUSCLE CHARGE & DECAY BATTERY
-                </span>
-                <p className="text-[8px] text-slate-400 font-mono mt-1">
-                  5-pip arcade charge meter. Pips drain over 30 days as a muscle group goes untrained.
-                </p>
-              </div>
-              <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
-            </div>
+          {(() => {
+            // Compute per-muscle workout counts, XP, Level, and Rank Color Tier
+            const getMuscleLevelInfo = (muscleKey: string) => {
+              const targetKey = muscleKey === "forearms" ? "biceps" : muscleKey;
 
-            {/* Legend */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-[#0D0D0E] border border-slate-850 rounded-xl px-3 py-2 text-[7.5px] font-mono text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-xs bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
-                <span>5/5 Fresh (0–2d)</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-xs bg-amber-400" />
-                <span>3/5 Cooling (7–13d)</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="inline-block w-2.5 h-2.5 rounded-xs bg-[#161B22] border border-slate-700" />
-                <span>0/5 Drained (30+d)</span>
-              </span>
-            </div>
+              // 1. Count weighted workout sets & total sets logged for this muscle
+              let weightedSets = 0;
+              let rawSetCount = 0;
 
-            <div className="space-y-3 pt-1">
-              {daysSinceLastTrained.map((sector) => {
-                const badgeStyle =
-                  sector.filledPips >= 4
-                    ? "text-emerald-300 bg-emerald-950/40 border-emerald-500/40"
-                    : sector.filledPips === 3
-                    ? "text-amber-300 bg-amber-950/40 border-amber-500/40"
-                    : sector.filledPips >= 1
-                    ? "text-orange-300 bg-orange-950/40 border-orange-500/40"
-                    : "text-slate-500 bg-slate-900/60 border-slate-800";
+              logs.forEach((log) => {
+                if (!log.exerciseName || log.id === "seed_1") return;
+                const lowerName = log.exerciseName.toLowerCase();
+                const conf = EXERCISE_CONFIGS.find((c) => c.name.toLowerCase() === lowerName);
+                const dbEx = getAllExercises().find((e) => e.name.toLowerCase() === lowerName);
+                const m = (conf?.muscles || dbEx?.muscles || {}) as Record<string, number>;
+                const builds = (conf?.builds || dbEx?.builds || {}) as Record<string, number>;
+                const subs = conf?.subCategories || dbEx?.subCategories || [];
+                const pillar = conf?.pillar || dbEx?.pillar;
 
-                return (
-                  <div
-                    key={sector.key}
-                    className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">{sector.icon}</span>
-                        <span className="text-[8.5px] font-press-start text-slate-100 tracking-wider">
-                          {sector.label}
+                if (targetKey === "cardio") {
+                  if (pillar === "cardio" || log.categoryName?.toLowerCase() === "cardio") {
+                    rawSetCount += 1;
+                    weightedSets += Math.max(1, (log.minutes || 10) / 10);
+                  }
+                  return;
+                }
+
+                let w = m[targetKey] || 0;
+                if (w === 0) {
+                  if (subs.includes(targetKey)) w = 0.5;
+                  else if (targetKey === "chest" && (builds.chestStrength || 0) > 0) w = 1.0;
+                  else if (targetKey === "back" && (builds.backStrength || 0) > 0) w = 1.0;
+                  else if (targetKey === "core" && (builds.coreStrength || 0) > 0) w = 1.0;
+                  else if (muscleKey === "forearms" && /curl|deadlift|row|pull|shrug|carry/i.test(lowerName)) w = 0.5;
+                }
+
+                if (w > 0) {
+                  rawSetCount += 1;
+                  weightedSets += w;
+                }
+              });
+
+              // 2. Combine performance stat level + cumulative workout XP (every 3 weighted sets = +1 Level, 100 XP per level)
+              let perfLvl = 0;
+              if (targetKey === "chest") perfLvl = getDisplayedStatLevel("chestStrength");
+              else if (targetKey === "back") perfLvl = getDisplayedStatLevel("backStrength");
+              else if (targetKey === "core") perfLvl = getDisplayedStatLevel("coreStrength");
+              else if (targetKey === "cardio") perfLvl = getDisplayedStatLevel("cardio");
+              else perfLvl = getDisplayedLevel(targetKey, subCategoryLevels[targetKey] || 0);
+
+              const workoutXP = Math.round(weightedSets * 34); // ~3 primary sets = 102 XP (+1 Level)
+              const perfXP = Math.round(perfLvl * 20);
+              const totalXP = workoutXP + perfXP;
+              const level = Math.max(1, 1 + Math.floor(totalXP / 100));
+              const xpInCurrentLevel = totalXP % 100;
+
+              // 3. Determine Rank Color Tier based on Level
+              let rankName = "RANK E • ROOKIE";
+              let fillHex = "#22c55e"; // Emerald Green (Lvl 1-4)
+              let textClass = "text-emerald-400";
+              let badgeClass = "bg-emerald-950/50 border-emerald-500/50 text-emerald-300";
+              let barColor = "#22c55e";
+              let nextRankLabel = "Rank D • Bronze (Lvl 5)";
+
+              if (level >= 100) {
+                rankName = "RANK SS • DIAMOND STEEL";
+                fillHex = "url(#steel-glint-stats)";
+                textClass = "text-cyan-200";
+                badgeClass = "bg-cyan-950/70 border-cyan-300 text-cyan-200 shadow-[0_0_12px_rgba(165,243,252,0.4)]";
+                barColor = "#67e8f9";
+                nextRankLabel = "MAX RANK ACHIEVED";
+              } else if (level >= 75) {
+                rankName = "RANK S • CRIMSON";
+                fillHex = "#f43f5e";
+                textClass = "text-rose-400";
+                badgeClass = "bg-rose-950/50 border-rose-500/50 text-rose-300";
+                barColor = "#f43f5e";
+                nextRankLabel = "Rank SS • Diamond Steel (Lvl 100)";
+              } else if (level >= 50) {
+                rankName = "RANK A • AMETHYST";
+                fillHex = "#a855f7";
+                textClass = "text-purple-400";
+                badgeClass = "bg-purple-950/50 border-purple-500/50 text-purple-300";
+                barColor = "#a855f7";
+                nextRankLabel = "Rank S • Crimson (Lvl 75)";
+              } else if (level >= 30) {
+                rankName = "RANK B • GOLD";
+                fillHex = "#facc15";
+                textClass = "text-yellow-400";
+                badgeClass = "bg-yellow-950/50 border-yellow-500/50 text-yellow-300";
+                barColor = "#facc15";
+                nextRankLabel = "Rank A • Amethyst (Lvl 50)";
+              } else if (level >= 15) {
+                rankName = "RANK C • SILVER CYAN";
+                fillHex = "#38bdf8";
+                textClass = "text-sky-400";
+                badgeClass = "bg-sky-950/50 border-sky-500/50 text-sky-300";
+                barColor = "#38bdf8";
+                nextRankLabel = "Rank B • Gold (Lvl 30)";
+              } else if (level >= 5) {
+                rankName = "RANK D • BRONZE";
+                fillHex = "#f97316";
+                textClass = "text-orange-400";
+                badgeClass = "bg-orange-950/50 border-orange-500/50 text-orange-300";
+                barColor = "#f97316";
+                nextRankLabel = "Rank C • Silver Cyan (Lvl 15)";
+              }
+
+              return {
+                muscleKey,
+                level,
+                totalXP,
+                xpInCurrentLevel,
+                rawSetCount,
+                rankName,
+                fillHex,
+                textClass,
+                badgeClass,
+                barColor,
+                nextRankLabel
+              };
+            };
+
+            const selectedInfo = getMuscleLevelInfo(selectedHudMuscle);
+
+            const rankTiersLegend = [
+              { label: "LVL 1–4", rank: "ROOKIE", color: "#22c55e" },
+              { label: "LVL 5–14", rank: "BRONZE", color: "#f97316" },
+              { label: "LVL 15–29", rank: "SILVER", color: "#38bdf8" },
+              { label: "LVL 30–49", rank: "GOLD", color: "#facc15" },
+              { label: "LVL 50–74", rank: "AMETHYST", color: "#a855f7" },
+              { label: "LVL 75–99", rank: "CRIMSON", color: "#f43f5e" },
+              { label: "LVL 100+", rank: "STEEL", color: "#94a3b8" }
+            ];
+
+            return (
+              <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+                {/* Header & FRONT / BACK Toggle Capsule (same layout as Exercise screen) */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                  <div>
+                    <span className="text-[9px] font-press-start text-cyan-400 tracking-widest block uppercase mb-1">
+                      ⚔️ MUSCLE LEVEL & RANK HUD
+                    </span>
+                    <p className="text-[8px] text-slate-400 font-mono leading-relaxed">
+                      Tap any muscle group to inspect its level. Muscles rank up in color the more workouts you log!
+                    </p>
+                  </div>
+
+                  {/* FRONT / BACK TOGGLE CAPSULE */}
+                  <div className="bg-[#0D0D0E] border border-slate-800 p-1 rounded-xl flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHudViewSide("front");
+                        setSelectedHudMuscle("chest");
+                      }}
+                      style={{ minHeight: "30px", minWidth: "75px" }}
+                      className={`px-3 py-1 rounded-lg text-[8px] font-press-start tracking-wider transition-all duration-200 cursor-pointer ${
+                        hudViewSide === "front"
+                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-bold"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      FRONT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHudViewSide("back");
+                        setSelectedHudMuscle("back");
+                      }}
+                      style={{ minHeight: "30px", minWidth: "75px" }}
+                      className={`px-3 py-1 rounded-lg text-[8px] font-press-start tracking-wider transition-all duration-200 cursor-pointer ${
+                        hudViewSide === "back"
+                          ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-bold"
+                          : "text-slate-500 hover:text-slate-300"
+                      }`}
+                    >
+                      BACK
+                    </button>
+                  </div>
+                </div>
+
+                {/* CENTERED CHARACTER DIAGRAM (Same as Exercise Screen, Colored by Muscle Level) */}
+                <div className="flex flex-col items-center justify-center space-y-3 w-full">
+                  <div className="relative w-full max-w-[290px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto">
+                    {/* Top-Right Selected Muscle & Level Badge */}
+                    <div className="absolute top-2 right-2 bg-slate-950/90 border border-cyan-400/80 px-2.5 py-1 rounded-lg text-cyan-300 font-press-start text-[7.5px] uppercase tracking-wider shadow-[0_0_10px_rgba(6,182,212,0.3)] z-20 pointer-events-none">
+                      {selectedHudMuscle.toUpperCase()} • LVL {selectedInfo.level}
+                    </div>
+
+                    <svg
+                      viewBox={hudViewSide === "front" ? "21 0 488 585" : "424 0 488 585"}
+                      className="w-full h-full select-none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      shapeRendering="crispEdges"
+                    >
+                      <defs>
+                        <linearGradient id="steel-glint-stats" x1="0%" y1="0%" x2="100%" y2="50%">
+                          <stop offset="0%" stopColor="#3E4A5A" />
+                          <stop offset="42%" stopColor="#3E4A5A" />
+                          <stop offset="50%" stopColor="#C9D6E8" stopOpacity="0.55" />
+                          <stop offset="58%" stopColor="#3E4A5A" />
+                          <stop offset="100%" stopColor="#3E4A5A" />
+                          <animate attributeName="x1" from="-100%" to="100%" dur="2.8s" repeatCount="indefinite" />
+                          <animate attributeName="x2" from="0%" to="200%" dur="2.8s" repeatCount="indefinite" />
+                        </linearGradient>
+
+                        <clipPath id="side-clip-stats">
+                          <rect
+                            x={hudViewSide === "front" ? "0" : "455"}
+                            y="0"
+                            width={hudViewSide === "front" ? "455" : "521"}
+                            height="585"
+                          />
+                        </clipPath>
+                      </defs>
+
+                      {/* Layer 1: Base character sprite */}
+                      <image
+                        href="/muscle_map.png"
+                        x="0"
+                        y="0"
+                        width="976"
+                        height="585"
+                        preserveAspectRatio="none"
+                        clipPath="url(#side-clip-stats)"
+                      />
+
+                      {/* Layer 2: Muscle overlays colored dynamically by each muscle's Level Rank */}
+                      {pixelMusclePaths.map((path, idx) => {
+                        const mInfo = getMuscleLevelInfo(path.muscle);
+                        const isSelected = path.muscle === selectedHudMuscle;
+                        return (
+                          <path
+                            key={`${path.id}-${idx}-stats-hud`}
+                            d={path.d}
+                            fill={mInfo.fillHex}
+                            opacity={isSelected ? 1 : 0.82}
+                            style={{
+                              filter: isSelected
+                                ? "brightness(1.25) drop-shadow(0 0 6px rgba(255, 255, 255, 0.85))"
+                                : undefined
+                            }}
+                            className="cursor-pointer hover:opacity-100 transition-all duration-150"
+                            onClick={() => handleMuscleTap(path.muscle)}
+                          />
+                        );
+                      })}
+                    </svg>
+                  </div>
+
+                  {/* Cardio Button Below Image */}
+                  {(() => {
+                    const cardioInfo = getMuscleLevelInfo("cardio");
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => handleMuscleTap("cardio")}
+                        style={{ minHeight: "44px" }}
+                        className={`w-full max-w-[290px] border-2 rounded-xl px-4 py-2.5 flex items-center justify-between font-press-start text-[10px] uppercase cursor-pointer transition active:scale-95 ${
+                          selectedHudMuscle === "cardio"
+                            ? "bg-cyan-950/60 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold"
+                            : "bg-[#12161A] hover:bg-[#161B22] border-slate-850 text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Flame className="w-4 h-4 text-cyan-400" /> CARDIO
                         </span>
+                        <span className={`text-[9px] font-mono font-black ${cardioInfo.textClass}`}>
+                          LVL {cardioInfo.level}
+                        </span>
+                      </button>
+                    );
+                  })()}
+                </div>
+
+                {/* 📈 EXERCISES DONE FOR SELECTED MUSCLE & DAILY MAX LINE GRAPH */}
+                {(() => {
+                  const targetKey = selectedHudMuscle === "forearms" ? "biceps" : selectedHudMuscle;
+
+                  // Helper to check if a log targets selectedHudMuscle
+                  const doesLogTargetMuscle = (log: FitnessLog): boolean => {
+                    if (!log.exerciseName || log.id === "seed_1") return false;
+                    const lowerName = log.exerciseName.toLowerCase();
+                    const conf = EXERCISE_CONFIGS.find((c) => c.name.toLowerCase() === lowerName);
+                    const dbEx = getAllExercises().find((e) => e.name.toLowerCase() === lowerName);
+                    const m = (conf?.muscles || dbEx?.muscles || {}) as Record<string, number>;
+                    const builds = (conf?.builds || dbEx?.builds || {}) as Record<string, number>;
+                    const subs = conf?.subCategories || dbEx?.subCategories || [];
+                    const pillar = conf?.pillar || dbEx?.pillar;
+
+                    if (targetKey === "cardio") {
+                      return pillar === "cardio" || log.categoryName?.toLowerCase() === "cardio";
+                    }
+                    if ((m[targetKey] || 0) > 0) return true;
+                    if (subs.includes(targetKey)) return true;
+                    if (targetKey === "chest" && (builds.chestStrength || 0) > 0) return true;
+                    if (targetKey === "back" && (builds.backStrength || 0) > 0) return true;
+                    if (targetKey === "core" && (builds.coreStrength || 0) > 0) return true;
+                    if (selectedHudMuscle === "forearms" && /curl|deadlift|row|pull|shrug|carry/i.test(lowerName)) return true;
+                    return false;
+                  };
+
+                  // Collect all logs for this muscle group and group by exercise name
+                  const logsByExercise: Record<string, FitnessLog[]> = {};
+                  logs.forEach((log) => {
+                    if (!doesLogTargetMuscle(log) || !log.exerciseName) return;
+                    const name = log.exerciseName;
+                    if (!logsByExercise[name]) logsByExercise[name] = [];
+                    logsByExercise[name].push(log);
+                  });
+
+                  const loggedExerciseNames = Object.keys(logsByExercise).sort(
+                    (a, b) => logsByExercise[b].length - logsByExercise[a].length
+                  );
+
+                  const activeExerciseName =
+                    (selectedGraphExerciseByMuscle[selectedHudMuscle] &&
+                      logsByExercise[selectedGraphExerciseByMuscle[selectedHudMuscle]]
+                      ? selectedGraphExerciseByMuscle[selectedHudMuscle]
+                      : loggedExerciseNames[0]) || null;
+
+                  // Compute daily best data points for the active exercise
+                  interface DailyMaxPoint {
+                    dateKey: string;
+                    shortDate: string;
+                    timestamp: number;
+                    metricValue: number;
+                    metricUnit: string;
+                    metricTypeLabel: string;
+                    rawBestSet: string;
+                  }
+
+                  const evaluateLogMaxMetric = (
+                    log: FitnessLog,
+                    exName: string
+                  ): { val: number; unit: string; typeLabel: string; rawLabel: string } => {
+                    const lowerName = exName.toLowerCase();
+                    const conf = EXERCISE_CONFIGS.find((c) => c.name.toLowerCase() === lowerName);
+                    const dbEx = getAllExercises().find((e) => e.name.toLowerCase() === lowerName);
+                    const formType = conf?.formType || dbEx?.formType || "A";
+                    const pillar = conf?.pillar || dbEx?.pillar;
+
+                    // 1. Weighted lifts: Estimated 1-Rep Max (Epley formula: w * (1 + r / 30))
+                    if ((log.weight || 0) > 0 && (log.reps || 0) > 0 && pillar !== "cardio") {
+                      const w = log.weight!;
+                      const r = log.reps!;
+                      const est1RM = r <= 1 ? w : Math.round(w * (1 + r / 30));
+                      return {
+                        val: est1RM,
+                        unit: "LBS",
+                        typeLabel: "EST. 1RM MAX WEIGHT",
+                        rawLabel: `${w} lbs × ${r}`
+                      };
+                    }
+
+                    // 2. Cardio with distance & time: Max Speed (MPH)
+                    const totalMinutes = (log.minutes || 0) + (log.seconds || 0) / 60;
+                    if ((pillar === "cardio" || formType === "D" || formType === "F") && (log.distance || 0) > 0 && totalMinutes > 0) {
+                      const mph = parseFloat(((log.distance! / totalMinutes) * 60).toFixed(1));
+                      return {
+                        val: mph,
+                        unit: "MPH",
+                        typeLabel: "MAX SPEED (MPH)",
+                        rawLabel: `${log.distance} mi / ${Math.round(totalMinutes)}m`
+                      };
+                    }
+
+                    // 3. Stairmaster / Floors
+                    if ((log.floors || 0) > 0) {
+                      return {
+                        val: log.floors!,
+                        unit: "FLOORS",
+                        typeLabel: "MAX FLOORS CLIMBED",
+                        rawLabel: `${log.floors} floors`
+                      };
+                    }
+
+                    // 4. Isometric Holds (Plank, Superman)
+                    if (formType === "C" || ((log.seconds || 0) > 0 && !(log.reps))) {
+                      const totalSec = (log.minutes || 0) * 60 + (log.seconds || 0);
+                      return {
+                        val: totalSec,
+                        unit: "SEC",
+                        typeLabel: "MAX HOLD TIME",
+                        rawLabel: `${totalSec}s hold`
+                      };
+                    }
+
+                    // 5. Bodyweight Reps (Push-Ups, Pull-Ups, Burpees, etc.)
+                    if ((log.reps || 0) > 0) {
+                      return {
+                        val: log.reps!,
+                        unit: "REPS",
+                        typeLabel: "MAX REPS IN A SET",
+                        rawLabel: `${log.reps} reps`
+                      };
+                    }
+
+                    // 6. Time-based Cardio fallback (minutes)
+                    const mins = Math.round(totalMinutes);
+                    return {
+                      val: mins,
+                      unit: "MINS",
+                      typeLabel: "MAX DURATION",
+                      rawLabel: `${mins} mins`
+                    };
+                  };
+
+                  const dailyPoints: DailyMaxPoint[] = [];
+                  if (activeExerciseName && logsByExercise[activeExerciseName]) {
+                    const byDay = new Map<string, DailyMaxPoint>();
+
+                    logsByExercise[activeExerciseName].forEach((log) => {
+                      const d = new Date(log.timestamp);
+                      if (isNaN(d.getTime())) return;
+                      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+                      const shortDate = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                      const evaluated = evaluateLogMaxMetric(log, activeExerciseName);
+
+                      const existing = byDay.get(dateKey);
+                      if (!existing || evaluated.val > existing.metricValue) {
+                        byDay.set(dateKey, {
+                          dateKey,
+                          shortDate,
+                          timestamp: d.getTime(),
+                          metricValue: evaluated.val,
+                          metricUnit: evaluated.unit,
+                          metricTypeLabel: evaluated.typeLabel,
+                          rawBestSet: evaluated.rawLabel
+                        });
+                      }
+                    });
+
+                    dailyPoints.push(
+                      ...Array.from(byDay.values()).sort((a, b) => a.timestamp - b.timestamp)
+                    );
+                  }
+
+                  const allTimeMax =
+                    dailyPoints.length > 0
+                      ? Math.max(...dailyPoints.map((p) => p.metricValue))
+                      : 0;
+                  const metricUnit = dailyPoints[0]?.metricUnit || "";
+                  const metricTypeLabel = dailyPoints[0]?.metricTypeLabel || "DAILY MAX PROGRESSION";
+
+                  return (
+                    <div className="bg-[#0D0D0E] border-2 border-slate-800 rounded-2xl p-4 space-y-3.5 shadow-xl">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-850 pb-2.5">
+                        <div>
+                          <span className="text-[8.5px] font-press-start text-cyan-400 uppercase tracking-wider block">
+                            📈 {selectedHudMuscle.toUpperCase()} EXERCISE MAX GRAPH
+                          </span>
+                          <p className="text-[7.5px] font-mono text-slate-400 mt-0.5">
+                            Graphs your best daily set (Est. 1RM max weight, max reps, or max speed) across workout days.
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="text-[8px] font-mono text-slate-400">
-                          {sector.shortDaysText}
-                        </span>
-                        <span
-                          className={`text-[7px] font-press-start px-2 py-0.5 rounded border ${badgeStyle}`}
-                        >
-                          {sector.stateLabel} ({sector.filledPips}/{sector.totalPips})
+                      {loggedExerciseNames.length === 0 ? (
+                        <div className="text-center py-6 border border-dashed border-slate-800 rounded-xl space-y-1.5">
+                          <p className="text-[8.5px] font-press-start text-slate-400 uppercase">
+                            NO {selectedHudMuscle.toUpperCase()} WORKOUTS LOGGED YET
+                          </p>
+                          <p className="text-[8px] font-mono text-slate-500">
+                            Log an exercise targeting {selectedHudMuscle} to plot your daily max progression graph!
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Exercise Selector Pills for this Muscle Group */}
+                          <div className="space-y-1.5">
+                            <span className="text-[7px] font-press-start text-slate-400 uppercase block">
+                              EXERCISES DONE FOR {selectedHudMuscle.toUpperCase()} ({loggedExerciseNames.length}):
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {loggedExerciseNames.map((exName) => {
+                                const isSelected = exName === activeExerciseName;
+                                const setCnt = logsByExercise[exName].length;
+                                return (
+                                  <button
+                                    key={exName}
+                                    type="button"
+                                    onClick={() =>
+                                      setSelectedGraphExerciseByMuscle((prev) => ({
+                                        ...prev,
+                                        [selectedHudMuscle]: exName
+                                      }))
+                                    }
+                                    className={`px-2.5 py-1.5 rounded-xl text-[7.5px] font-press-start tracking-wide border transition cursor-pointer ${
+                                      isSelected
+                                        ? "bg-cyan-950/70 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.2)]"
+                                        : "bg-[#141920] border-slate-800 text-slate-400 hover:text-slate-200"
+                                    }`}
+                                  >
+                                    {exName.toUpperCase()}{" "}
+                                    <span className="font-mono text-[7.5px] text-emerald-400">
+                                      ({setCnt})
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* SVG Daily Max Line Graph */}
+                          {activeExerciseName && dailyPoints.length > 0 && (() => {
+                            const svgW = 320;
+                            const svgH = 165;
+                            const padL = 36;
+                            const padR = 24;
+                            const padT = 26;
+                            const padB = 34;
+                            const plotW = svgW - padL - padR;
+                            const plotH = svgH - padT - padB;
+
+                            const values = dailyPoints.map((p) => p.metricValue);
+                            const minVal = Math.min(...values);
+                            const maxVal = Math.max(...values);
+                            const range = maxVal - minVal;
+                            const yMin = range === 0 ? Math.max(0, minVal * 0.85) : Math.max(0, minVal - range * 0.15);
+                            const yMax = range === 0 ? maxVal * 1.15 || 10 : maxVal + range * 0.15;
+
+                            const coords = dailyPoints.map((pt, idx) => {
+                              const x =
+                                dailyPoints.length === 1
+                                  ? padL + plotW / 2
+                                  : padL + (idx / (dailyPoints.length - 1)) * plotW;
+                              const y =
+                                padT + plotH - ((pt.metricValue - yMin) / (yMax - yMin || 1)) * plotH;
+                              return { x, y, pt };
+                            });
+
+                            const polylinePoints = coords.map((c) => `${c.x},${c.y}`).join(" ");
+                            const areaPoints =
+                              coords.length > 1
+                                ? `${coords[0].x},${padT + plotH} ${polylinePoints} ${coords[coords.length - 1].x},${padT + plotH}`
+                                : "";
+
+                            return (
+                              <div className="bg-[#141920] border border-slate-850 rounded-xl p-3 space-y-2.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div>
+                                    <span className="text-[8px] font-press-start text-white uppercase block">
+                                      {activeExerciseName}
+                                    </span>
+                                    <span className="text-[7px] font-mono text-cyan-400 uppercase">
+                                      {metricTypeLabel}
+                                    </span>
+                                  </div>
+                                  <div className="text-right bg-[#0D0D0E] border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+                                    <span className="text-[6.5px] font-press-start text-slate-400 block">
+                                      BEST {metricUnit}
+                                    </span>
+                                    <span className="text-xs font-mono font-black text-emerald-400">
+                                      {allTimeMax} {metricUnit}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="w-full overflow-x-auto">
+                                  <svg
+                                    viewBox={`0 0 ${svgW} ${svgH}`}
+                                    className="w-full h-auto select-none overflow-visible"
+                                  >
+                                    <defs>
+                                      <linearGradient id="line-graph-area" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.35" />
+                                        <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.0" />
+                                      </linearGradient>
+                                    </defs>
+
+                                    {/* Horizontal Grid Lines & Y-Axis Labels */}
+                                    {[0, 0.5, 1].map((frac, gIdx) => {
+                                      const gy = padT + plotH - frac * plotH;
+                                      const gVal = Math.round(yMin + frac * (yMax - yMin));
+                                      return (
+                                        <g key={gIdx}>
+                                          <line
+                                            x1={padL}
+                                            y1={gy}
+                                            x2={svgW - padR}
+                                            y2={gy}
+                                            stroke="#1e293b"
+                                            strokeDasharray="3 3"
+                                            strokeWidth="1"
+                                          />
+                                          <text
+                                            x={padL - 5}
+                                            y={gy + 3}
+                                            textAnchor="end"
+                                            className="fill-slate-500 font-mono text-[7.5px]"
+                                          >
+                                            {gVal}
+                                          </text>
+                                        </g>
+                                      );
+                                    })}
+
+                                    {/* Shaded Area under Line */}
+                                    {coords.length > 1 && (
+                                      <polygon points={areaPoints} fill="url(#line-graph-area)" />
+                                    )}
+
+                                    {/* Line connecting daily bests */}
+                                    {coords.length > 1 && (
+                                      <polyline
+                                        fill="none"
+                                        stroke="#22d3ee"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        points={polylinePoints}
+                                        style={{
+                                          filter: "drop-shadow(0 0 6px rgba(34,211,238,0.5))"
+                                        }}
+                                      />
+                                    )}
+
+                                    {/* Data Points & Labels */}
+                                    {coords.map((c, idx) => (
+                                      <g key={c.pt.dateKey}>
+                                        <circle
+                                          cx={c.x}
+                                          cy={c.y}
+                                          r="4.5"
+                                          fill="#10b981"
+                                          stroke="#0D0D0E"
+                                          strokeWidth="2"
+                                        />
+                                        {/* Max metric value above dot */}
+                                        <text
+                                          x={c.x}
+                                          y={c.y - 8}
+                                          textAnchor="middle"
+                                          className="fill-cyan-300 font-mono font-bold text-[8px]"
+                                        >
+                                          {c.pt.metricValue}
+                                        </text>
+                                        {/* Date label on X-axis */}
+                                        {(coords.length <= 7 ||
+                                          idx === 0 ||
+                                          idx === coords.length - 1 ||
+                                          idx % Math.ceil(coords.length / 5) === 0) && (
+                                          <text
+                                            x={c.x}
+                                            y={padT + plotH + 13}
+                                            textAnchor="middle"
+                                            className="fill-slate-400 font-mono text-[7px]"
+                                          >
+                                            {c.pt.shortDate}
+                                          </text>
+                                        )}
+                                        {/* Raw set sub-label below date */}
+                                        {(coords.length <= 5 ||
+                                          idx === 0 ||
+                                          idx === coords.length - 1) && (
+                                          <text
+                                            x={c.x}
+                                            y={padT + plotH + 23}
+                                            textAnchor="middle"
+                                            className="fill-emerald-400/90 font-mono text-[6.5px]"
+                                          >
+                                            {c.pt.rawBestSet}
+                                          </text>
+                                        )}
+                                      </g>
+                                    ))}
+                                  </svg>
+                                </div>
+
+                                {/* Daily Best Sets Breakdown List */}
+                                <div className="border-t border-slate-800/80 pt-2 space-y-1 max-h-[110px] overflow-y-auto pr-1 scrollbar-thin">
+                                  {[...dailyPoints].reverse().map((pt) => (
+                                    <div
+                                      key={pt.dateKey}
+                                      className="flex items-center justify-between text-[7.5px] font-mono bg-[#0D0D0E] px-2.5 py-1 rounded border border-slate-850"
+                                    >
+                                      <span className="text-slate-400">{pt.shortDate}</span>
+                                      <span className="text-slate-200 font-bold">
+                                        Best Set: {pt.rawBestSet}
+                                      </span>
+                                      <span className="text-emerald-400 font-extrabold">
+                                        → {pt.metricValue} {pt.metricUnit}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Selected Muscle Level & XP Progression Card */}
+                <div className="bg-[#0D0D0E] border-2 border-cyan-500/40 rounded-2xl p-4 space-y-3 shadow-[0_0_20px_rgba(6,182,212,0.12)]">
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-850 pb-2.5">
+                    <div>
+                      <span className="text-[7.5px] font-press-start text-slate-400 uppercase block">
+                        SELECTED MUSCLE GROUP
+                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <h4 className="text-xs font-press-start text-white uppercase tracking-wider">
+                          {selectedHudMuscle.toUpperCase()}
+                        </h4>
+                        <span className={`text-[7.5px] font-press-start px-2 py-0.5 rounded border ${selectedInfo.badgeClass}`}>
+                          {selectedInfo.rankName}
                         </span>
                       </div>
                     </div>
 
-                    {/* 5-Pip Arcade Battery Container + Battery Terminal Cap */}
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex-1 grid grid-cols-5 gap-1.5 bg-[#07090C] border-2 border-slate-800 rounded-xl p-1.5">
-                        {Array.from({ length: sector.totalPips }, (_, pipIdx) => {
-                          const isFilled = pipIdx < sector.filledPips;
-                          return (
-                            <div
-                              key={pipIdx}
-                              className={`h-4 rounded-md border transition-all duration-300 relative overflow-hidden ${
-                                isFilled
-                                  ? sector.pipColor
-                                  : "bg-[#11151C] border-slate-800/80 opacity-45"
-                              }`}
-                            >
-                              {isFilled ? (
-                                /* Retro pixel highlight strip on active pips */
-                                <div className="absolute top-0.5 left-1 right-1 h-1 bg-white/30 rounded-full pointer-events-none" />
-                              ) : (
-                                /* Diagonal drained/shattered hatch line on empty pips */
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <div className="w-3 h-[1px] bg-slate-700/60 rotate-[-20deg]" />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {/* Battery Positive Terminal Nub */}
+                    <div className="text-right bg-[#161B22] border border-slate-800 px-3 py-1.5 rounded-xl shrink-0">
+                      <span className="text-[7px] font-press-start text-slate-400 block">LEVEL</span>
+                      <span className={`text-lg font-mono font-black leading-none ${selectedInfo.textClass}`}>
+                        {selectedInfo.level}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* XP Bar to Next Level */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[8px] font-mono">
+                      <span className="text-slate-400 uppercase">
+                        LEVEL {selectedInfo.level} PROGRESS ({selectedInfo.xpInCurrentLevel} / 100 XP)
+                      </span>
+                      <span className="text-cyan-300 font-bold">
+                        {100 - selectedInfo.xpInCurrentLevel} XP TO LVL {selectedInfo.level + 1}
+                      </span>
+                    </div>
+                    <div className="w-full bg-[#161B22] border border-slate-800 h-2.5 rounded-full overflow-hidden p-0.5">
                       <div
-                        className={`w-1.5 h-3.5 rounded-r-sm border-y border-r transition-colors ${
-                          sector.filledPips === sector.totalPips
-                            ? "bg-emerald-400 border-emerald-300 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
-                            : "bg-slate-800 border-slate-700"
-                        }`}
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.max(4, selectedInfo.xpInCurrentLevel)}%`,
+                          backgroundColor: selectedInfo.barColor
+                        }}
                       />
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* B. TRAINING BALANCE CHARTS (VOLUME DISTRIBUTION) */}
-          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="border-b border-slate-800 pb-3">
-              <span className="text-[9px] font-press-start text-cyan-400 tracking-wider block uppercase">
-                📊 TRAINING BALANCE METERS
-              </span>
-              <p className="text-[8px] text-slate-400 font-mono mt-1">
-                Workout volume splits by muscle zone. Keep them balanced!
-              </p>
-            </div>
-
-            <div className="space-y-4.5 pt-1">
-              {[
-                { key: "chest", label: "CHEST / PUSH", pct: balanceDistribution.chest, color: "from-cyan-500 to-blue-500", desc: "Pecs, push-ups, pressing volume" },
-                { key: "back", label: "BACK / PULL", pct: balanceDistribution.back, color: "from-emerald-500 to-teal-500", desc: "Lats, rows, pull-ups, deadlifts" },
-                { key: "arms", label: "ARMS & SHOULDERS", pct: balanceDistribution.arms, color: "from-purple-500 to-indigo-500", desc: "Biceps, triceps, shoulders, traps" },
-                { key: "legs", label: "LOWER BODY / LEGS", pct: balanceDistribution.legs, color: "from-orange-500 to-amber-500", desc: "Quads, hamstrings, glutes, calves" },
-                { key: "core", label: "CORE STABILITY", pct: balanceDistribution.core, color: "from-pink-500 to-rose-500", desc: "Abs, obliques, stabilizer sets" },
-                { key: "cardio", label: "CARDIO & STAMINA", pct: balanceDistribution.cardio, color: "from-red-500 to-orange-500", desc: "Runs, treadmill jog, stairmaster, speed" }
-              ].map((group) => (
-                <div key={group.key} className="space-y-1.5">
-                  <div className="flex justify-between items-center text-[8.5px] font-press-start">
-                    <span className="text-slate-200">{group.label}</span>
-                    <span className="text-cyan-400">{group.pct}%</span>
-                  </div>
-                  {/* Custom Progress Bar */}
-                  <div className="w-full bg-[#0D0D0E] border border-slate-800 rounded-full h-3 overflow-hidden p-0.5">
-                    <div
-                      className={`bg-gradient-to-r ${group.color} h-full rounded-full transition-all duration-500 ease-out`}
-                      style={{ width: `${group.pct}%` }}
-                    />
-                  </div>
-                  <span className="text-[7.5px] font-mono text-slate-500 block uppercase">
-                    {group.desc}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* C. CHRONOLOGICAL WORKOUT HISTORY FEED */}
-          <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            <div className="border-b border-slate-800 pb-3 flex items-center justify-between">
-              <div>
-                <span className="text-[9px] font-press-start text-cyan-400 tracking-wider block uppercase">
-                  📜 WORKOUT HISTORY LOG
-                </span>
-                <p className="text-[8px] text-slate-400 font-mono mt-1">
-                  Chronological history of completed sets and exercises.
-                </p>
-              </div>
-              <History className="w-4 h-4 text-cyan-400" />
-            </div>
-
-            <div className="space-y-5 pt-1 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
-              {groupedLogHistory.map((group, groupIdx) => (
-                <div key={groupIdx} className="space-y-3">
-                  {/* Date Header */}
-                  <div className="flex items-center gap-2 border-b border-slate-850 pb-1">
-                    <span className="text-[8.5px] font-press-start text-slate-400 tracking-wider font-bold">
-                      {formatDateHeader(group.date)}
+                  {/* Stats Footer Row */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[8px] font-mono text-slate-400">
+                    <span>
+                      🏋️ Workouts Logged:{" "}
+                      <strong className="text-white">{selectedInfo.rawSetCount} sets</strong>
                     </span>
-                    <div className="flex-1 h-[1px] bg-slate-850" />
+                    <span>
+                      🎨 Next Color:{" "}
+                      <strong className="text-cyan-300">{selectedInfo.nextRankLabel}</strong>
+                    </span>
                   </div>
 
-                  {/* Exercises on that Day */}
-                  <div className="space-y-2.5">
-                    {group.items.map((item, itemIdx) => (
-                      <div key={itemIdx} className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3.5 space-y-2.5">
-                        {/* Exercise title & category tag */}
-                        <div className="flex items-center justify-between border-b border-slate-900 pb-1.5 gap-2">
-                          <span className="text-[9px] font-press-start text-white tracking-wide uppercase truncate">
-                            {item.exerciseName}
-                          </span>
-                          <span className="text-[7px] font-press-start text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded-md uppercase shrink-0">
-                            {item.pillar}
-                          </span>
-                        </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenStatModal(selectedHudMuscle, selectedInfo.level)}
+                    className="w-full py-2 px-3 rounded-xl bg-[#161B22] hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/40 text-cyan-300 text-[8px] font-press-start tracking-wider uppercase cursor-pointer transition"
+                  >
+                    📊 VIEW CONTRIBUTING EXERCISES & DETAILS
+                  </button>
+                </div>
 
-                        {/* Sets listed */}
-                        <div className="space-y-1.5">
-                          {item.sets.map((set, setIdx) => {
-                            const reps = set.reps || 0;
-                            const weight = set.weight || 0;
-                            const distance = set.distance || 0;
-                            const mins = set.minutes || 0;
-                            const secs = set.seconds || 0;
-                            const floors = set.floors || 0;
-
-                            let detailStr = "";
-                            if (weight > 0 || reps > 0) {
-                              detailStr = `${weight} LBS x ${reps} REPS`;
-                            } else if (distance > 0) {
-                              detailStr = `${distance.toFixed(2)} MILES (${mins}m ${secs}s)`;
-                            } else if (floors > 0) {
-                              detailStr = `${floors} FLOORS (${mins}m ${secs}s)`;
-                            } else if (mins > 0 || secs > 0) {
-                              detailStr = `${mins}m ${secs}s`;
-                            } else if (set.newValue) {
-                              detailStr = set.newValue;
-                            }
-
-                            const xpGained = set.xpAwarded || 10;
-
-                            return (
-                              <div key={setIdx} className="flex justify-between items-center text-[9px] font-mono">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-slate-500 uppercase">SET {setIdx + 1}:</span>
-                                  <span className="text-slate-200 font-bold">{detailStr}</span>
-                                </div>
-                                <span className="text-emerald-400 font-bold shrink-0">+{xpGained} XP</span>
-                              </div>
-                            );
-                          })}
-                        </div>
+                {/* Rank Color Progression Legend at Very Bottom */}
+                <div className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-2.5">
+                  <div className="text-[7px] font-press-start text-slate-400 uppercase tracking-wider mb-2 text-center">
+                    RANK UP COLOR TIERS
+                  </div>
+                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                    {rankTiersLegend.map((t) => (
+                      <div
+                        key={t.rank}
+                        className="flex flex-col items-center bg-[#141920] border border-slate-800/80 rounded-lg py-1.5 px-1 text-center"
+                      >
+                        <span
+                          className="w-3 h-3 rounded-sm mb-1 border border-white/20"
+                          style={{ backgroundColor: t.color }}
+                        />
+                        <span className="text-[6.5px] font-press-start text-slate-200 leading-tight">
+                          {t.rank}
+                        </span>
+                        <span className="text-[6.5px] font-mono text-slate-400">
+                          {t.label}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
-              ))}
-
-              {groupedLogHistory.length === 0 && (
-                <div className="text-center py-10 text-slate-500 font-mono text-[9px] uppercase border border-dashed border-slate-800 rounded-2xl">
-                  No logged workouts found.
-                  <br />
-                  Log some exercises on the EXERCISE tab to fill your history feed!
-                </div>
-              )}
-            </div>
-          </div>
+              </div>
+            );
+          })()}
         </motion.div>
       )}
 
