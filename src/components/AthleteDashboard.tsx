@@ -1635,11 +1635,6 @@ export default function AthleteDashboard({
                 {/* CENTERED CHARACTER DIAGRAM (Matches Exercise Screen Colors & Highlighting) */}
                 <div className="flex flex-col items-center justify-center space-y-3 w-full">
                   <div className="relative w-full max-w-[290px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto">
-                    {/* Top-Right Selected Muscle & Level Badge */}
-                    <div className="absolute top-2 right-2 bg-slate-950/90 border border-cyan-400/80 px-2.5 py-1 rounded-lg text-cyan-300 font-press-start text-[7.5px] uppercase tracking-wider shadow-[0_0_10px_rgba(6,182,212,0.3)] z-20 pointer-events-none">
-                      {selectedHudMuscle.toUpperCase()} • LVL {selectedInfo.level}
-                    </div>
-
                     <svg
                       viewBox={hudViewSide === "front" ? "21 0 488 585" : "424 0 488 585"}
                       className="w-full h-full select-none"
@@ -1699,6 +1694,16 @@ export default function AthleteDashboard({
                         );
                       })}
                     </svg>
+                  </div>
+
+                  {/* Selected Muscle & Level Display Just Above Cardio */}
+                  <div className="w-full max-w-[290px] bg-[#0D0D0E] border-2 border-cyan-500/50 rounded-xl px-4 py-2.5 flex items-center justify-between shadow-[0_0_12px_rgba(6,182,212,0.2)]">
+                    <span className="font-press-start text-[10px] text-white uppercase tracking-wider">
+                      {selectedHudMuscle.toUpperCase()}
+                    </span>
+                    <span className="text-[10px] font-mono font-black text-cyan-300">
+                      LVL {selectedInfo.level}
+                    </span>
                   </div>
 
                   {/* Cardio Button Below Image */}

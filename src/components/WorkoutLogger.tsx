@@ -723,8 +723,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       muscles: musclesDict,
       builds: buildsDict,
       subCategories: subCats,
-      image: customExImageUrl.trim() || undefined,
-      bottomImage: customExImage2Url.trim() || undefined
+      image: customExImageUrl.trim() || undefined
     };
 
     saveCustomExercise(newExercise);
@@ -2274,10 +2273,10 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               </div>
             </div>
 
-            {/* 3. TARGET MUSCLE FOCUS (INTERACTIVE ANATOMY MAP) */}
+            {/* 3. TARGET MUSCLE FOCUS (HORIZONTAL SCROLL + SEPARATE CARDIO BUTTON) */}
             <div className="space-y-2">
               <label className="text-[9px] font-press-start text-slate-400 uppercase block">
-                TARGET MUSCLE FOCUS (TAP BODY TO PICK MULTIPLE) *
+                TARGET MUSCLE FOCUS (SCROLL & TAP TO PICK MULTIPLE) *
               </label>
               <BodyStatusMap
                 interactive={true}
@@ -2325,82 +2324,42 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               </div>
             </div>
 
-            {/* 5. IMAGE 1 & IMAGE 2 / GIF UPLOAD (ICON ONLY) */}
+            {/* 5. SINGLE IMAGE UPLOAD (ICON ONLY) */}
             <div className="pt-2 border-t border-slate-800">
-              <div className="grid grid-cols-2 gap-3">
-                {/* IMAGE 1 / GIF */}
-                <div className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3 flex items-center justify-center min-h-[110px] relative">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(e) => handleImageFileUpload(e, 1)}
-                    className="hidden"
-                  />
-                  {customExImagePreview ? (
-                    <div className="relative w-full h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                      <img
-                        src={customExImagePreview}
-                        alt="Preview 1"
-                        className="max-h-24 w-auto object-contain"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-[#161B22]/90 border border-slate-700 hover:border-cyan-400 text-cyan-400 flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        <Upload className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ) : (
+              <div className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3 flex items-center justify-center min-h-[110px] relative">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={(e) => handleImageFileUpload(e, 1)}
+                  className="hidden"
+                />
+                {customExImagePreview ? (
+                  <div className="relative w-full h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center">
+                    <img
+                      src={customExImagePreview}
+                      alt="Preview"
+                      className="max-h-24 w-auto object-contain"
+                    />
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="p-3 bg-[#161B22] border border-slate-700 hover:border-cyan-400 rounded-xl text-cyan-400 flex items-center justify-center gap-1 cursor-pointer transition active:scale-95"
+                      className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-[#161B22]/90 border border-slate-700 hover:border-cyan-400 text-cyan-400 flex items-center gap-0.5 cursor-pointer"
                     >
-                      <ImageIcon className="w-5 h-5" />
-                      <Upload className="w-3.5 h-3.5" />
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <Upload className="w-2.5 h-2.5" />
                     </button>
-                  )}
-                </div>
-
-                {/* IMAGE 2 / GIF */}
-                <div className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-3 flex items-center justify-center min-h-[110px] relative">
-                  <input
-                    type="file"
-                    ref={fileInput2Ref}
-                    accept="image/png,image/jpeg,image/webp"
-                    onChange={(e) => handleImageFileUpload(e, 2)}
-                    className="hidden"
-                  />
-                  {customExImage2Preview ? (
-                    <div className="relative w-full h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                      <img
-                        src={customExImage2Preview}
-                        alt="Preview 2"
-                        className="max-h-24 w-auto object-contain"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInput2Ref.current?.click()}
-                        className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-[#161B22]/90 border border-slate-700 hover:border-emerald-400 text-emerald-400 flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        <Upload className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => fileInput2Ref.current?.click()}
-                      className="p-3 bg-[#161B22] border border-slate-700 hover:border-emerald-400 rounded-xl text-emerald-400 flex items-center justify-center gap-1 cursor-pointer transition active:scale-95"
-                    >
-                      <ImageIcon className="w-5 h-5" />
-                      <Upload className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-3 bg-[#161B22] border border-slate-700 hover:border-cyan-400 rounded-xl text-cyan-400 flex items-center justify-center gap-1 cursor-pointer transition active:scale-95"
+                  >
+                    <ImageIcon className="w-5 h-5" />
+                    <Upload className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 

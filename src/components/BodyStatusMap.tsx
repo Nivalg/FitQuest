@@ -198,7 +198,7 @@ export default function BodyStatusMap({
 
       <div className="flex flex-col items-center justify-center bg-[#0D0D0E] border-2 border-slate-800 rounded-2xl p-4 shadow-2xl w-full relative space-y-3">
         <div className="text-[9px] font-press-start text-cyan-400 tracking-widest uppercase text-center">
-          {title || (interactive ? "SELECT TARGET MUSCLES (TAP BODY)" : `${timeframe === "weekly" ? "WEEKLY" : "MONTHLY"} ANATOMY TARGETING HUD`)}
+          {title || (interactive ? "SELECT TARGET MUSCLES (SCROLL & TAP BELOW)" : `${timeframe === "weekly" ? "WEEKLY" : "MONTHLY"} ANATOMY TARGETING HUD`)}
         </div>
 
         <div className="relative w-full max-w-[340px] aspect-[976/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner">
@@ -240,8 +240,6 @@ export default function BodyStatusMap({
                     fillOpacity={isSelected ? 0.85 : 0}
                     stroke={isSelected ? "#22d3ee" : "none"}
                     strokeWidth="2"
-                    className="cursor-pointer transition-all hover:fill-cyan-400/50 hover:fill-opacity-50"
-                    onClick={() => onToggleMuscle?.(path.muscle)}
                   />
                 );
               }
@@ -270,55 +268,71 @@ export default function BodyStatusMap({
           </svg>
         </div>
 
-        {/* Horizontal Scrollable Muscle Selector + Separate Cardio Button */}
-        {!interactive && (
-          <div className="w-full space-y-2.5 pt-1">
-            <div
-              className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 px-1 scrollbar-thin"
-              style={{ WebkitOverflowScrolling: "touch" }}
-            >
-              {SCROLLABLE_MUSCLES.map((m) => {
-                const isSelected = inspectedMuscle === m.key;
-                const pct = Math.round(getProgress(m.key));
-                return (
-                  <button
-                    key={m.key}
-                    type="button"
-                    onClick={() => setInspectedMuscle(m.key)}
-                    className={`shrink-0 px-3.5 py-2 rounded-xl border text-[8.5px] font-press-start tracking-wider uppercase cursor-pointer transition active:scale-95 flex items-center gap-1.5 ${
-                      isSelected
-                        ? "bg-cyan-950/70 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
-                        : "bg-[#161B22] border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
-                    }`}
-                  >
-                    <span>{m.label}</span>
+        {/* Horizontal Scrollable Muscle Selector + Separate Cardio Button (Shown in both Character status mode and Custom Exercise interactive mode) */}
+        <div className="w-full space-y-2.5 pt-1">
+          <div
+            className="flex items-center gap-2 overflow-x-auto pb-1.5 pt-0.5 px-1 scrollbar-thin"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
+            {SCROLLABLE_MUSCLES.map((m) => {
+              const isSelected = interactive
+                ? selectedMuscles.includes(m.key)
+                : inspectedMuscle === m.key;
+              const pct = Math.round(getProgress(m.key));
+              return (
+                <button
+                  key={m.key}
+                  type="button"
+                  onClick={() => {
+                    if (interactive) {
+                      onToggleMuscle?.(m.key);
+                    } else {
+                      setInspectedMuscle(m.key);
+                    }
+                  }}
+                  className={`shrink-0 px-3.5 py-2 rounded-xl border text-[8.5px] font-press-start tracking-wider uppercase cursor-pointer transition active:scale-95 flex items-center gap-1.5 ${
+                    isSelected
+                      ? "bg-cyan-950/70 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
+                      : "bg-[#161B22] border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
+                  }`}
+                >
+                  <span>{m.label}</span>
+                  {!interactive && (
                     <span className="font-mono text-[8px] text-emerald-400 font-bold">
                       {pct}%
                     </span>
-                  </button>
-                );
-              })}
-            </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Separate Button for Cardio */}
-            <button
-              type="button"
-              onClick={() => setInspectedMuscle("cardio")}
-              style={{ minHeight: "42px" }}
-              className={`w-full border-2 rounded-xl px-4 py-2 flex items-center justify-center gap-2 font-press-start text-[9.5px] uppercase cursor-pointer transition active:scale-95 ${
-                inspectedMuscle === "cardio"
-                  ? "bg-cyan-950/70 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold"
-                  : "bg-[#161B22] hover:bg-[#1c222b] border-slate-800 text-slate-300 hover:text-white"
-              }`}
-            >
-              <Flame className="w-4 h-4 text-cyan-400" />
-              <span>CARDIO</span>
+          {/* Separate Button for Cardio */}
+          <button
+            type="button"
+            onClick={() => {
+              if (interactive) {
+                onToggleMuscle?.("cardio");
+              } else {
+                setInspectedMuscle("cardio");
+              }
+            }}
+            style={{ minHeight: "42px" }}
+            className={`w-full border-2 rounded-xl px-4 py-2 flex items-center justify-center gap-2 font-press-start text-[9.5px] uppercase cursor-pointer transition active:scale-95 ${
+              (interactive ? selectedMuscles.includes("cardio") : inspectedMuscle === "cardio")
+                ? "bg-cyan-950/70 border-cyan-400 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.3)] font-bold"
+                : "bg-[#161B22] hover:bg-[#1c222b] border-slate-800 text-slate-300 hover:text-white"
+            }`}
+          >
+            <Flame className="w-4 h-4 text-cyan-400" />
+            <span>CARDIO</span>
+            {!interactive && (
               <span className="font-mono text-[9px] text-emerald-400 font-bold">
                 ({Math.round(getProgress("cardio"))}%)
               </span>
-            </button>
-          </div>
-        )}
+            )}
+          </button>
+        </div>
 
         {/* Always-Visible Past Workouts Window for the Selected Muscle (Exercise Name + X4 set count) */}
         {!interactive && inspectedMuscle && (
