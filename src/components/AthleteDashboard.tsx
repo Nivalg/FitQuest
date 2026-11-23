@@ -1487,84 +1487,16 @@ export default function AthleteDashboard({
               const level = Math.max(1, 1 + Math.floor(totalXP / 100));
               const xpInCurrentLevel = totalXP % 100;
 
-              // 3. Determine Rank Color Tier based on Level
-              let rankName = "RANK E • ROOKIE";
-              let fillHex = "#22c55e"; // Emerald Green (Lvl 1-4)
-              let textClass = "text-emerald-400";
-              let badgeClass = "bg-emerald-950/50 border-emerald-500/50 text-emerald-300";
-              let barColor = "#22c55e";
-              let nextRankLabel = "Rank D • Bronze (Lvl 5)";
-
-              if (level >= 100) {
-                rankName = "RANK SS • DIAMOND STEEL";
-                fillHex = "url(#steel-glint-stats)";
-                textClass = "text-cyan-200";
-                badgeClass = "bg-cyan-950/70 border-cyan-300 text-cyan-200 shadow-[0_0_12px_rgba(165,243,252,0.4)]";
-                barColor = "#67e8f9";
-                nextRankLabel = "MAX RANK ACHIEVED";
-              } else if (level >= 75) {
-                rankName = "RANK S • CRIMSON";
-                fillHex = "#f43f5e";
-                textClass = "text-rose-400";
-                badgeClass = "bg-rose-950/50 border-rose-500/50 text-rose-300";
-                barColor = "#f43f5e";
-                nextRankLabel = "Rank SS • Diamond Steel (Lvl 100)";
-              } else if (level >= 50) {
-                rankName = "RANK A • AMETHYST";
-                fillHex = "#a855f7";
-                textClass = "text-purple-400";
-                badgeClass = "bg-purple-950/50 border-purple-500/50 text-purple-300";
-                barColor = "#a855f7";
-                nextRankLabel = "Rank S • Crimson (Lvl 75)";
-              } else if (level >= 30) {
-                rankName = "RANK B • GOLD";
-                fillHex = "#facc15";
-                textClass = "text-yellow-400";
-                badgeClass = "bg-yellow-950/50 border-yellow-500/50 text-yellow-300";
-                barColor = "#facc15";
-                nextRankLabel = "Rank A • Amethyst (Lvl 50)";
-              } else if (level >= 15) {
-                rankName = "RANK C • SILVER CYAN";
-                fillHex = "#38bdf8";
-                textClass = "text-sky-400";
-                badgeClass = "bg-sky-950/50 border-sky-500/50 text-sky-300";
-                barColor = "#38bdf8";
-                nextRankLabel = "Rank B • Gold (Lvl 30)";
-              } else if (level >= 5) {
-                rankName = "RANK D • BRONZE";
-                fillHex = "#f97316";
-                textClass = "text-orange-400";
-                badgeClass = "bg-orange-950/50 border-orange-500/50 text-orange-300";
-                barColor = "#f97316";
-                nextRankLabel = "Rank C • Silver Cyan (Lvl 15)";
-              }
-
               return {
                 muscleKey,
                 level,
                 totalXP,
                 xpInCurrentLevel,
-                rawSetCount,
-                rankName,
-                fillHex,
-                textClass,
-                badgeClass,
-                barColor,
-                nextRankLabel
+                rawSetCount
               };
             };
 
             const selectedInfo = getMuscleLevelInfo(selectedHudMuscle);
-
-            const rankTiersLegend = [
-              { label: "LVL 1–4", rank: "ROOKIE", color: "#22c55e" },
-              { label: "LVL 5–14", rank: "BRONZE", color: "#f97316" },
-              { label: "LVL 15–29", rank: "SILVER", color: "#38bdf8" },
-              { label: "LVL 30–49", rank: "GOLD", color: "#facc15" },
-              { label: "LVL 50–74", rank: "AMETHYST", color: "#a855f7" },
-              { label: "LVL 75–99", rank: "CRIMSON", color: "#f43f5e" },
-              { label: "LVL 100+", rank: "STEEL", color: "#94a3b8" }
-            ];
 
             return (
               <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
@@ -1572,10 +1504,10 @@ export default function AthleteDashboard({
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-slate-800 pb-3">
                   <div>
                     <span className="text-[9px] font-press-start text-cyan-400 tracking-widest block uppercase mb-1">
-                      ⚔️ MUSCLE LEVEL & RANK HUD
+                      ⚔️ MUSCLE LEVEL HUD
                     </span>
                     <p className="text-[8px] text-slate-400 font-mono leading-relaxed">
-                      Tap any muscle group to inspect its level. Muscles rank up in color the more workouts you log!
+                      Tap any muscle group to inspect its level and daily max progression graph.
                     </p>
                   </div>
 
@@ -1614,7 +1546,7 @@ export default function AthleteDashboard({
                   </div>
                 </div>
 
-                {/* CENTERED CHARACTER DIAGRAM (Same as Exercise Screen, Colored by Muscle Level) */}
+                {/* CENTERED CHARACTER DIAGRAM (Matches Exercise Screen Colors & Highlighting) */}
                 <div className="flex flex-col items-center justify-center space-y-3 w-full">
                   <div className="relative w-full max-w-[290px] aspect-[488/585] bg-black rounded-xl overflow-hidden border border-slate-900 shadow-inner mx-auto">
                     {/* Top-Right Selected Muscle & Level Badge */}
@@ -1632,7 +1564,7 @@ export default function AthleteDashboard({
                         <linearGradient id="steel-glint-stats" x1="0%" y1="0%" x2="100%" y2="50%">
                           <stop offset="0%" stopColor="#3E4A5A" />
                           <stop offset="42%" stopColor="#3E4A5A" />
-                          <stop offset="50%" stopColor="#C9D6E8" stopOpacity="0.55" />
+                          <stop offset="50%" stopColor="#C9D6E8" stopOpacity="0.35" />
                           <stop offset="58%" stopColor="#3E4A5A" />
                           <stop offset="100%" stopColor="#3E4A5A" />
                           <animate attributeName="x1" from="-100%" to="100%" dur="2.8s" repeatCount="indefinite" />
@@ -1660,22 +1592,22 @@ export default function AthleteDashboard({
                         clipPath="url(#side-clip-stats)"
                       />
 
-                      {/* Layer 2: Muscle overlays colored dynamically by each muscle's Level Rank */}
+                      {/* Layer 2: Muscle overlays matching Exercise Screen colors (#22D3EE + steel-glint when selected) */}
                       {pixelMusclePaths.map((path, idx) => {
-                        const mInfo = getMuscleLevelInfo(path.muscle);
                         const isSelected = path.muscle === selectedHudMuscle;
+                        const color = isSelected ? "url(#steel-glint-stats)" : "#22D3EE";
                         return (
                           <path
                             key={`${path.id}-${idx}-stats-hud`}
                             d={path.d}
-                            fill={mInfo.fillHex}
-                            opacity={isSelected ? 1 : 0.82}
+                            fill={color}
+                            opacity={isSelected ? 1 : 0.7}
                             style={{
                               filter: isSelected
-                                ? "brightness(1.25) drop-shadow(0 0 6px rgba(255, 255, 255, 0.85))"
-                                : undefined
+                                ? "drop-shadow(0 0 6px rgba(200, 230, 245, 0.9))"
+                                : "drop-shadow(0 0 4px rgba(34, 211, 238, 0.85))"
                             }}
-                            className="cursor-pointer hover:opacity-100 transition-all duration-150"
+                            className="cursor-pointer hover:opacity-90 transition-all duration-150"
                             onClick={() => handleMuscleTap(path.muscle)}
                           />
                         );
@@ -1700,7 +1632,7 @@ export default function AthleteDashboard({
                         <span className="flex items-center gap-2">
                           <Flame className="w-4 h-4 text-cyan-400" /> CARDIO
                         </span>
-                        <span className={`text-[9px] font-mono font-black ${cardioInfo.textClass}`}>
+                        <span className="text-[9px] font-mono font-black text-cyan-300">
                           LVL {cardioInfo.level}
                         </span>
                       </button>
@@ -1748,11 +1680,24 @@ export default function AthleteDashboard({
                     (a, b) => logsByExercise[b].length - logsByExercise[a].length
                   );
 
+                  const defaultMuscleExercises = getAllExercises()
+                    .filter((ex) => {
+                      const targetKey = selectedHudMuscle === "forearms" ? "biceps" : selectedHudMuscle;
+                      if (targetKey === "cardio") return ex.pillar === "cardio";
+                      const m = (ex.muscles || {}) as Record<string, number>;
+                      return (m[targetKey] || 0) > 0;
+                    })
+                    .slice(0, 4)
+                    .map((ex) => ex.name);
+
+                  const displayExerciseNames =
+                    loggedExerciseNames.length > 0 ? loggedExerciseNames : defaultMuscleExercises;
+
                   const activeExerciseName =
                     (selectedGraphExerciseByMuscle[selectedHudMuscle] &&
-                      logsByExercise[selectedGraphExerciseByMuscle[selectedHudMuscle]]
+                      displayExerciseNames.includes(selectedGraphExerciseByMuscle[selectedHudMuscle])
                       ? selectedGraphExerciseByMuscle[selectedHudMuscle]
-                      : loggedExerciseNames[0]) || null;
+                      : displayExerciseNames[0]) || null;
 
                   // Compute daily best data points for the active exercise
                   interface DailyMaxPoint {
@@ -1869,13 +1814,40 @@ export default function AthleteDashboard({
                     dailyPoints.push(
                       ...Array.from(byDay.values()).sort((a, b) => a.timestamp - b.timestamp)
                     );
+                  } else if (activeExerciseName) {
+                    const today = new Date();
+                    const lowerName = activeExerciseName.toLowerCase();
+                    const conf = EXERCISE_CONFIGS.find((c) => c.name.toLowerCase() === lowerName);
+                    const dbEx = getAllExercises().find((e) => e.name.toLowerCase() === lowerName);
+                    const pillar = conf?.pillar || dbEx?.pillar;
+                    const formType = conf?.formType || dbEx?.formType || "A";
+                    const defaultUnit =
+                      pillar === "cardio" ? "MPH" : formType === "B" ? "REPS" : formType === "C" ? "SEC" : "LBS";
+                    const defaultTypeLabel =
+                      pillar === "cardio"
+                        ? "MAX SPEED (MPH)"
+                        : formType === "B"
+                        ? "MAX REPS IN A SET"
+                        : formType === "C"
+                        ? "MAX HOLD TIME"
+                        : "EST. 1RM MAX WEIGHT";
+
+                    dailyPoints.push({
+                      dateKey: "baseline",
+                      shortDate: today.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+                      timestamp: today.getTime(),
+                      metricValue: 0,
+                      metricUnit: defaultUnit,
+                      metricTypeLabel: defaultTypeLabel,
+                      rawBestSet: "0 logged"
+                    });
                   }
 
                   const allTimeMax =
                     dailyPoints.length > 0
                       ? Math.max(...dailyPoints.map((p) => p.metricValue))
                       : 0;
-                  const metricUnit = dailyPoints[0]?.metricUnit || "";
+                  const metricUnit = dailyPoints[0]?.metricUnit || "LBS";
                   const metricTypeLabel = dailyPoints[0]?.metricTypeLabel || "DAILY MAX PROGRESSION";
 
                   return (
@@ -1891,26 +1863,17 @@ export default function AthleteDashboard({
                         </div>
                       </div>
 
-                      {loggedExerciseNames.length === 0 ? (
-                        <div className="text-center py-6 border border-dashed border-slate-800 rounded-xl space-y-1.5">
-                          <p className="text-[8.5px] font-press-start text-slate-400 uppercase">
-                            NO {selectedHudMuscle.toUpperCase()} WORKOUTS LOGGED YET
-                          </p>
-                          <p className="text-[8px] font-mono text-slate-500">
-                            Log an exercise targeting {selectedHudMuscle} to plot your daily max progression graph!
-                          </p>
-                        </div>
-                      ) : (
+                      {displayExerciseNames.length > 0 && (
                         <>
                           {/* Exercise Selector Pills for this Muscle Group */}
                           <div className="space-y-1.5">
                             <span className="text-[7px] font-press-start text-slate-400 uppercase block">
-                              EXERCISES DONE FOR {selectedHudMuscle.toUpperCase()} ({loggedExerciseNames.length}):
+                              EXERCISES FOR {selectedHudMuscle.toUpperCase()} ({displayExerciseNames.length}):
                             </span>
                             <div className="flex flex-wrap gap-1.5">
-                              {loggedExerciseNames.map((exName) => {
+                              {displayExerciseNames.map((exName) => {
                                 const isSelected = exName === activeExerciseName;
-                                const setCnt = logsByExercise[exName].length;
+                                const setCnt = logsByExercise[exName]?.length || 0;
                                 return (
                                   <button
                                     key={exName}
@@ -2140,15 +2103,12 @@ export default function AthleteDashboard({
                         <h4 className="text-xs font-press-start text-white uppercase tracking-wider">
                           {selectedHudMuscle.toUpperCase()}
                         </h4>
-                        <span className={`text-[7.5px] font-press-start px-2 py-0.5 rounded border ${selectedInfo.badgeClass}`}>
-                          {selectedInfo.rankName}
-                        </span>
                       </div>
                     </div>
 
                     <div className="text-right bg-[#161B22] border border-slate-800 px-3 py-1.5 rounded-xl shrink-0">
                       <span className="text-[7px] font-press-start text-slate-400 block">LEVEL</span>
-                      <span className={`text-lg font-mono font-black leading-none ${selectedInfo.textClass}`}>
+                      <span className="text-lg font-mono font-black leading-none text-cyan-300">
                         {selectedInfo.level}
                       </span>
                     </div>
@@ -2166,10 +2126,9 @@ export default function AthleteDashboard({
                     </div>
                     <div className="w-full bg-[#161B22] border border-slate-800 h-2.5 rounded-full overflow-hidden p-0.5">
                       <div
-                        className="h-full rounded-full transition-all duration-500"
+                        className="h-full rounded-full transition-all duration-500 bg-cyan-400"
                         style={{
-                          width: `${Math.max(4, selectedInfo.xpInCurrentLevel)}%`,
-                          backgroundColor: selectedInfo.barColor
+                          width: `${Math.max(4, selectedInfo.xpInCurrentLevel)}%`
                         }}
                       />
                     </div>
@@ -2181,10 +2140,6 @@ export default function AthleteDashboard({
                       🏋️ Workouts Logged:{" "}
                       <strong className="text-white">{selectedInfo.rawSetCount} sets</strong>
                     </span>
-                    <span>
-                      🎨 Next Color:{" "}
-                      <strong className="text-cyan-300">{selectedInfo.nextRankLabel}</strong>
-                    </span>
                   </div>
 
                   <button
@@ -2194,32 +2149,6 @@ export default function AthleteDashboard({
                   >
                     📊 VIEW CONTRIBUTING EXERCISES & DETAILS
                   </button>
-                </div>
-
-                {/* Rank Color Progression Legend at Very Bottom */}
-                <div className="bg-[#0D0D0E] border border-slate-850 rounded-xl p-2.5">
-                  <div className="text-[7px] font-press-start text-slate-400 uppercase tracking-wider mb-2 text-center">
-                    RANK UP COLOR TIERS
-                  </div>
-                  <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                    {rankTiersLegend.map((t) => (
-                      <div
-                        key={t.rank}
-                        className="flex flex-col items-center bg-[#141920] border border-slate-800/80 rounded-lg py-1.5 px-1 text-center"
-                      >
-                        <span
-                          className="w-3 h-3 rounded-sm mb-1 border border-white/20"
-                          style={{ backgroundColor: t.color }}
-                        />
-                        <span className="text-[6.5px] font-press-start text-slate-200 leading-tight">
-                          {t.rank}
-                        </span>
-                        <span className="text-[6.5px] font-mono text-slate-400">
-                          {t.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
             );

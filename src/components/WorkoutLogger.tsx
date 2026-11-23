@@ -7,7 +7,8 @@ import {
   deleteCustomExercise,
   getCustomExercises,
   saveExerciseImageOverride,
-  clearExerciseImageOverride
+  clearExerciseImageOverride,
+  hasDefaultExerciseImage
 } from "../exercises";
 import { ExerciseInfo, ExercisePillar, AthleteProfile, FitnessLog } from "../types";
 import { evaluateAthletePerformance, calculateSubCategoryLevels } from "../utils/fitnessMath";
@@ -126,7 +127,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const editFrame1InputRef = useRef<HTMLInputElement>(null);
   const editFrame2InputRef = useRef<HTMLInputElement>(null);
 
-  // Dynamic Recents calculation
+  // Dynamic Recents calculation (falls back to starter exercises if no sets logged yet)
   const recents = React.useMemo(() => {
     const uniqueNames: string[] = [];
     const sortedLogs = [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -138,6 +139,11 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
           if (uniqueNames.length >= 6) break;
         }
       }
+    }
+    if (uniqueNames.length === 0) {
+      return ["Bench Press", "Barbell Squat", "Deadlift", "Barbell Bicep Curl"]
+        .map(name => getAllExercises().find(e => e.name === name)!)
+        .filter(Boolean);
     }
     return uniqueNames.map(name => getAllExercises().find(e => e.name === name)!).filter(Boolean);
   }, [logs]);
@@ -627,6 +633,11 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
   const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>, slot: 1 | 2 = 1) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif")) {
+        alert("Please select a static image (PNG, JPG, or WEBP), not a GIF.");
+        e.target.value = "";
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         if (typeof reader.result === "string") {
@@ -643,81 +654,36 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
     }
   };
 
-  const handleOpenImageEditor = () => {
-    if (!selectedExercise) return;
-    const frames =
-      selectedExercise.images && selectedExercise.images.length > 0
-        ? selectedExercise.images
-        : selectedExercise.image
-        ? [selectedExercise.image]
-        : [];
-    setEditFrame1(frames[0] || "");
-    setEditFrame2(frames[1] || "");
-    setIsImageEditorOpen((prev) => !prev);
-  };
-
-  const handleEditFrameFileUpload = (slot: 1 | 2, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEditFrameFileUpload = (slot: "top" | "bottom", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedExercise) return;
+    if (file.type === "image/gif" || file.name.toLowerCase().endsWith(".gif")) {
+      alert("Please select a static image (PNG, JPG, or WEBP), not a GIF.");
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onloadend = () => {
       if (typeof reader.result === "string") {
-        const currentFrames =
-          selectedExercise.images && selectedExercise.images.length > 0
-            ? [...selectedExercise.images]
-            : selectedExercise.image
-            ? [selectedExercise.image]
-            : [];
-        const f1 = slot === 1 ? reader.result : currentFrames[0] || "";
-        const f2 = slot === 2 ? reader.result : currentFrames[1] || "";
-        const nextFrames = [f1, f2].filter(Boolean);
-        saveExerciseImageOverride(selectedExercise.name, nextFrames);
-        setSelectedExercise({
-          ...selectedExercise,
-          images: nextFrames.length > 0 ? nextFrames : undefined,
-          image: nextFrames[0] || undefined
-        });
-        setFrameIndex(0);
+        if (slot === "top" && hasDefaultExerciseImage(selectedExercise.name)) {
+          return;
+        }
+        saveExerciseImageOverride(selectedExercise.name, slot, reader.result);
+        if (slot === "top") {
+          setSelectedExercise({
+            ...selectedExercise,
+            image: reader.result
+          });
+        } else {
+          setSelectedExercise({
+            ...selectedExercise,
+            bottomImage: reader.result
+          });
+        }
       }
     };
     reader.readAsDataURL(file);
     e.target.value = "";
-  };
-
-  const handleSaveExerciseImages = () => {
-    if (!selectedExercise) return;
-    const frames = [editFrame1.trim(), editFrame2.trim()].filter(Boolean);
-    saveExerciseImageOverride(selectedExercise.name, frames);
-    const updatedEx: ExerciseInfo = {
-      ...selectedExercise,
-      images: frames.length > 0 ? frames : undefined,
-      image: frames[0] || undefined
-    };
-    setSelectedExercise(updatedEx);
-    setFrameIndex(0);
-    setIsImageEditorOpen(false);
-  };
-
-  const handleResetExerciseImages = () => {
-    if (!selectedExercise) return;
-    clearExerciseImageOverride(selectedExercise.name);
-    const baseEx = EXERCISE_DATABASE.find(
-      (e) => e.name.toLowerCase() === selectedExercise.name.toLowerCase()
-    );
-    const customEx = getCustomExercises().find(
-      (e) => e.name.toLowerCase() === selectedExercise.name.toLowerCase()
-    );
-    const source = customEx || baseEx;
-    const restored: ExerciseInfo = {
-      ...selectedExercise,
-      images: source?.images,
-      image: source?.image
-    };
-    setSelectedExercise(restored);
-    setEditFrame1(restored.images?.[0] || restored.image || "");
-    setEditFrame2(restored.images?.[1] || "");
-    setFrameIndex(0);
-    setIsImageEditorOpen(false);
   };
 
   const handleSaveCustomExerciseSubmit = (e: React.FormEvent) => {
@@ -749,8 +715,6 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       else buildsDict.armStrength = (buildsDict.armStrength || 0) + weightPerMuscle;
     });
 
-    const customFrames = [customExImageUrl.trim(), customExImage2Url.trim()].filter(Boolean);
-
     const newExercise: ExerciseInfo = {
       name: customExName.trim(),
       pillar: customExPillar,
@@ -759,8 +723,8 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
       muscles: musclesDict,
       builds: buildsDict,
       subCategories: subCats,
-      images: customFrames.length > 0 ? customFrames : undefined,
-      image: customFrames[0] || undefined
+      image: customExImageUrl.trim() || undefined,
+      bottomImage: customExImage2Url.trim() || undefined
     };
 
     saveCustomExercise(newExercise);
@@ -908,6 +872,27 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               transition={{ duration: 0.15 }}
               className="space-y-6"
             >
+              {/* QUICK-LOG RECENTS BAR ON TOP OF EXERCISES TAB */}
+              {recents.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[8px] font-press-start text-slate-500 tracking-wider block uppercase">
+                    ⚡️ QUICK-LOG RECENTS
+                  </span>
+                  <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none w-full">
+                    {recents.map((ex) => (
+                      <button
+                        key={ex.name}
+                        type="button"
+                        onClick={() => handleSelectExercise(ex, "categories")}
+                        className="px-3.5 py-2.5 bg-[#12161A] border border-slate-850 hover:border-cyan-500/40 rounded-xl text-[9px] font-press-start text-white tracking-wide cursor-pointer transition shrink-0"
+                      >
+                        {ex.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* D. ANATOMY TARGETING HUD */}
               <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
                 {/* Header & FRONT / BACK capsule */}
@@ -1473,66 +1458,56 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
             </div>
           )}
 
-          {/* EXERCISE DEMONSTRATION IMAGE / ANIMATION DISPLAY CARD (Icon-only image/GIF uploaders for both frames) */}
-          <div className="bg-black border-2 border-slate-850 rounded-2xl p-3 flex items-center justify-center overflow-hidden shadow-inner relative max-w-sm mx-auto w-full min-h-[140px]">
-            <input
-              type="file"
-              ref={editFrame1InputRef}
-              accept="image/*,.gif"
-              onChange={(e) => handleEditFrameFileUpload(1, e)}
-              className="hidden"
-            />
-            <input
-              type="file"
-              ref={editFrame2InputRef}
-              accept="image/*,.gif"
-              onChange={(e) => handleEditFrameFileUpload(2, e)}
-              className="hidden"
-            />
+          {/* TOP EXERCISE IMAGE DISPLAY CARD (Only customizable if exercise does NOT already have a default built-in image) */}
+          {(() => {
+            const hasBuiltInTopImage = hasDefaultExerciseImage(selectedExercise.name);
+            const topImgSrc =
+              selectedExercise.images && selectedExercise.images.length > 0
+                ? selectedExercise.images[frameIndex % selectedExercise.images.length]
+                : selectedExercise.image;
 
-            {(selectedExercise.images?.length || selectedExercise.image) ? (
-              <div className="relative w-full max-h-48 aspect-video flex items-center justify-center">
-                <img
-                  src={
-                    selectedExercise.images && selectedExercise.images.length > 0
-                      ? selectedExercise.images[frameIndex % selectedExercise.images.length]
-                      : selectedExercise.image
-                  }
-                  alt={selectedExercise.name}
-                  className="max-h-48 w-auto object-contain rounded-lg shadow-lg"
-                />
+            return (
+              <div className="bg-black border-2 border-slate-850 rounded-2xl p-3 flex items-center justify-center overflow-hidden shadow-inner relative max-w-sm mx-auto w-full min-h-[140px]">
+                {!hasBuiltInTopImage && (
+                  <input
+                    type="file"
+                    ref={editFrame1InputRef}
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(e) => handleEditFrameFileUpload("top", e)}
+                    className="hidden"
+                  />
+                )}
+
+                {topImgSrc ? (
+                  <div className="relative w-full max-h-48 aspect-video flex items-center justify-center">
+                    <img
+                      src={topImgSrc}
+                      alt={selectedExercise.name}
+                      className="max-h-48 w-auto object-contain rounded-lg shadow-lg"
+                    />
+                  </div>
+                ) : null}
+
+                {!hasBuiltInTopImage && (
+                  <div
+                    className={`flex items-center ${
+                      topImgSrc ? "absolute bottom-2 right-2 z-10" : "justify-center py-4"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => editFrame1InputRef.current?.click()}
+                      className="p-2 rounded-xl bg-[#161B22]/90 hover:bg-cyan-950/80 border border-slate-700 hover:border-cyan-400 text-cyan-400 flex items-center justify-center gap-0.5 cursor-pointer transition active:scale-95 shadow-lg"
+                      title="Change Top Image"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <Upload className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
-            ) : null}
-
-            {/* Two Image-with-Arrow Icon Buttons (for Frame 1 and Frame 2) */}
-            <div
-              className={`flex items-center gap-2 ${
-                selectedExercise.images?.length || selectedExercise.image
-                  ? "absolute bottom-2 right-2 z-10"
-                  : "justify-center py-4"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => editFrame1InputRef.current?.click()}
-                className="p-2 rounded-xl bg-[#161B22]/90 hover:bg-cyan-950/80 border border-slate-700 hover:border-cyan-400 text-cyan-400 flex items-center justify-center gap-0.5 cursor-pointer transition active:scale-95 shadow-lg"
-                title="Change Image 1 / GIF"
-              >
-                <ImageIcon className="w-4 h-4" />
-                <Upload className="w-3 h-3" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => editFrame2InputRef.current?.click()}
-                className="p-2 rounded-xl bg-[#161B22]/90 hover:bg-emerald-950/80 border border-slate-700 hover:border-emerald-400 text-emerald-400 flex items-center justify-center gap-0.5 cursor-pointer transition active:scale-95 shadow-lg"
-                title="Change Image 2 / GIF"
-              >
-                <ImageIcon className="w-4 h-4" />
-                <Upload className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Muscle progress bar below the header and above the form fields */}
           {(() => {
@@ -2055,36 +2030,52 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
               </button>
             </div>
 
-            {/* Visual Form Guide (Images / Image) */}
-            {selectedExercise.images && selectedExercise.images.length > 0 ? (
-              <div className="pt-6 border-t border-slate-800 flex flex-col items-center justify-center gap-2">
-                <span className="text-[8.5px] font-press-start text-slate-500 block tracking-widest uppercase pl-1">
-                  🖼️ VISUAL FORM GUIDE
-                </span>
-                <div className="border-2 border-cyan-500/35 bg-[#0D0D0E] p-2 rounded-2xl max-w-[240px] overflow-hidden shadow-md">
-                  <img
-                    src={selectedExercise.images[frameIndex]}
-                    alt={selectedExercise.name}
-                    className="w-full h-auto rounded-lg object-contain"
-                    style={{ imageRendering: "pixelated" }}
-                  />
+            {/* Bottom Image Box (Always customizable for all exercises, images only) */}
+            {(() => {
+              const bottomImgSrc =
+                selectedExercise.bottomImage ||
+                (selectedExercise.images && selectedExercise.images.length > 0
+                  ? selectedExercise.images[frameIndex % selectedExercise.images.length]
+                  : selectedExercise.image);
+
+              return (
+                <div className="pt-6 border-t border-slate-800 flex flex-col items-center justify-center">
+                  <div className="border-2 border-cyan-500/35 bg-[#0D0D0E] p-3 rounded-2xl max-w-[260px] w-full min-h-[140px] flex items-center justify-center overflow-hidden shadow-md relative">
+                    <input
+                      type="file"
+                      ref={editFrame2InputRef}
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(e) => handleEditFrameFileUpload("bottom", e)}
+                      className="hidden"
+                    />
+                    {bottomImgSrc ? (
+                      <img
+                        src={bottomImgSrc}
+                        alt={selectedExercise.name}
+                        className="w-full h-auto max-h-48 rounded-lg object-contain"
+                        style={{ imageRendering: "pixelated" }}
+                      />
+                    ) : null}
+
+                    <div
+                      className={`flex items-center ${
+                        bottomImgSrc ? "absolute bottom-2 right-2 z-10" : "justify-center py-4"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => editFrame2InputRef.current?.click()}
+                        className="p-2 rounded-xl bg-[#161B22]/90 hover:bg-cyan-950/80 border border-slate-700 hover:border-cyan-400 text-cyan-400 flex items-center justify-center gap-0.5 cursor-pointer transition active:scale-95 shadow-lg"
+                        title="Change Bottom Image"
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                        <Upload className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ) : selectedExercise.image ? (
-              <div className="pt-6 border-t border-slate-800 flex flex-col items-center justify-center gap-2">
-                <span className="text-[8.5px] font-press-start text-slate-500 block tracking-widest uppercase pl-1">
-                  🖼️ VISUAL FORM GUIDE
-                </span>
-                <div className="border-2 border-cyan-500/35 bg-[#0D0D0E] p-2 rounded-2xl max-w-[240px] overflow-hidden shadow-md">
-                  <img
-                    src={selectedExercise.image}
-                    alt={selectedExercise.name}
-                    className="w-full h-auto rounded-lg object-contain"
-                    style={{ imageRendering: "pixelated" }}
-                  />
-                </div>
-              </div>
-            ) : null}
+              );
+            })()}
 
           </form>
         </motion.div>
@@ -2342,7 +2333,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   <input
                     type="file"
                     ref={fileInputRef}
-                    accept="image/*,.gif"
+                    accept="image/png,image/jpeg,image/webp"
                     onChange={(e) => handleImageFileUpload(e, 1)}
                     className="hidden"
                   />
@@ -2379,7 +2370,7 @@ export function WorkoutLogger({ profile, logs, onLogWorkout, onUndoWorkout }: Wo
                   <input
                     type="file"
                     ref={fileInput2Ref}
-                    accept="image/*,.gif"
+                    accept="image/png,image/jpeg,image/webp"
                     onChange={(e) => handleImageFileUpload(e, 2)}
                     className="hidden"
                   />

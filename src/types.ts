@@ -98,6 +98,7 @@ export interface ExerciseInfo {
   subCategories?: string[];
   link?: string;
   image?: string;
+  bottomImage?: string;
   images?: string[];
   frameDuration?: number;
 }

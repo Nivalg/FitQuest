@@ -44,7 +44,7 @@ export default function BodyStatusMap({
   title
 }: BodyStatusMapProps) {
   const [timeframe, setTimeframe] = useState<"weekly" | "monthly">("weekly");
-  const [inspectedMuscle, setInspectedMuscle] = useState<string | null>(null);
+  const [inspectedMuscle, setInspectedMuscle] = useState<string>("chest");
 
   const activeVolume = !interactive && timeframe === "monthly" && monthlyVolume ? monthlyVolume : weeklyVolume;
   const activeSubVolume = !interactive && timeframe === "monthly" && monthlySubVolume ? monthlySubVolume : weeklySubVolume;
@@ -90,14 +90,19 @@ export default function BodyStatusMap({
     return "green";
   };
 
-  // Group past workouts targeting the inspected muscle by exercise name -> set count (e.g. Bench Press X4)
+  // Group past workouts targeting the inspected muscle within the selected timeframe (Weekly = 7d, Monthly = 30d)
   const groupedMuscleWorkouts = useMemo(() => {
     if (!inspectedMuscle || interactive) return [];
 
+    const now = Date.now();
+    const windowMs = (timeframe === "monthly" ? 30 : 7) * 24 * 60 * 60 * 1000;
     const targetKey = inspectedMuscle === "forearms" ? "biceps" : inspectedMuscle;
 
     const matchingLogs = logs.filter((log) => {
       if (!log.exerciseName || log.id === "seed_1") return false;
+      const logTime = new Date(log.timestamp).getTime();
+      if (isNaN(logTime) || now - logTime > windowMs || now - logTime < -300000) return false;
+
       const lowerName = log.exerciseName.toLowerCase();
 
       const conf = EXERCISE_CONFIGS.find((c) => c.name.toLowerCase() === lowerName);
@@ -140,10 +145,27 @@ export default function BodyStatusMap({
       }
     });
 
+    if (groupedMap.size === 0) {
+      // Always show default exercises for this muscle (with X0) if none logged yet in this window
+      const defaultExercisesForMuscle = getAllExercises()
+        .filter((ex) => {
+          if (targetKey === "cardio") return ex.pillar === "cardio";
+          const m = (ex.muscles || {}) as Record<string, number>;
+          return (m[targetKey] || 0) > 0;
+        })
+        .slice(0, 4);
+
+      return defaultExercisesForMuscle.map((ex, idx) => ({
+        exerciseName: ex.name,
+        count: 0,
+        latestTimestamp: -idx
+      }));
+    }
+
     return Array.from(groupedMap.values()).sort(
       (a, b) => b.latestTimestamp - a.latestTimestamp || b.count - a.count
     );
-  }, [inspectedMuscle, logs, interactive]);
+  }, [inspectedMuscle, logs, interactive, timeframe]);
 
   const formattedSelected = selectedMuscles.map((m) => m.toUpperCase()).join(", ");
 
@@ -261,9 +283,7 @@ export default function BodyStatusMap({
                   <button
                     key={m.key}
                     type="button"
-                    onClick={() =>
-                      setInspectedMuscle((prev) => (prev === m.key ? null : m.key))
-                    }
+                    onClick={() => setInspectedMuscle(m.key)}
                     className={`shrink-0 px-3.5 py-2 rounded-xl border text-[8.5px] font-press-start tracking-wider uppercase cursor-pointer transition active:scale-95 flex items-center gap-1.5 ${
                       isSelected
                         ? "bg-cyan-950/70 border-cyan-400 text-cyan-300 shadow-[0_0_12px_rgba(6,182,212,0.25)]"
@@ -282,9 +302,7 @@ export default function BodyStatusMap({
             {/* Separate Button for Cardio */}
             <button
               type="button"
-              onClick={() =>
-                setInspectedMuscle((prev) => (prev === "cardio" ? null : "cardio"))
-              }
+              onClick={() => setInspectedMuscle("cardio")}
               style={{ minHeight: "42px" }}
               className={`w-full border-2 rounded-xl px-4 py-2 flex items-center justify-center gap-2 font-press-start text-[9.5px] uppercase cursor-pointer transition active:scale-95 ${
                 inspectedMuscle === "cardio"
@@ -301,65 +319,41 @@ export default function BodyStatusMap({
           </div>
         )}
 
-        {/* Slide-Down Past Workouts Window for the Selected Muscle (Exercise Name + X4 set count) */}
-        <AnimatePresence>
-          {!interactive && inspectedMuscle && (
-            <motion.div
-              key="muscle-history-drawer"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="w-full overflow-hidden"
-            >
-              <div className="bg-[#141920] border-2 border-cyan-500/40 rounded-xl p-3.5 space-y-2.5 shadow-[0_0_20px_rgba(6,182,212,0.15)]">
-                {/* Drawer Header */}
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2 gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-press-start text-cyan-300 uppercase tracking-wider">
-                      {inspectedMuscle.toUpperCase()} WORKOUTS
-                    </span>
-                    <span className="text-[8px] font-mono font-extrabold px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40 text-cyan-300">
-                      {timeframe.toUpperCase()}: {getProgress(inspectedMuscle).toFixed(0)}%
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setInspectedMuscle(null)}
-                    className="w-6 h-6 rounded-lg bg-[#0D0D0E] border border-slate-800 hover:border-cyan-400 text-slate-400 hover:text-white text-xs font-mono flex items-center justify-center cursor-pointer transition shrink-0"
-                    title="Close window"
-                  >
-                    ✕
-                  </button>
+        {/* Always-Visible Past Workouts Window for the Selected Muscle (Exercise Name + X4 set count) */}
+        {!interactive && inspectedMuscle && (
+          <div className="w-full">
+            <div className="bg-[#141920] border-2 border-cyan-500/40 rounded-xl p-3.5 space-y-2.5 shadow-[0_0_20px_rgba(6,182,212,0.15)]">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2 gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-press-start text-cyan-300 uppercase tracking-wider">
+                    {inspectedMuscle.toUpperCase()} WORKOUTS
+                  </span>
                 </div>
-
-                {/* Grouped Past Workouts List: Exercise Name -> X4 */}
-                {groupedMuscleWorkouts.length === 0 ? (
-                  <div className="text-center py-4 text-slate-500 font-mono text-[8.5px] uppercase border border-dashed border-slate-800 rounded-xl">
-                    No workouts logged for {inspectedMuscle} yet.
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
-                    {groupedMuscleWorkouts.map((item) => (
-                      <div
-                        key={item.exerciseName}
-                        className="bg-[#0D0D0E] border border-slate-850 rounded-lg px-3 py-2 flex items-center justify-between gap-2"
-                      >
-                        <span className="text-[8.5px] font-press-start text-white truncate uppercase">
-                          {item.exerciseName}
-                        </span>
-                        <span className="text-[10px] font-mono font-black text-emerald-400 shrink-0">
-                          X{item.count}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <span className="text-[8px] font-mono font-extrabold px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/40 text-cyan-300">
+                  {timeframe.toUpperCase()}: {getProgress(inspectedMuscle).toFixed(0)}%
+                </span>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+              {/* Grouped Past Workouts List: Exercise Name -> X4 */}
+              <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin">
+                {groupedMuscleWorkouts.map((item) => (
+                  <div
+                    key={item.exerciseName}
+                    className="bg-[#0D0D0E] border border-slate-850 rounded-lg px-3 py-2 flex items-center justify-between gap-2"
+                  >
+                    <span className="text-[8.5px] font-press-start text-white truncate uppercase">
+                      {item.exerciseName}
+                    </span>
+                    <span className="text-[10px] font-mono font-black text-emerald-400 shrink-0">
+                      X{item.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

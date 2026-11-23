@@ -1063,7 +1063,14 @@ export function getCustomExercises(): ExerciseInfo[] {
 
 const EXERCISE_IMAGE_OVERRIDES_KEY = "fitquest_exercise_image_overrides";
 
-export function getExerciseImageOverrides(): Record<string, { images?: string[]; image?: string }> {
+export interface ExerciseImageOverride {
+  topImage?: string;
+  bottomImage?: string;
+  image?: string;
+  images?: string[];
+}
+
+export function getExerciseImageOverrides(): Record<string, ExerciseImageOverride> {
   if (typeof localStorage === "undefined") return {};
   try {
     const raw = localStorage.getItem(EXERCISE_IMAGE_OVERRIDES_KEY);
@@ -1077,24 +1084,43 @@ export function getExerciseImageOverrides(): Record<string, { images?: string[];
   return {};
 }
 
-export function saveExerciseImageOverride(exerciseName: string, frames: string[]): void {
+export function hasDefaultExerciseImage(exerciseName: string): boolean {
+  const base = EXERCISE_DATABASE.find((e) => e.name.toLowerCase() === exerciseName.toLowerCase());
+  return Boolean(base && (base.image || (base.images && base.images.length > 0)));
+}
+
+export function saveExerciseImageOverride(
+  exerciseName: string,
+  slot: "top" | "bottom",
+  imageUrl: string
+): void {
   if (typeof localStorage === "undefined") return;
-  const cleanFrames = frames.map((f) => f.trim()).filter(Boolean);
+  const cleanUrl = imageUrl.trim();
   const current = getExerciseImageOverrides();
   const key = exerciseName.toLowerCase();
-  if (cleanFrames.length === 0) {
+  const existing = current[key] || {};
+
+  // Exercises that already have a default image can only change their bottom image
+  if (slot === "top" && hasDefaultExerciseImage(exerciseName)) {
+    return;
+  }
+
+  const next: ExerciseImageOverride = {
+    topImage: slot === "top" ? cleanUrl : existing.topImage,
+    bottomImage: slot === "bottom" ? cleanUrl : existing.bottomImage
+  };
+
+  if (!next.topImage && !next.bottomImage) {
     delete current[key];
   } else {
-    current[key] = {
-      images: cleanFrames,
-      image: cleanFrames[0]
-    };
+    current[key] = next;
   }
+
   try {
     localStorage.setItem(EXERCISE_IMAGE_OVERRIDES_KEY, JSON.stringify(current));
   } catch (e) {
     console.error("Error saving fitquest_exercise_image_overrides to localStorage", e);
-    alert("Image file is too large for browser storage. Try a smaller image/GIF or paste an image URL.");
+    alert("Image file is too large for browser storage. Try a smaller image.");
   }
 }
 
@@ -1125,10 +1151,13 @@ export function getAllExercises(): ExerciseInfo[] {
   return combined.map((ex) => {
     const ov = overrides[ex.name.toLowerCase()];
     if (!ov) return ex;
+    const lockedTop = hasDefaultExerciseImage(ex.name);
+    const customTop = !lockedTop ? (ov.topImage || ov.image || ov.images?.[0]) : undefined;
+    const customBottom = ov.bottomImage || ov.images?.[1];
     return {
       ...ex,
-      images: ov.images && ov.images.length > 0 ? ov.images : ex.images,
-      image: ov.image || ex.image
+      image: lockedTop ? ex.image : (customTop || ex.image),
+      bottomImage: customBottom || ex.bottomImage
     };
   });
 }
