@@ -18,16 +18,19 @@ interface MuscleVolumeVisualizerProps {
   weeklySubVolume?: Record<string, number>;
   monthlyVolume?: Record<string, number>;
   monthlySubVolume?: Record<string, number>;
+  timeframe?: "weekly" | "monthly";
 }
 
 export default function MuscleVolumeVisualizer({
   weeklyVolume,
   weeklySubVolume,
   monthlyVolume,
-  monthlySubVolume
+  monthlySubVolume,
+  timeframe: externalTimeframe
 }: MuscleVolumeVisualizerProps) {
   const [selectedKey, setSelectedKey] = useState<string>("chestStrength");
-  const [timeframe, setTimeframe] = useState<"weekly" | "monthly">("weekly");
+  const [internalTimeframe, setInternalTimeframe] = useState<"weekly" | "monthly">("weekly");
+  const timeframe = externalTimeframe ?? internalTimeframe;
 
   const activeVolume = timeframe === "monthly" ? (monthlyVolume || {}) : weeklyVolume;
   const activeSubVolume = timeframe === "monthly" ? monthlySubVolume : weeklySubVolume;
@@ -123,28 +126,30 @@ export default function MuscleVolumeVisualizer({
 
   return (
     <div className="space-y-2.5">
-      {/* Timeframe Tab Switcher Just Above Radar */}
-      <div className="flex justify-center">
-        <div className="bg-[#161B22] border border-slate-800 p-1 rounded-full flex items-center shadow-lg">
-          {(["weekly", "monthly"] as const).map((mode) => {
-            const isActive = timeframe === mode;
-            return (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setTimeframe(mode)}
-                className={`px-5 py-1.5 rounded-full text-[8.5px] font-press-start tracking-wider uppercase transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? "bg-gradient-to-r from-cyan-950/90 via-cyan-900/50 to-slate-900 border border-cyan-400/60 text-cyan-300 font-extrabold shadow-[0_0_10px_rgba(6,182,212,0.25)]"
-                    : "text-slate-500 hover:text-slate-300 border border-transparent"
-                }`}
-              >
-                {mode === "weekly" ? "WEEKLY" : "MONTHLY"}
-              </button>
-            );
-          })}
+      {/* Timeframe Tab Switcher Just Above Radar (only shown when not controlled by parent) */}
+      {!externalTimeframe && (
+        <div className="flex justify-center">
+          <div className="bg-[#161B22] border border-slate-800 p-1 rounded-full flex items-center shadow-lg">
+            {(["weekly", "monthly"] as const).map((mode) => {
+              const isActive = timeframe === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setInternalTimeframe(mode)}
+                  className={`px-5 py-1.5 rounded-full text-[8.5px] font-press-start tracking-wider uppercase transition-all duration-200 cursor-pointer ${
+                    isActive
+                      ? "bg-gradient-to-r from-cyan-950/90 via-cyan-900/50 to-slate-900 border border-cyan-400/60 text-cyan-300 font-extrabold shadow-[0_0_10px_rgba(6,182,212,0.25)]"
+                      : "text-slate-500 hover:text-slate-300 border border-transparent"
+                  }`}
+                >
+                  {mode === "weekly" ? "WEEKLY" : "MONTHLY"}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="bg-[#161B22] border-2 border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 animate-fade-in relative overflow-hidden">
         {/* Decorative Blur Background Glow */}

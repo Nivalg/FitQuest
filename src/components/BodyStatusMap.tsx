@@ -5,6 +5,7 @@ import { getAllExercises } from "../exercises";
 import { EXERCISE_CONFIGS } from "../utils/fitnessMath";
 import { motion, AnimatePresence } from "motion/react";
 import { Flame } from "lucide-react";
+import MuscleVolumeVisualizer from "./MuscleVolumeVisualizer";
 
 interface BodyStatusMapProps {
   weeklyVolume?: Record<string, number>;
@@ -355,6 +356,17 @@ export default function BodyStatusMap({
           </div>
         )}
       </div>
+
+      {/* Spiderweb Attribute Radar below exercise history, synced with Weekly/Monthly toggle */}
+      {!interactive && (
+        <MuscleVolumeVisualizer
+          weeklyVolume={weeklyVolume}
+          weeklySubVolume={weeklySubVolume}
+          monthlyVolume={monthlyVolume}
+          monthlySubVolume={monthlySubVolume}
+          timeframe={timeframe}
+        />
+      )}
     </div>
   );
 }

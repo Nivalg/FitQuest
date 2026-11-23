@@ -27,7 +27,9 @@ import {
   Sparkles,
   ArrowRight,
   Info,
-  ChevronDown
+  ChevronDown,
+  Download,
+  Upload
 } from "lucide-react";
 import { motion } from "motion/react";
 import MuscleVolumeVisualizer from "./MuscleVolumeVisualizer";
@@ -1407,6 +1409,90 @@ export default function AthleteDashboard({
             >
               📺 VISIT THE GUILD YOUTUBE
             </a>
+          </div>
+
+          {/* SAVE & REUPLOAD BACKUP DATA UTILITIES */}
+          <div className="pt-2 grid grid-cols-2 gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                const backupKeys = [
+                  "fitquest_profile",
+                  "fitquest_logs",
+                  "fitrpg_decay_stats",
+                  "fitquest_custom_exercises",
+                  "fitquest_exercise_image_overrides",
+                  "fitquest_custom_routines",
+                  "fitquest_active_quests_v1",
+                  "fitquest_completed_quests_v1"
+                ];
+                const storageDump: Record<string, string> = {};
+                backupKeys.forEach((k) => {
+                  const val = localStorage.getItem(k);
+                  if (val !== null) storageDump[k] = val;
+                });
+                const payload = {
+                  app: "FitQuest",
+                  version: 1,
+                  exportedAt: new Date().toISOString(),
+                  storage: storageDump
+                };
+                const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                  type: "application/json"
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                const dateStr = new Date().toISOString().slice(0, 10);
+                a.href = url;
+                a.download = `fitquest-save-${dateStr}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              style={{ minHeight: "44px" }}
+              className="w-full text-cyan-300 hover:text-cyan-200 border-2 border-cyan-500/40 hover:border-cyan-400 bg-cyan-950/20 hover:bg-cyan-950/35 px-3 py-2.5 rounded-xl text-[8.5px] font-press-start tracking-wider transition flex items-center justify-center gap-2 cursor-pointer duration-150 active:scale-[0.98]"
+            >
+              <Download className="w-3.5 h-3.5 text-cyan-400 shrink-0" /> SAVE DATA
+            </button>
+
+            <label
+              style={{ minHeight: "44px" }}
+              className="w-full text-emerald-300 hover:text-emerald-200 border-2 border-emerald-500/40 hover:border-emerald-400 bg-emerald-950/20 hover:bg-emerald-950/35 px-3 py-2.5 rounded-xl text-[8.5px] font-press-start tracking-wider transition flex items-center justify-center gap-2 cursor-pointer duration-150 active:scale-[0.98]"
+            >
+              <Upload className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> REUPLOAD DATA
+              <input
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    try {
+                      const parsed = JSON.parse(String(reader.result));
+                      const storage = parsed?.storage;
+                      if (!storage || typeof storage !== "object") {
+                        alert("Invalid FitQuest save file.");
+                        return;
+                      }
+                      Object.entries(storage).forEach(([k, v]) => {
+                        if (typeof v === "string") {
+                          localStorage.setItem(k, v);
+                        }
+                      });
+                      window.location.reload();
+                    } catch (err) {
+                      console.error("Failed to import save file", err);
+                      alert("Could not read save file. Make sure it is a valid FitQuest .json backup.");
+                    }
+                  };
+                  reader.readAsText(file);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </div>
 
           {/* RETRO SAVE RESET UTILITY */}
